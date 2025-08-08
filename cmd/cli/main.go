@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"commit_craft_reborn/pkg/config"
+	"commit_craft_reborn/pkg/db"
+	"commit_craft_reborn/pkg/model"
 	"fmt"
 	"log/slog"
 	"os"
-
-	"commit_craft_reborn/pkg/db"
-	"commit_craft_reborn/pkg/model"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -57,7 +57,14 @@ func Run() {
 	}
 	defer dbClient.Close()
 
-	initialModel := ui{model: model.NewModel()}
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Error("Failed to load config", "error", err)
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	initialModel := ui{model: model.NewModel(cfg)}
 	p := tea.NewProgram(initialModel, tea.WithAltScreen())
 
 	finalModel, err := p.Run()
@@ -120,7 +127,7 @@ func (m ui) updateListView(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, deleteCommit(m)
 		case "enter":
 			if i, ok := m.model.CommitList.SelectedItem().(model.Commit); ok {
-				m.model.SelectedMessage = fmt.Sprintf("[%s] %s: %s", i.Type, i.Scope, i.MessageEN)
+				m.model.SelectedMessage = fmt.Sprintf("%s %s: %s", i.Type, i.Scope, i.MessageEN)
 				return m, tea.Quit
 			}
 		}

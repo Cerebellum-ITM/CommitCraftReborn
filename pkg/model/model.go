@@ -1,6 +1,7 @@
 package model
 
 import (
+	"commit_craft_reborn/pkg/config"
 	"fmt"
 	"time"
 
@@ -20,13 +21,15 @@ const (
 
 // CommitType represents a type of commit (e.g., FIX, ADD).
 type CommitType struct {
-	Tag  string
-	Desc string
+	Tag         string
+	Desc        string
+	Color       string // Added for styling from config
 }
 
 func (ct CommitType) FilterValue() string { return ct.Tag }
-func (ct CommitType) Title() string       { return ct.Tag }
+func (ct CommitType) Title() string       { return fmt.Sprintf("%s", ct.Tag) }
 func (ct CommitType) Description() string { return ct.Desc }
+
 
 // Commit holds the data for a single git commit.
 type Commit struct {
@@ -59,7 +62,7 @@ type Model struct {
 }
 
 // NewModel initializes and returns a new Model.
-func NewModel() Model {
+func NewModel(cfg *config.Config) Model {
 	// Inputs for scope and message
 	inputs := make([]textinput.Model, 2)
 	inputs[0] = textinput.New()
@@ -73,22 +76,12 @@ func NewModel() Model {
 	commitList := list.New(nil, list.NewDefaultDelegate(), 0, 0)
 	commitList.Title = "Commit History"
 
-	// List of commit types
-	commitTypes := []list.Item{
-		CommitType{Tag: "[FIX]", Desc: "Bug fixes"},
-		CommitType{Tag: "[REF]", Desc: "Refactoring"},
-		CommitType{Tag: "[ADD]", Desc: "Adding new modules/features"},
-		CommitType{Tag: "[REM]", Desc: "Removing resources"},
-		CommitType{Tag: "[REV]", Desc: "Reverting commits"},
-		CommitType{Tag: "[MOV]", Desc: "Moving files or code"},
-		CommitType{Tag: "[REL]", Desc: "Release commits"},
-		CommitType{Tag: "[IMP]", Desc: "Incremental improvements"},
-		CommitType{Tag: "[MERGE]", Desc: "Merge commits"},
-		CommitType{Tag: "[CLA]", Desc: "Signing the Contributor License"},
-		CommitType{Tag: "[I18N]", Desc: "Translation changes"},
-		CommitType{Tag: "[PERF]", Desc: "Performance patches"},
-		CommitType{Tag: "[WIP]", Desc: "Work in progress"},
+	// List of commit types from config
+	var commitTypes []list.Item
+	for _, t := range cfg.CommitTypes.Types {
+		commitTypes = append(commitTypes, CommitType{Tag: t.Name, Desc: t.Description, Color: t.Color})
 	}
+	
 	typeList := list.New(commitTypes, list.NewDefaultDelegate(), 0, 0)
 	typeList.Title = "Select Commit Type"
 
