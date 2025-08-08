@@ -6,3 +6,8 @@ Makefile
 *.zip
 /filestore
 *.sql
+
+# Crush
+.crush/
+.crush.json
+CRUSH.md

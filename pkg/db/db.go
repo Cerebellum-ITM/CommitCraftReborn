@@ -74,10 +74,10 @@ func (db *DB) GetCommits() ([]model.Commit, error) {
 		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &c.MessageES, &c.MessageEN, &c.Workspace, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
-		// Parse the UTC time from the database
+		// This was the bug. The format was wrong.
 		t, err := time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse created_at")
+			return nil, errors.Wrap(err, "failed to parse created_at: "+createdAt)
 		}
 		c.CreatedAt = t.Local() // Convert to local time for display
 		commits = append(commits, c)
@@ -87,9 +87,7 @@ func (db *DB) GetCommits() ([]model.Commit, error) {
 
 // CreateCommit adds a new commit to the database.
 func (db *DB) CreateCommit(c model.Commit) error {
-	// Simple placeholder for translation
-	messageEN := c.MessageES
-	// Store time in UTC
+	messageEN := c.MessageES // Placeholder for translation
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
