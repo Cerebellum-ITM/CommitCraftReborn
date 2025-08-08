@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"commit_craft_reborn/pkg/db"
@@ -16,6 +17,7 @@ var (
 	appStyle     = lipgloss.NewStyle().Margin(1, 2)
 	formBoxStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1)
 	dbClient     *db.DB
+	logger       *slog.Logger
 )
 
 type (
@@ -26,11 +28,30 @@ type (
 	commitCreatedMsg struct{}
 )
 
+// setupLogging configures the structured logger.
+func setupLogging() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Printf("Error getting home directory: %v\n", err)
+		os.Exit(1)
+	}
+	logDir := home + "/.commitcraft"
+	os.MkdirAll(logDir, 0755) // Ensure directory exists
+	logFile, err := os.OpenFile(logDir+"/app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("Error opening log file: %v\n", err)
+		os.Exit(1)
+	}
+	logger = slog.New(slog.NewTextHandler(logFile, nil))
+}
+
 // Run is the entry point for the CLI application.
 func Run() {
+	setupLogging()
 	var err error
 	dbClient, err = db.New()
 	if err != nil {
+		logger.Error("Failed to initialize database", "error", err)
 		fmt.Printf("Error initializing database: %v\n", err)
 		os.Exit(1)
 	}
@@ -41,6 +62,7 @@ func Run() {
 
 	finalModel, err := p.Run()
 	if err != nil {
+		logger.Error("Error running program", "error", err)
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
 	}
@@ -94,6 +116,8 @@ func (m ui) updateListView(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "n":
 			m.model.Mode = model.SelectCommitTypeView
 			return m, nil
+		case "d":
+			return m, deleteCommit(m)
 		case "enter":
 			if i, ok := m.model.CommitList.SelectedItem().(model.Commit); ok {
 				m.model.SelectedMessage = fmt.Sprintf("[%s] %s: %s", i.Type, i.Scope, i.MessageEN)
@@ -190,8 +214,10 @@ func (m ui) formView(title string) string {
 func loadCommits() tea.Msg {
 	commits, err := dbClient.GetCommits()
 	if err != nil {
+		logger.Error("Failed to load commits", "error", err)
 		return err
 	}
+	logger.Info("Commits loaded successfully", "count", len(commits))
 	return commitsLoadedMsg{commits}
 }
 
@@ -199,8 +225,24 @@ func createCommit(commit model.Commit) tea.Cmd {
 	return func() tea.Msg {
 		commit.Workspace = "default" // Placeholder
 		if err := dbClient.CreateCommit(commit); err != nil {
+			logger.Error("Failed to create commit", "error", err)
 			return err
 		}
+		logger.Info("Commit created successfully", "type", commit.Type, "scope", commit.Scope)
 		return commitCreatedMsg{}
+	}
+}
+
+func deleteCommit(m ui) tea.Cmd {
+	return func() tea.Msg {
+		if i, ok := m.model.CommitList.SelectedItem().(model.Commit); ok {
+			if err := dbClient.DeleteCommit(i.ID); err != nil {
+				logger.Error("Failed to delete commit", "id", i.ID, "error", err)
+				return err
+			}
+			logger.Info("Commit deleted successfully", "id", i.ID)
+			return commitCreatedMsg{} // Re-use for success message
+		}
+		return nil
 	}
 }
