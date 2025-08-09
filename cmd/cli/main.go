@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -22,7 +23,8 @@ var (
 
 type (
 	ui struct {
-		model model.Model
+		model      model.Model
+		groqAPIKey string
 	}
 	commitsLoadedMsg struct{ commits []model.Commit }
 	commitCreatedMsg struct{}
@@ -64,7 +66,17 @@ func Run() {
 		os.Exit(1)
 	}
 
-	initialModel := ui{model: model.NewModel(cfg)}
+	initialModel := ui{
+		model:      model.NewModel(cfg),
+		groqAPIKey: cfg.API.GroqKey,
+	}
+
+	// If API key is missing, start in the API key entry view
+	if initialModel.groqAPIKey == "" {
+		initialModel.model.Mode = model.EnterAPIKeyView
+		initialModel.model.APIKeyInput.Focus()
+	}
+
 	p := tea.NewProgram(initialModel, tea.WithAltScreen())
 
 	finalModel, err := p.Run()
@@ -104,6 +116,8 @@ func (m ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch m.model.Mode {
+	case model.EnterAPIKeyView:
+		return m.updateEnterAPIKeyView(msg)
 	case model.SelectCommitTypeView:
 		return m.updateSelectTypeView(msg)
 	case model.EnterScopeView:
@@ -113,6 +127,27 @@ func (m ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default: // ListView
 		return m.updateListView(msg)
 	}
+}
+
+func (m ui) updateEnterAPIKeyView(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			apiKey := m.model.APIKeyInput.Value()
+			m.groqAPIKey = apiKey
+			m.model.Mode = model.ListView
+			return m, saveAPIKey(apiKey)
+		case "esc":
+			m.model.Mode = model.ListView
+			return m, nil
+		}
+	}
+
+	m.model.APIKeyInput, cmd = m.model.APIKeyInput.Update(msg)
+	return m, cmd
 }
 
 func (m ui) updateListView(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -195,6 +230,8 @@ func (m ui) View() string {
 	}
 
 	switch m.model.Mode {
+	case model.EnterAPIKeyView:
+		return m.formView("Enter Groq API Key")
 	case model.SelectCommitTypeView:
 		return appStyle.Render(m.model.CommitTypeList.View())
 	case model.EnterScopeView:
@@ -207,14 +244,21 @@ func (m ui) View() string {
 }
 
 func (m ui) formView(title string) string {
-	input := m.model.Inputs[0]
-	if m.model.Mode == model.EnterMessageView {
+	var input textinput.Model
+	switch m.model.Mode {
+	case model.EnterAPIKeyView:
+		input = m.model.APIKeyInput
+	case model.EnterMessageView:
 		input = m.model.Inputs[1]
+	default: // EnterScopeView
+		input = m.model.Inputs[0]
 	}
+
 	return formBoxStyle.Render(fmt.Sprintf(
-		"%s\n\n%s",
+		"%s\n\n%s\n\n%s",
 		title,
 		input.View(),
+		"(esc to skip, enter to confirm)",
 	))
 }
 
@@ -237,6 +281,17 @@ func createCommit(commit model.Commit) tea.Cmd {
 		}
 		logger.Info("Commit created successfully", "type", commit.Type, "scope", commit.Scope)
 		return commitCreatedMsg{}
+	}
+}
+
+func saveAPIKey(key string) tea.Cmd {
+	return func() tea.Msg {
+		if err := config.SaveGroqKey(key); err != nil {
+			logger.Error("Failed to save API key", "error", err)
+			return err // Return error to the tea loop
+		}
+		logger.Info("API Key saved successfully")
+		return nil // No message needed on success
 	}
 }
 

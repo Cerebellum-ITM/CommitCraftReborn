@@ -14,6 +14,7 @@ type ViewMode int
 
 const (
 	ListView ViewMode = iota
+	EnterAPIKeyView
 	SelectCommitTypeView
 	EnterScopeView
 	EnterMessageView
@@ -56,6 +57,7 @@ type Model struct {
 	CommitList     list.Model
 	CommitTypeList list.Model
 	Inputs         []textinput.Model
+	APIKeyInput    textinput.Model // Input for the API key
 	NewCommit      Commit
 	SelectedMessage string
 	Err            error
@@ -85,10 +87,16 @@ func NewModel(cfg *config.Config) Model {
 	typeList := list.New(commitTypes, list.NewDefaultDelegate(), 0, 0)
 	typeList.Title = "Select Commit Type"
 
+	apiKeyInput := textinput.New()
+	apiKeyInput.Placeholder = "Enter your Groq API Key..."
+	apiKeyInput.CharLimit = 256
+	apiKeyInput.Width = 50
+
 	return Model{
 		Mode:           ListView,
 		CommitList:     commitList,
 		CommitTypeList: typeList,
 		Inputs:         inputs,
+		APIKeyInput:    apiKeyInput,
 	}
 }
