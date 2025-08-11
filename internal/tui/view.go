@@ -1,30 +1,29 @@
 package tui
 
-import "strings"
+
 
 // View renders the UI based on the current state of the model.
-func (model *model) View() string {
+func (model *Model) View() string {
+	var mainContent string
 	if model.err != nil {
 		return "Error: " + model.err.Error()
 	}
 
-	// The View method changes completely depending on the state.
 	switch model.state {
+	case stateChoosingType:
+		mainContent = model.list.View()
 	case stateChoosingScope:
-		return "You chose: " + model.commitType + "\n\nNow define the scope (WIP)"
+		mainContent = "You chose: " + model.commitType + "\n\nNow define the scope (WIP)"
 	case stateWritingMessage:
-		return "Message (WIP)"
+		mainContent = "Message (WIP)"
 	case stateTranslating:
-		return "Translating (WIP)"
+		mainContent = "Translating (WIP)"
 	case stateConfirming:
-		return "Confirm (WIP)"
+		mainContent = "Confirm (WIP)"
 	case stateDone:
-		return "Done! (WIP)"
-	default: // stateChoosingType
-		var builder strings.Builder
-		builder.WriteString("Choose the commit type:\n\n")
-		builder.WriteString(model.list.View())
-		builder.WriteString("\n\n(q or ctrl+c to quit)")
-		return builder.String()
+		mainContent = "Done! (WIP)"
 	}
+
+	helpView := model.help.View(model.keys)
+	return mainContent + "\n" + helpView
 }

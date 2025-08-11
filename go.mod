@@ -3,12 +3,9 @@ module commit_craft_reborn
 go 1.24.4
 
 require (
-	github.com/BurntSushi/toml v1.5.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.5
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/mattn/go-sqlite3 v1.14.30
-	github.com/pkg/errors v0.9.1
 )
 
 require (

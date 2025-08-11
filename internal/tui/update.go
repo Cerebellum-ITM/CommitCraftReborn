@@ -1,10 +1,11 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Make sure the model is passed as a pointer.
 	switch msg := msg.(type) {
 	// Global key handling for quitting.
@@ -28,23 +29,24 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateChoosingType handles the logic for the type-choosing state.
-func updateChoosingType(msg tea.Msg, model *model) (tea.Model, tea.Cmd) {
+func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	// Handle logic specific to this state first.
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "q" {
+		switch {
+		case key.Matches(msg, model.keys.Quit):
 			return model, tea.Quit
-		}
-		if msg.String() == "enter" {
-			// Save the selection and switch state.
-			model.commitType = model.list.SelectedItem().(item).title
-			model.state = stateChoosingScope
-			return model, nil
+
+		case key.Matches(msg, model.keys.Enter):
+			model.FinalMessage = model.list.SelectedItem().(Item).title
+			return model, tea.Quit
+
+		case key.Matches(msg, model.keys.Help):
+			model.help.ShowAll = !model.help.ShowAll
 		}
 	case tea.WindowSizeMsg:
-		// Ensure the list is resized.
 		model.list.SetSize(msg.Width, msg.Height-4)
 	}
 

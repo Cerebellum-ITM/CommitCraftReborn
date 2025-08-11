@@ -16,9 +16,13 @@ func main() {
 	}
 
 	p := tea.NewProgram(initialModel, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Oh no! There was an error running the program: %v\n", err)
+	finalModel, err := p.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Oh no! There was an error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if m, ok := finalModel.(*tui.Model); ok && m.FinalMessage != "" {
+		fmt.Println(m.FinalMessage)
 	}
 }

@@ -6,14 +6,14 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 )
 
-// item is a wrapper to satisfy the list.Item interface.
-type item struct {
+// Item is a wrapper to satisfy the list.Item interface.
+type Item struct {
 	title string
 }
 
-func (listItem item) Title() string       { return listItem.title }
-func (listItem item) Description() string { return "" }
-func (listItem item) FilterValue() string { return listItem.title }
+func (listItem Item) Title() string       { return listItem.title }
+func (listItem Item) Description() string { return "" }
+func (listItem Item) FilterValue() string { return listItem.title }
 
 func setupList() list.Model {
 	// Gets the commit types from our business logic.
@@ -22,7 +22,7 @@ func setupList() list.Model {
 	// Converts strings into items for the list component.
 	items := make([]list.Item, len(itemsAsStrings))
 	for index, str := range itemsAsStrings {
-		items[index] = item{title: str}
+		items[index] = Item{title: str}
 	}
 
 	// Setup the list component.
