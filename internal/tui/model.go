@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"commit_craft_reborn/internal/storage"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -8,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 )
 
 // We use iota to create an "enum" for our application states.
@@ -24,22 +27,25 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
-	state        appState
-	err          error
-	list         list.Model
-	scopeInput   textinput.Model
-	msgInput     textarea.Model
-	spinner      spinner.Model
-	commitType   string
-	commitScope  string
-	commitMsg    string
-	FinalMessage string // Exported to be read by main.go
-	keys         KeyMap
-	help         help.Model
+	log             *log.Logger
+	db              *storage.DB
+	state           appState
+	err             error
+	list            list.Model
+	scopeInput      textinput.Model
+	msgInput        textarea.Model
+	spinner         spinner.Model
+	commitType      string
+	commitScope     string
+	commitMsg       string
+	commitTranslate string // Field for the selected value
+	FinalMessage    string // Exported to be read by main.go
+	keys            KeyMap
+	help            help.Model
 }
 
 // NewModel is the constructor for our model.
-func NewModel() (*Model, error) {
+func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
 	commitTypesList := setupList()
 
 	// --- Component Initializations ---
@@ -54,6 +60,8 @@ func NewModel() (*Model, error) {
 	// --- End of Initializations ---
 
 	viewModel := &Model{
+		log:        logger,
+		db:         database,
 		state:      stateChoosingType,
 		list:       commitTypesList,
 		scopeInput: scopeInput,

@@ -1,28 +1,38 @@
 package main
 
 import (
+	"commit_craft_reborn/internal/logger"
+	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui"
 	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
-	initialModel, err := tui.NewModel()
+	log := logger.New()
+	log.Info("Starting Commit Crafter application...")
+
+	db, err := storage.InitDB()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing model: %v\n", err)
-		os.Exit(1)
+		log.Fatal("Failed to initialize database", "error", err)
+	}
+	defer db.Close()
+	log.Debug("Database initialized successfully.")
+
+	initialModel, err := tui.NewModel(log, db)
+	if err != nil {
+		log.Fatal("Error creating the TUI model", "error", err)
 	}
 
 	p := tea.NewProgram(initialModel, tea.WithAltScreen())
+
 	finalModel, err := p.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Oh no! There was an error: %v\n", err)
-		os.Exit(1)
+		log.Fatal("Oh no! There was an error", "error", err)
 	}
 
 	if m, ok := finalModel.(*tui.Model); ok && m.FinalMessage != "" {
-		fmt.Println(m.FinalMessage)
+		fmt.Print(m.FinalMessage)
 	}
 }
