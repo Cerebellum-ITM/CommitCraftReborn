@@ -46,7 +46,7 @@ type Model struct {
 
 // NewModel is the constructor for our model.
 func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
-	commitTypesList := setupList()
+	commitTypesList := NewCommitTypeList()
 
 	// --- Component Initializations ---
 	scopeInput := textinput.New()
