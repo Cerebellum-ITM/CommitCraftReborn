@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -41,7 +43,13 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 
 		case key.Matches(msg, model.keys.Enter):
-			model.FinalMessage = model.list.SelectedItem().(Item).title
+			selectedItem := model.list.SelectedItem()
+			if commitItem, ok := selectedItem.(CommitItem); ok {
+				// commitID := commitItem.commit.ID
+				commitMessage := commitItem.commit.MessageEN
+
+				model.FinalMessage = fmt.Sprintf("%s", commitMessage)
+			}
 			return model, tea.Quit
 
 		case key.Matches(msg, model.keys.Help):

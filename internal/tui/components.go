@@ -2,6 +2,7 @@ package tui
 
 import (
 	"commit_craft_reborn/internal/commit"
+	"commit_craft_reborn/internal/storage"
 	"fmt"
 	"io"
 	"strings"
@@ -62,25 +63,33 @@ type Item struct {
 	title string
 }
 
+type CommitItem struct {
+	commit storage.Commit
+}
+
+func (c CommitItem) Title() string {
+	return fmt.Sprintf("[%s] %s", c.commit.Type, c.commit.Scope)
+}
+
+func (c CommitItem) Description() string {
+	return c.commit.CreatedAt.Format("2006-01-02 15:04")
+}
+
+func (c CommitItem) FilterValue() string { return c.Title() + c.commit.MessageEN }
+
 func (listItem Item) Title() string       { return listItem.title }
 func (listItem Item) Description() string { return "" }
 func (listItem Item) FilterValue() string { return listItem.title }
 
-func setupList() list.Model {
-	// Gets the commit types from our business logic.
-	itemsAsStrings := commit.GetCommitTypes()
-
-	// Converts strings into items for the list component.
-	items := make([]list.Item, len(itemsAsStrings))
-	for index, str := range itemsAsStrings {
-		items[index] = Item{title: str}
+func setupList(workspaceCommits []storage.Commit) list.Model {
+	items := make([]list.Item, len(workspaceCommits))
+	for i, c := range workspaceCommits {
+		items[i] = CommitItem{commit: c}
 	}
 
-	// Setup the list component.
-	listModel := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	listModel.Title = "Commit Types"
-	listModel.SetShowHelp(false) // We're hiding the help for now.
-	return listModel
+	historyList := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	historyList.Title = "Commit History"
+	return historyList
 }
 
 func NewCommitTypeList() list.Model {

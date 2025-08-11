@@ -46,9 +46,16 @@ type Model struct {
 
 // NewModel is the constructor for our model.
 func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
-	commitTypesList := NewCommitTypeList()
+	// commitTypesList := NewCommitTypeList()
+	workspaceCommits, err := database.GetCommits()
+	workspaceCommitsList := setupList(workspaceCommits)
 
 	// --- Component Initializations ---
+	if err != nil {
+		// Si hay un error al cargar, lo registramos y podemos devolverlo.
+		logger.Error("Failed to load recent scopes from database", "error", err)
+		return nil, err // O manejarlo de otra forma, como continuar con una lista vacía.
+	}
 	scopeInput := textinput.New()
 	scopeInput.Placeholder = "module, file, etc..."
 
@@ -60,10 +67,11 @@ func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
 	// --- End of Initializations ---
 
 	viewModel := &Model{
-		log:        logger,
-		db:         database,
-		state:      stateChoosingType,
-		list:       commitTypesList,
+		log:   logger,
+		db:    database,
+		state: stateChoosingType,
+		// list:       commitTypesList,
+		list:       workspaceCommitsList,
 		scopeInput: scopeInput,
 		msgInput:   msgInput,
 		spinner:    spinner,
