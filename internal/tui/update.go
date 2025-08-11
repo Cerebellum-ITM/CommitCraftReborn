@@ -10,7 +10,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	// Global key handling for quitting.
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+		switch {
+		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
 		}
 	}

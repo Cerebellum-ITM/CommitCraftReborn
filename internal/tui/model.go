@@ -24,18 +24,18 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
-	state           appState
-	err             error
-	list            list.Model
-	scopeInput      textinput.Model
-	msgInput        textarea.Model
-	spinner         spinner.Model
-	commitType      string
-	commitScope     string
-	commitMsg       string
-	FinalMessage    string // Exported to be read by main.go
-	keys            KeyMap
-	help            help.Model
+	state        appState
+	err          error
+	list         list.Model
+	scopeInput   textinput.Model
+	msgInput     textarea.Model
+	spinner      spinner.Model
+	commitType   string
+	commitScope  string
+	commitMsg    string
+	FinalMessage string // Exported to be read by main.go
+	keys         KeyMap
+	help         help.Model
 }
 
 // NewModel is the constructor for our model.
@@ -54,13 +54,13 @@ func NewModel() (*Model, error) {
 	// --- End of Initializations ---
 
 	viewModel := &Model{
-		state:       stateChoosingType,
-		list:        commitTypesList,
-		scopeInput:  scopeInput,
-		msgInput:    msgInput,
-		spinner:     spinner,
-		keys:        DefaultKeyMap,
-		help:        help.New(),
+		state:      stateChoosingType,
+		list:       commitTypesList,
+		scopeInput: scopeInput,
+		msgInput:   msgInput,
+		spinner:    spinner,
+		keys:       listKeys(),
+		help:       help.New(),
 	}
 	return viewModel, nil
 }
