@@ -2,44 +2,91 @@ package logger
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 )
 
-// New initializes and configures a new logger that writes to both console and a file.
-func New() *log.Logger {
-	// 1. Determine the log file path.
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback to a simple console logger if home directory is not available.
-		return log.New(os.Stderr)
-	}
+// Logger holds two separate loggers: one for the console and one for the file.
+type Logger struct {
+	consoleLogger *log.Logger
+	fileLogger    *slog.Logger
+}
+
+func New() *Logger {
+	// --- File Logger Setup ---
+	home, _ := os.UserHomeDir()
 	logDir := filepath.Join(home, ".commitcraft")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return log.New(os.Stderr)
-	}
+	_ = os.MkdirAll(logDir, 0755)
 	logFilePath := filepath.Join(logDir, "commit-crafter.log")
 
-	// 2. Open the log file.
 	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+
+	var fileLogger *slog.Logger
 	if err != nil {
-		logger := log.New(os.Stderr)
-		logger.Error("Could not open log file, falling back to console only", "path", logFilePath, "error", err)
-		return logger
+		fileLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	} else {
+		fileHandler := slog.NewTextHandler(logFile, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+		fileLogger = slog.New(fileHandler)
 	}
 
-	// 3. Create a MultiWriter to write to both Stderr (for the console) and the log file.
-	writer := io.MultiWriter(os.Stderr, logFile)
+	// --- Console Logger Setup ---
+	consoleLogger := log.NewWithOptions(os.Stderr, log.Options{
+		ReportCaller:    true,
+		ReportTimestamp: true,
+		TimeFormat:      time.ANSIC,
+		// Prefix:          "",
+	})
+	consoleLogger.SetLevel(log.DebugLevel)
+	syles := log.DefaultStyles()
+	syles.Caller = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C7C7C"))
+	syles.Key = lipgloss.NewStyle().Foreground(lipgloss.Color("#978E20"))
+	consoleLogger.SetStyles(syles)
 
-	// 4. Create the logger, telling it to use our combined writer.
-	//    The charmbracelet/log library handles the handler creation internally.
-	logger := log.New(writer)
-	
-	// Set global options for the logger.
-	logger.SetReportTimestamp(true)
-	logger.SetLevel(log.DebugLevel)
-	
-	return logger
+	return &Logger{
+		consoleLogger: consoleLogger,
+		fileLogger:    fileLogger,
+	}
+}
+
+func (l *Logger) Debug(msg string, args ...any) {
+	l.consoleLogger.Helper()
+	l.consoleLogger.Debug(msg, args...)
+	l.fileLogger.Debug(msg, args...)
+}
+
+func (l *Logger) Info(msg string, args ...any) {
+	l.consoleLogger.Helper()
+	l.consoleLogger.Info(msg, args...)
+	l.fileLogger.Info(msg, args...)
+}
+
+func (l *Logger) Warn(msg string, args ...any) {
+	l.consoleLogger.Helper()
+	l.consoleLogger.Warn(msg, args...)
+	l.fileLogger.Warn(msg, args...)
+}
+
+func (l *Logger) Error(msg string, args ...any) {
+	l.consoleLogger.Helper()
+	l.consoleLogger.Error(msg, args...)
+	l.fileLogger.Error(msg, args...)
+}
+
+func (l *Logger) Fatal(msg string, args ...any) {
+	l.consoleLogger.Helper()
+	l.consoleLogger.Fatal(msg, args...)
+	l.fileLogger.Error(msg, args...)
+}
+
+func (l *Logger) Print(msg string, args ...any) {
+	l.consoleLogger.Helper()
+	l.consoleLogger.Print(msg)
+	l.fileLogger.Info(msg, args...)
 }

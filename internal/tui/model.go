@@ -1,8 +1,8 @@
 package tui
 
 import (
+	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
-
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
 )
 
 // We use iota to create an "enum" for our application states.
@@ -27,7 +26,7 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
-	log             *log.Logger
+	log             *logger.Logger
 	db              *storage.DB
 	state           appState
 	err             error
@@ -45,7 +44,7 @@ type Model struct {
 }
 
 // NewModel is the constructor for our model.
-func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
+func NewModel(log *logger.Logger, database *storage.DB) (*Model, error) {
 	// commitTypesList := NewCommitTypeList()
 	workspaceCommits, err := database.GetCommits()
 	workspaceCommitsList := setupList(workspaceCommits)
@@ -53,7 +52,7 @@ func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
 	// --- Component Initializations ---
 	if err != nil {
 		// Si hay un error al cargar, lo registramos y podemos devolverlo.
-		logger.Error("Failed to load recent scopes from database", "error", err)
+		log.Error("Failed to load recent scopes from database", "error", err)
 		return nil, err // O manejarlo de otra forma, como continuar con una lista vacía.
 	}
 	scopeInput := textinput.New()
@@ -67,7 +66,7 @@ func NewModel(logger *log.Logger, database *storage.DB) (*Model, error) {
 	// --- End of Initializations ---
 
 	viewModel := &Model{
-		log:   logger,
+		log:   log,
 		db:    database,
 		state: stateChoosingType,
 		// list:       commitTypesList,
