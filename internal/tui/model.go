@@ -19,6 +19,9 @@ type (
 	appState      int
 	openPopupMsg  struct{}
 	closePopupMsg struct{}
+	deleteItemMsg struct {
+		ID int
+	}
 )
 
 const (

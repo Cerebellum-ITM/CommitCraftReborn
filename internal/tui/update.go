@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/v2/key"
+	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
 )
 
@@ -16,11 +17,38 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.height = msg.Height
 
 	case openPopupMsg:
-		model.popup = NewPopup(model.width, model.height)
-		return model, nil
+		selectedItem := model.list.SelectedItem()
+		if commitItem, ok := selectedItem.(CommitItem); ok {
+			model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES)
+			return model, nil
+		}
 	case closePopupMsg:
 		model.popup = nil
 		return model, nil
+	case deleteItemMsg:
+		// 1. Cerramos el popup.
+		model.popup = nil
+
+		// 2. Llamamos a la base de datos para eliminar el registro.
+		err := model.db.DeleteCommit(msg.ID) // Necesitarás crear este método en tu capa de storage.
+		if err != nil {
+			// Manejar el error, quizás con otro popup de error.
+			model.err = err
+			return model, nil
+		}
+
+		// 3. Actualizamos la lista de la UI para que refleje el cambio.
+		// Esto es crucial. Debes eliminar el ítem de la lista de bubbles.
+		// Una forma simple es recargar todos los items.
+		// O, para optimizar, podrías buscar y eliminar el item de model.list.Items()
+		newItems, _ := model.db.GetCommits()
+		items := make([]list.Item, len(newItems))
+		for i, c := range newItems {
+			items[i] = CommitItem{commit: c}
+		}
+
+		// Retorna un comando para actualizar la lista en la UI.
+		return model, model.list.SetItems(items)
 
 	case tea.KeyMsg:
 		if model.popup != nil {
@@ -43,7 +71,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
-		case key.Matches(msg, model.keys.Logs):
+		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{} }
 			// model.toggleLogView()
 			// return model, nil

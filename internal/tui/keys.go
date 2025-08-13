@@ -8,6 +8,7 @@ type KeyMap struct {
 	Up         key.Binding
 	Down       key.Binding
 	Enter      key.Binding
+	Delete     key.Binding
 	Quit       key.Binding
 	GlobalQuit key.Binding
 	Help       key.Binding
@@ -21,6 +22,7 @@ func listKeys() KeyMap {
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Delete:     key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
@@ -52,6 +54,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.Quit.Enabled() {
 		b = append(b, k.Quit)
+	}
+	if k.Delete.Enabled() {
+		b = append(b, k.Delete)
 	}
 	if k.GlobalQuit.Enabled() {
 		b = append(b, k.GlobalQuit)
