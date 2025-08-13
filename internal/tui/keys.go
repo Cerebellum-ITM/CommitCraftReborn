@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import "github.com/charmbracelet/bubbles/v2/key"
 
 // KeyMap defines a set of keybindings.
 // It implements the help.KeyMap interface.
@@ -13,6 +13,7 @@ type KeyMap struct {
 	Help       key.Binding
 	Esc        key.Binding
 	Filter     key.Binding
+	Logs       key.Binding
 }
 
 func listKeys() KeyMap {
@@ -23,7 +24,9 @@ func listKeys() KeyMap {
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
 		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	}
 }
 
@@ -55,6 +58,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.Enter.Enabled() {
 		b = append(b, k.Enter)
+	}
+	if k.Logs.Enabled() {
+		b = append(b, k.Logs)
 	}
 	if k.Esc.Enabled() {
 		b = append(b, k.Esc)

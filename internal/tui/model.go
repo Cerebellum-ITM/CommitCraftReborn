@@ -3,20 +3,27 @@ package tui
 import (
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+
+	"github.com/charmbracelet/bubbles/v2/help"
+	"github.com/charmbracelet/bubbles/v2/list"
+	"github.com/charmbracelet/bubbles/v2/spinner"
+	"github.com/charmbracelet/bubbles/v2/textarea"
+	"github.com/charmbracelet/bubbles/v2/textinput"
+	"github.com/charmbracelet/bubbles/v2/viewport"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // We use iota to create an "enum" for our application states.
-type appState int
+type (
+	appState      int
+	openPopupMsg  struct{}
+	closePopupMsg struct{}
+)
 
 const (
 	stateChoosingType appState = iota
+	stateShowLogs
 	stateChoosingScope
 	stateWritingMessage
 	stateTranslating
@@ -34,13 +41,17 @@ type Model struct {
 	scopeInput      textinput.Model
 	msgInput        textarea.Model
 	spinner         spinner.Model
+	logViewport     viewport.Model
+	logViewVisible  bool
 	commitType      string
 	commitScope     string
 	commitMsg       string
-	commitTranslate string // Field for the selected value
-	FinalMessage    string // Exported to be read by main.go
+	commitTranslate string
+	FinalMessage    string
 	keys            KeyMap
 	help            help.Model
+	popup           tea.Model
+	width, height   int
 }
 
 // NewModel is the constructor for our model.
@@ -65,19 +76,21 @@ func NewModel(log *logger.Logger, database *storage.DB) (*Model, error) {
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	// --- End of Initializations ---
 
-	viewModel := &Model{
+	m := &Model{
 		log:   log,
 		db:    database,
 		state: stateChoosingType,
 		// list:       commitTypesList,
-		list:       workspaceCommitsList,
-		scopeInput: scopeInput,
-		msgInput:   msgInput,
-		spinner:    spinner,
-		keys:       listKeys(),
-		help:       help.New(),
+		list:           workspaceCommitsList,
+		scopeInput:     scopeInput,
+		msgInput:       msgInput,
+		spinner:        spinner,
+		keys:           listKeys(),
+		help:           help.New(),
+		logViewVisible: false,
+		logViewport:    viewport.New(),
 	}
-	return viewModel, nil
+	return m, nil
 }
 
 // Init is the first command that runs when the program starts.

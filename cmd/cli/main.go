@@ -6,7 +6,7 @@ import (
 	"commit_craft_reborn/internal/tui"
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 )
 
 func main() {
