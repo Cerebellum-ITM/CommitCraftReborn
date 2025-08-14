@@ -8,16 +8,14 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
-// PopupModel define el estado de nuestro popup. (Antes se llamaba Model)
-type PopupModel struct {
+type DeleteConfirmDeleteConfirmPopupModel struct {
 	commitId, width, height int
 	commitMessage           string
 	keys                    KeyMap
 }
 
-// NewPopup crea un nuevo modelo de popup. (Antes se llamaba New)
-func NewPopup(width, height, commitId int, commitMessage string) PopupModel {
-	return PopupModel{
+func NewPopup(width, height, commitId int, commitMessage string) DeleteConfirmDeleteConfirmPopupModel {
+	return DeleteConfirmDeleteConfirmPopupModel{
 		commitId:      commitId,
 		commitMessage: commitMessage,
 		width:         width,
@@ -26,12 +24,11 @@ func NewPopup(width, height, commitId int, commitMessage string) PopupModel {
 	}
 }
 
-func (m PopupModel) Init() tea.Cmd {
+func (m DeleteConfirmDeleteConfirmPopupModel) Init() tea.Cmd {
 	return nil
 }
 
-// Update maneja la lógica del popup.
-func (m PopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m DeleteConfirmDeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -46,7 +43,7 @@ func (m PopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m PopupModel) View() string {
+func (m DeleteConfirmDeleteConfirmPopupModel) View() string {
 	popupText := "Are you sure you want to delete the commit with the Id=%d (%s)?\n\nPress 'esc' to cancel or 'enter' to delete."
 
 	popupBox := lipgloss.NewStyle().
