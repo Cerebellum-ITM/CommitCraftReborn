@@ -13,12 +13,14 @@ import (
 type CommitTypeDelegate struct {
 	list.DefaultDelegate
 	TypeFormat string
+	Color      string
 }
 type CommitTypeItem struct {
 	commit.CommitType
 }
 
 func (cti CommitTypeItem) Title() string { return cti.CommitType.Tag }
+func (cti CommitTypeItem) Color() string { return cti.CommitType.Color }
 
 func (cti CommitTypeItem) Description() string { return cti.CommitType.Description }
 
@@ -34,13 +36,14 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 
 	commitType := it.Title()
 	commitDesc := it.Description()
+	commitColor := it.Color()
 	formattedCommitType := fmt.Sprintf(d.TypeFormat, commitType)
 
 	var renderedType, renderedDesc string
 
 	if index == m.Index() {
 		styleType := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205")). // Magenta
+			Foreground(lipgloss.Color(commitColor)).
 			Bold(true)
 
 		styleDesc := lipgloss.NewStyle().

@@ -86,7 +86,11 @@ func ResolveCommitTypes(
 
 	globalCustomTypes := make([]commit.CommitType, len(globalCfg.CommitTypes.Types))
 	for i, ct := range globalCfg.CommitTypes.Types {
-		globalCustomTypes[i] = commit.CommitType{Tag: ct.Tag, Description: ct.Description}
+		globalCustomTypes[i] = commit.CommitType{
+			Tag:         ct.Tag,
+			Description: ct.Description,
+			Color:       ct.Color,
+		}
 	}
 
 	if len(globalCustomTypes) > 0 {
@@ -99,7 +103,11 @@ func ResolveCommitTypes(
 
 	localCustomTypes := make([]commit.CommitType, len(localCfg.CommitTypes.Types))
 	for i, ct := range localCfg.CommitTypes.Types {
-		localCustomTypes[i] = commit.CommitType{Tag: ct.Tag, Description: ct.Description}
+		localCustomTypes[i] = commit.CommitType{
+			Tag:         ct.Tag,
+			Description: ct.Description,
+			Color:       ct.Color,
+		}
 	}
 
 	if len(localCustomTypes) > 0 {

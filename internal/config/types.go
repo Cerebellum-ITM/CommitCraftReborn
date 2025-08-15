@@ -19,6 +19,7 @@ type CommitTypesConfig struct {
 type CustomCommitType struct {
 	Tag         string `toml:"tag"`
 	Description string `toml:"description"`
+	Color       string
 }
 
 func NewDefaultConfig() Config {
@@ -43,6 +44,7 @@ func GetDefaultConfigWithTypes() Config {
 		cfg.CommitTypes.Types[i] = CustomCommitType{
 			Tag:         dc.Tag,
 			Description: dc.Description,
+			Color:       dc.Color,
 		}
 	}
 	cfg.CommitTypes.Behavior = "replace"
