@@ -12,7 +12,7 @@ import (
 
 const (
 	localConfigName  = ".commitcraft.toml"
-	globalConfigDir  = ".config/commitcraft"
+	GlobalConfigDir  = ".config/commitcraft"
 	globalConfigName = "config.toml"
 )
 
@@ -24,7 +24,7 @@ func LoadConfigs() (globalCfg, localCfg Config, err error) {
 		return Config{}, Config{}, fmt.Errorf("could not get user home directory: %w", err)
 	}
 
-	globalDir := filepath.Join(home, globalConfigDir)
+	globalDir := filepath.Join(home, GlobalConfigDir)
 	globalPath := filepath.Join(globalDir, globalConfigName)
 
 	if err := ensureGlobalConfigExists(globalDir, globalPath); err != nil {
