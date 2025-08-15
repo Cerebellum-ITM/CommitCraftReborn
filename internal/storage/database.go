@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"commit_craft_reborn/internal/config"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -21,7 +22,7 @@ func InitDB() (*DB, error) {
 		return nil, errors.Wrap(err, "failed to get user home directory")
 	}
 
-	dbDir := filepath.Join(home, ".commitcraft")
+	dbDir := filepath.Join(home, config.GlobalConfigDir)
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return nil, errors.Wrap(err, "failed to create database directory")
 	}
