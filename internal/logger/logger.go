@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"commit_craft_reborn/internal/config"
 	"io"
 	"log/slog"
 	"os"
@@ -20,7 +21,7 @@ type Logger struct {
 func New() *Logger {
 	// --- File Logger Setup ---
 	home, _ := os.UserHomeDir()
-	logDir := filepath.Join(home, ".commitcraft")
+	logDir := filepath.Join(home, config.GlobalConfigDir)
 	_ = os.MkdirAll(logDir, 0755)
 	logFilePath := filepath.Join(logDir, "commit-crafter.log")
 
