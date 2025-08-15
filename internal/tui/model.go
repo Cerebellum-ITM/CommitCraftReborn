@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 
@@ -26,6 +27,7 @@ type (
 
 const (
 	stateChoosingType appState = iota
+	stateChoosingCommit
 	stateShowLogs
 	stateChoosingScope
 	stateWritingMessage
@@ -36,32 +38,38 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
-	log             *logger.Logger
-	db              *storage.DB
-	state           appState
-	err             error
-	list            list.Model
-	scopeInput      textinput.Model
-	msgInput        textarea.Model
-	spinner         spinner.Model
-	logViewport     viewport.Model
-	logViewVisible  bool
-	commitType      string
-	commitScope     string
-	commitMsg       string
-	commitTranslate string
-	FinalMessage    string
-	keys            KeyMap
-	help            help.Model
-	popup           tea.Model
-	width, height   int
+	log              *logger.Logger
+	db               *storage.DB
+	finalCommitTypes []commit.CommitType
+	state            appState
+	err              error
+	list             list.Model
+	commitTypeList   list.Model
+	scopeInput       textinput.Model
+	msgInput         textarea.Model
+	spinner          spinner.Model
+	logViewport      viewport.Model
+	logViewVisible   bool
+	commitType       string
+	commitScope      string
+	commitMsg        string
+	commitTranslate  string
+	FinalMessage     string
+	keys             KeyMap
+	help             help.Model
+	popup            tea.Model
+	width, height    int
 }
 
 // NewModel is the constructor for our model.
-func NewModel(log *logger.Logger, database *storage.DB) (*Model, error) {
-	// commitTypesList := NewCommitTypeList()
+func NewModel(
+	log *logger.Logger,
+	database *storage.DB,
+	finalCommitTypes []commit.CommitType,
+) (*Model, error) {
+	commitTypesList := NewCommitTypeList(finalCommitTypes)
 	workspaceCommits, err := database.GetCommits()
-	workspaceCommitsList := setupList(workspaceCommits)
+	workspaceCommitsList := NewHistoryCommitList(workspaceCommits)
 
 	// --- Component Initializations ---
 	if err != nil {
@@ -80,10 +88,10 @@ func NewModel(log *logger.Logger, database *storage.DB) (*Model, error) {
 	// --- End of Initializations ---
 
 	m := &Model{
-		log:   log,
-		db:    database,
-		state: stateChoosingType,
-		// list:       commitTypesList,
+		log:            log,
+		db:             database,
+		state:          stateChoosingCommit,
+		commitTypeList: commitTypesList,
 		list:           workspaceCommitsList,
 		scopeInput:     scopeInput,
 		msgInput:       msgInput,

@@ -15,6 +15,7 @@ type KeyMap struct {
 	Esc        key.Binding
 	Filter     key.Binding
 	Logs       key.Binding
+	AddCommit  key.Binding
 }
 
 func listKeys() KeyMap {
@@ -29,6 +30,7 @@ func listKeys() KeyMap {
 		Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
 		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		AddCommit:  key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "Create a new commit")),
 	}
 }
 
@@ -60,6 +62,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.GlobalQuit.Enabled() {
 		b = append(b, k.GlobalQuit)
+	}
+	if k.AddCommit.Enabled() {
+		b = append(b, k.AddCommit)
 	}
 	if k.Enter.Enabled() {
 		b = append(b, k.Enter)

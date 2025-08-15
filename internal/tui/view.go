@@ -12,10 +12,10 @@ func (model *Model) View() string {
 	}
 
 	switch model.state {
-	case stateChoosingType:
+	case stateChoosingCommit:
 		mainContent = model.list.View()
-	case stateChoosingScope:
-		mainContent = "You chose: " + model.commitType + "\n\nNow define the scope (WIP)"
+	case stateChoosingType:
+		mainContent = model.commitTypeList.View()
 	case stateWritingMessage:
 		mainContent = "Message (WIP)"
 	case stateTranslating:
@@ -27,7 +27,7 @@ func (model *Model) View() string {
 	}
 
 	helpView := model.help.View(model.keys)
-	mainView := mainContent + helpView
+	mainView := mainContent + "\n  " + helpView
 	mainLayer := lipgloss.NewLayer(mainView)
 	canvas := lipgloss.NewCanvas(mainLayer)
 
