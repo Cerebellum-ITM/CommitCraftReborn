@@ -15,13 +15,13 @@ func main() {
 	log := logger.New()
 	log.Info("Starting Commit Crafter application...")
 
-	cfg, err := config.LoadConfig()
+	globalCfg, localCfg, err := config.LoadConfigs()
 	if err != nil {
 		log.Fatal("Error loading configuration: %v\n", err)
 		os.Exit(1)
 	}
 
-	finalCommitTypes := config.ResolveCommitTypes(cfg)
+	finalCommitTypes := config.ResolveCommitTypes(globalCfg, localCfg)
 
 	db, err := storage.InitDB()
 	if err != nil {

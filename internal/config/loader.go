@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	// "github.com/charmbracelet/log"
 )
 
 const (
@@ -17,35 +16,41 @@ const (
 	globalConfigName = "config.toml"
 )
 
-func LoadConfig() (Config, error) {
-	cfg := NewDefaultConfig()
+func LoadConfigs() (globalCfg, localCfg Config, err error) {
+	globalCfg = NewDefaultConfig()
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return Config{}, fmt.Errorf("could not get user home directory: %w", err)
+		return Config{}, Config{}, fmt.Errorf("could not get user home directory: %w", err)
 	}
 
 	globalDir := filepath.Join(home, globalConfigDir)
 	globalPath := filepath.Join(globalDir, globalConfigName)
 
 	if err := ensureGlobalConfigExists(globalDir, globalPath); err != nil {
-		return Config{}, err
+		return Config{}, Config{}, err
 	}
 
-	if _, err := toml.DecodeFile(globalPath, &cfg); err != nil {
-		return Config{}, fmt.Errorf("error parsing global config file at %s: %w", globalPath, err)
+	if _, err := toml.DecodeFile(globalPath, &globalCfg); err != nil {
+		return Config{}, Config{}, fmt.Errorf(
+			"error parsing global config file at %s: %w",
+			globalPath,
+			err,
+		)
 	}
 
 	if _, err := os.Stat(localConfigName); err == nil {
-		if _, err := toml.DecodeFile(localConfigName, &cfg); err != nil {
-			return Config{}, fmt.Errorf(
+		if _, err := toml.DecodeFile(localConfigName, &localCfg); err != nil {
+			return Config{}, Config{}, fmt.Errorf(
 				"error parsing local config file (.commitcraft.toml): %w",
 				err,
 			)
 		}
+	} else if !os.IsNotExist(err) {
+		return Config{}, Config{}, fmt.Errorf("error checking local config file: %w", err)
 	}
 
-	return cfg, nil
+	return globalCfg, localCfg, nil
 }
 
 func ensureGlobalConfigExists(dirPath, filePath string) error {
@@ -74,20 +79,36 @@ func ensureGlobalConfigExists(dirPath, filePath string) error {
 	return nil
 }
 
-func ResolveCommitTypes(cfg Config) []commit.CommitType {
-	defaultTypes := commit.GetDefaultCommitTypes()
+func ResolveCommitTypes(
+	globalCfg, localCfg Config,
+) []commit.CommitType {
+	finalTypes := commit.GetDefaultCommitTypes()
 
-	customTypes := make([]commit.CommitType, len(cfg.CommitTypes.Types))
-	for i, ct := range cfg.CommitTypes.Types {
-		customTypes[i] = commit.CommitType{Tag: ct.Tag, Description: ct.Description}
+	globalCustomTypes := make([]commit.CommitType, len(globalCfg.CommitTypes.Types))
+	for i, ct := range globalCfg.CommitTypes.Types {
+		globalCustomTypes[i] = commit.CommitType{Tag: ct.Tag, Description: ct.Description}
 	}
 
-	if cfg.CommitTypes.Behavior == "replace" {
-		if len(customTypes) > 0 {
-			return customTypes
+	if len(globalCustomTypes) > 0 {
+		if globalCfg.CommitTypes.Behavior == "replace" {
+			finalTypes = globalCustomTypes
+		} else {
+			finalTypes = append(finalTypes, globalCustomTypes...)
 		}
-		return defaultTypes
 	}
 
-	return append(defaultTypes, customTypes...)
+	localCustomTypes := make([]commit.CommitType, len(localCfg.CommitTypes.Types))
+	for i, ct := range localCfg.CommitTypes.Types {
+		localCustomTypes[i] = commit.CommitType{Tag: ct.Tag, Description: ct.Description}
+	}
+
+	if len(localCustomTypes) > 0 {
+		if localCfg.CommitTypes.Behavior == "replace" {
+			finalTypes = localCustomTypes
+		} else {
+			finalTypes = append(finalTypes, localCustomTypes...)
+		}
+	}
+
+	return finalTypes
 }
