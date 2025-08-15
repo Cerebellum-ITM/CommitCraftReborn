@@ -30,7 +30,7 @@ func main() {
 	defer db.Close()
 	log.Debug("Database initialized successfully.")
 
-	initialModel, err := tui.NewModel(log, db, finalCommitTypes)
+	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes)
 	if err != nil {
 		log.Fatal("Error creating the TUI model", "error", err)
 	}

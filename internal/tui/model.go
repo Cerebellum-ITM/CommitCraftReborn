@@ -2,6 +2,7 @@ package tui
 
 import (
 	"commit_craft_reborn/internal/commit"
+	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 
@@ -59,15 +60,17 @@ type Model struct {
 	help             help.Model
 	popup            tea.Model
 	width, height    int
+	globalConfig     config.Config
 }
 
 // NewModel is the constructor for our model.
 func NewModel(
 	log *logger.Logger,
 	database *storage.DB,
+	config config.Config,
 	finalCommitTypes []commit.CommitType,
 ) (*Model, error) {
-	commitTypesList := NewCommitTypeList(finalCommitTypes)
+	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
 	workspaceCommits, err := database.GetCommits()
 	workspaceCommitsList := NewHistoryCommitList(workspaceCommits)
 
@@ -100,6 +103,7 @@ func NewModel(
 		help:           help.New(),
 		logViewVisible: false,
 		logViewport:    viewport.New(),
+		globalConfig:   config,
 	}
 	return m, nil
 }

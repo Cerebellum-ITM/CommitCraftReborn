@@ -12,6 +12,7 @@ import (
 
 type CommitTypeDelegate struct {
 	list.DefaultDelegate
+	TypeFormat string
 }
 type CommitTypeItem struct {
 	commit.CommitType
@@ -33,6 +34,7 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 
 	commitType := it.Title()
 	commitDesc := it.Description()
+	formattedCommitType := fmt.Sprintf(d.TypeFormat, commitType)
 
 	var renderedType, renderedDesc string
 
@@ -44,7 +46,7 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 		styleDesc := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("229")) // Amarillo claro
 
-		renderedType = styleType.Render(commitType)
+		renderedType = styleType.Render(formattedCommitType)
 		renderedDesc = styleDesc.Render(commitDesc)
 
 		fmt.Fprintf(w, "❯ %s - %s", renderedType, renderedDesc)
@@ -55,7 +57,7 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 		styleDesc := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("244")) // Gris más oscuro
 
-		renderedType = styleType.Render(commitType)
+		renderedType = styleType.Render(formattedCommitType)
 		renderedDesc = styleDesc.Render(commitDesc)
 
 		fmt.Fprintf(w, "  %s - %s", renderedType, renderedDesc)
@@ -88,13 +90,15 @@ func NewHistoryCommitList(workspaceCommits []storage.Commit) list.Model {
 	return historyList
 }
 
-func NewCommitTypeList(commitTypes []commit.CommitType) list.Model {
+func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) list.Model {
 	items := make([]list.Item, len(commitTypes))
 	for i, ct := range commitTypes {
 		items[i] = CommitTypeItem{CommitType: ct}
 	}
 
-	delegate := CommitTypeDelegate{}
+	delegate := CommitTypeDelegate{
+		TypeFormat: commitFormat,
+	}
 	typeList := list.New(items, delegate, 0, 0)
 	typeList.Title = "Choose Commit Type"
 	typeList.SetShowHelp(false)

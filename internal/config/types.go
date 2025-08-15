@@ -3,7 +3,12 @@ package config
 import "commit_craft_reborn/internal/commit"
 
 type Config struct {
-	CommitTypes CommitTypesConfig `toml:"commit_types"`
+	CommitTypes  CommitTypesConfig  `toml:"commit_types"`
+	CommitFormat CommitFormatConfig `toml:"commit_format"`
+}
+
+type CommitFormatConfig struct {
+	TypeFormat string `toml:"type_format"`
 }
 
 type CommitTypesConfig struct {
@@ -18,6 +23,10 @@ type CustomCommitType struct {
 
 func NewDefaultConfig() Config {
 	return Config{
+		CommitFormat: CommitFormatConfig{
+			TypeFormat: "[%s]",
+		},
+
 		CommitTypes: CommitTypesConfig{
 			Behavior: "append",
 			Types:    []CustomCommitType{},
