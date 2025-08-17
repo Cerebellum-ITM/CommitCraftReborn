@@ -5,6 +5,7 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
@@ -221,6 +222,7 @@ func NewHistoryCommitList(workspaceCommits []storage.Commit, pwd string) list.Mo
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)
+	historyList.StatusMessageLifetime = 5 * time.Second
 	return historyList
 }
 
