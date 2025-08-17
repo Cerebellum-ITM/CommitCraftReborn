@@ -32,7 +32,7 @@ func (model *Model) View() string {
 	canvas := lipgloss.NewCanvas(mainLayer)
 
 	if model.popup != nil {
-		popupModel, ok := model.popup.(DeleteConfirmDeleteConfirmPopupModel)
+		popupModel, ok := model.popup.(DeleteConfirmPopupModel)
 		if !ok {
 			return "Error: The popup is not of the expected type."
 		}
