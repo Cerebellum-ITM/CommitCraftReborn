@@ -1,10 +1,11 @@
 package tui
 
 import (
+	"commit_craft_reborn/internal/storage"
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/v2/key"
-	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
 )
 
@@ -24,9 +25,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES)
 			return model, nil
 		}
+
 	case closePopupMsg:
 		model.popup = nil
 		return model, nil
+
 	case deleteItemMsg:
 		model.popup = nil
 
@@ -36,13 +39,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, nil
 		}
 
-		newItems, _ := model.db.GetCommits()
-		items := make([]list.Item, len(newItems))
-		for i, c := range newItems {
-			items[i] = HistoryCommitItem{commit: c}
-		}
-
-		return model, model.list.SetItems(items)
+		UpdateCommitList(model.db, model.log, &model.list)
+		return model, nil
 
 	case tea.KeyMsg:
 		if model.popup != nil {
@@ -79,9 +77,32 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
+		case key.Matches(msg, model.keys.Enter):
+			commitTypeSelected := model.commitTypeList.SelectedItem()
+			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
+				newCommit := storage.Commit{
+					ID:        0,
+					Type:      item.Tag,
+					Scope:     "user-profile",
+					MessageEN: "Add user profile update functionality.",
+					MessageES: "Agrega funcionalidad de actualización de perfil de usuario.",
+					Workspace: "default",
+					CreatedAt: time.Now(),
+				}
+				err := model.db.CreateCommit(newCommit)
+				if err != nil {
+					model.log.Error("Error saving commit from stateChoosingType", "error", err)
+					model.err = err
+					return model, tea.Quit
+				}
+
+				UpdateCommitList(model.db, model.log, &model.list)
+				listHeight := model.height - 4
+				model.list.SetSize(model.width, listHeight)
+				model.state = stateChoosingCommit
+				return model, nil
+			}
 		}
-		// case tea.WindowSizeMsg:
-		// model.commitTypeList.SetSize(msg.Width, msg.Height-4)
 	}
 
 	model.commitTypeList, cmd = model.commitTypeList.Update(msg)
@@ -101,10 +122,10 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, model.keys.AddCommit):
 			model.state = stateChoosingType
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			selectedItem := model.list.SelectedItem()
 			if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-				// commitID := commitItem.commit.ID
 				commitMessage := commitItem.commit.MessageEN
 				model.log.Info("selecting commit", "commitMessage", commitMessage)
 				model.FinalMessage = fmt.Sprintf("%s", commitMessage)
