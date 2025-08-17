@@ -3,6 +3,7 @@ module commit_craft_reborn
 go 1.24.4
 
 require (
+	github.com/BurntSushi/toml v1.5.0
 	github.com/charmbracelet/bubbles/v2 v2.0.0-beta.1
 	github.com/charmbracelet/bubbletea/v2 v2.0.0-beta.4
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -13,7 +14,6 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.3.1 // indirect

@@ -73,14 +73,142 @@ type HistoryCommitItem struct {
 }
 
 func (hci HistoryCommitItem) Title() string {
-	return fmt.Sprintf("[%s] %s", hci.commit.Type, hci.commit.Scope)
+	return ""
 }
 
 func (hci HistoryCommitItem) Description() string {
-	return hci.commit.CreatedAt.Format("2006-01-02 15:04")
+	return ""
 }
 
-func (hci HistoryCommitItem) FilterValue() string { return hci.Title() + hci.commit.MessageEN }
+func (hci HistoryCommitItem) FilterValue() string {
+	return hci.commit.MessageEN + " " + hci.commit.MessageES + " " +
+		hci.commit.CreatedAt.Format("2006-01-02") + " " +
+		fmt.Sprintf("%d", hci.commit.ID) + " " +
+		hci.commit.Type + " " + hci.commit.Scope
+}
+
+type HistoryCommitDelegate struct {
+	list.DefaultDelegate
+
+	commitTypeStyle          lipgloss.Style
+	selectedContainerStyle   lipgloss.Style
+	unselectedContainerStyle lipgloss.Style
+
+	dateStyle          lipgloss.Style
+	idStyle            lipgloss.Style
+	msgOriginalStyle   lipgloss.Style
+	msgTranslatedStyle lipgloss.Style
+}
+
+func NewHistoryCommitDelegate() list.ItemDelegate {
+	return HistoryCommitDelegate{
+		selectedContainerStyle: lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("220")).
+			PaddingLeft(1),
+
+		unselectedContainerStyle: lipgloss.NewStyle().
+			PaddingLeft(2),
+
+		commitTypeStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")),
+		dateStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")),
+
+		idStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")),
+
+		msgOriginalStyle: lipgloss.NewStyle(),
+
+		msgTranslatedStyle: lipgloss.NewStyle(),
+	}
+}
+
+func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	it, ok := listItem.(HistoryCommitItem)
+	if !ok {
+		return
+	}
+
+	commit := it.commit
+	tagStr := fmt.Sprintf("(Type: %s)", commit.Type)
+
+	dateStr := commit.CreatedAt.Format("2006-01-02 15:04")
+	idStr := fmt.Sprintf("(ID: %d)", commit.ID)
+	originalMsg := commit.MessageEN
+	translatedMsg := commit.MessageES
+
+	var (
+		indicator                 = " "
+		indicatorStyle            lipgloss.Style
+		currentCommitTypeStyle    lipgloss.Style
+		itemDisplayStyle          lipgloss.Style
+		currentDateStyle          lipgloss.Style
+		currentIDStyle            lipgloss.Style
+		currentMsgOriginalStyle   lipgloss.Style
+		currentMsgTranslatedStyle lipgloss.Style
+	)
+
+	indicatorStyle = lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
+
+	if index == m.Index() {
+		indicator = "❯"
+		currentCommitTypeStyle = d.commitTypeStyle.Foreground(lipgloss.BrightMagenta)
+		itemDisplayStyle = d.selectedContainerStyle
+		currentDateStyle = d.dateStyle.Bold(true).
+			Foreground(lipgloss.Color("10"))
+		currentIDStyle = d.idStyle.Bold(true).
+			Foreground(lipgloss.Color("45"))
+		currentMsgOriginalStyle = d.msgOriginalStyle.Foreground(
+			lipgloss.Color("255"),
+		)
+		currentMsgTranslatedStyle = d.msgTranslatedStyle.Italic(true).
+			Foreground(lipgloss.Color("205"))
+	} else {
+		itemDisplayStyle = d.unselectedContainerStyle
+		currentDateStyle = d.dateStyle
+		currentIDStyle = d.idStyle
+		currentMsgOriginalStyle = d.msgOriginalStyle
+		currentMsgTranslatedStyle = d.msgTranslatedStyle
+		currentCommitTypeStyle = d.commitTypeStyle
+	}
+	contentAvailableWidth := m.Width() - itemDisplayStyle.GetHorizontalPadding() - itemDisplayStyle.
+		GetHorizontalBorderSize() - lipgloss.Width(indicator+" ")
+
+	line1Content := lipgloss.JoinHorizontal(lipgloss.Top,
+		currentDateStyle.Render(dateStr),
+		" ",
+		currentIDStyle.Render(idStr),
+		" ",
+		currentCommitTypeStyle.Render(tagStr),
+	)
+
+	msgPrefixWidth := 7
+	maxMsgLength := contentAvailableWidth - msgPrefixWidth
+	maxMsgLength = max(maxMsgLength, 10)
+
+	truncatedOriginalMsg := truncateString(originalMsg, maxMsgLength)
+	truncatedTranslatedMsg := truncateString(translatedMsg, maxMsgLength)
+
+	line1 := fmt.Sprintf("%s %s", indicatorStyle.Render(indicator), line1Content)
+	line2 := fmt.Sprintf("  %s %s", "Msg:", currentMsgOriginalStyle.Render(truncatedOriginalMsg))
+	line3 := fmt.Sprintf(
+		"  %s %s",
+		"Trn:",
+		currentMsgTranslatedStyle.Render(truncatedTranslatedMsg),
+	)
+
+	finalRender := lipgloss.JoinVertical(lipgloss.Left,
+		line1,
+		line2,
+		line3,
+	)
+
+	fmt.Fprint(w, itemDisplayStyle.Width(m.Width()).Render(finalRender))
+}
+
+func (d HistoryCommitDelegate) Height() int  { return 3 }
+func (d HistoryCommitDelegate) Spacing() int { return 1 }
 
 func NewHistoryCommitList(workspaceCommits []storage.Commit) list.Model {
 	items := make([]list.Item, len(workspaceCommits))
@@ -88,9 +216,26 @@ func NewHistoryCommitList(workspaceCommits []storage.Commit) list.Model {
 		items[i] = HistoryCommitItem{commit: c}
 	}
 
-	historyList := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	historyList := list.New(items, NewHistoryCommitDelegate(), 0, 0)
 	historyList.Title = "Commit History"
+	historyList.SetShowHelp(false)
+	historyList.SetStatusBarItemName("commit", "commits")
+	historyList.SetFilteringEnabled(true)
 	return historyList
+}
+
+func truncateString(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen < 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
 
 func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) list.Model {
@@ -104,6 +249,7 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 	}
 	typeList := list.New(items, delegate, 0, 0)
 	typeList.Title = "Choose Commit Type"
+	typeList.SetFilteringEnabled(true)
 	typeList.SetShowHelp(false)
 
 	return typeList
