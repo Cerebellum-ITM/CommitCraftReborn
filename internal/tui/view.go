@@ -13,7 +13,7 @@ func (model *Model) View() string {
 
 	switch model.state {
 	case stateChoosingCommit:
-		mainContent = model.list.View()
+		mainContent = model.mainList.View()
 	case stateChoosingType:
 		mainContent = model.commitTypeList.View()
 	case stateWritingMessage:

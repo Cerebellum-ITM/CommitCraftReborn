@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/v2/key"
 	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -16,11 +17,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.width = msg.Width
 		model.height = msg.Height
 		listHeight := model.height - 4
-		model.list.SetSize(model.width, listHeight)
+		model.mainList.SetSize(model.width, listHeight)
 		model.commitTypeList.SetSize(model.width, listHeight)
 
 	case openPopupMsg:
-		selectedItem := model.list.SelectedItem()
+		selectedItem := model.mainList.SelectedItem()
 		if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
 			model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES)
 			return model, nil
@@ -39,7 +40,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, nil
 		}
 
-		UpdateCommitList(model.pwd, model.db, model.log, &model.list)
+		UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
 		return model, nil
 
 	case tea.KeyMsg:
@@ -96,10 +97,12 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					return model, tea.Quit
 				}
 
-				UpdateCommitList(model.pwd, model.db, model.log, &model.list)
+				UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
 				listHeight := model.height - 4
-				model.list.SetSize(model.width, listHeight)
+				model.mainList.SetSize(model.width, listHeight)
 				model.state = stateChoosingCommit
+				statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
+				model.mainList.NewStatusMessage(statusMenssageStyle.Render("record created in the db successfully"))
 				return model, nil
 			}
 		}
@@ -122,9 +125,9 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, model.keys.AddCommit):
 			model.state = stateChoosingType
-			return model, nil
+			return model, model.commitTypeList.NewStatusMessage("asdasds")
 		case key.Matches(msg, model.keys.Enter):
-			selectedItem := model.list.SelectedItem()
+			selectedItem := model.mainList.SelectedItem()
 			if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
 				commitMessage := commitItem.commit.MessageEN
 				model.log.Info("selecting commit", "commitMessage", commitMessage)
@@ -136,9 +139,9 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.help.ShowAll = !model.help.ShowAll
 		}
 		// case tea.WindowSizeMsg:
-		// model.list.SetSize(msg.Width, msg.Height-4)
+		// model.mainList.SetSize(msg.Width, msg.Height-4)
 	}
 
-	model.list, cmd = model.list.Update(msg)
+	model.mainList, cmd = model.mainList.Update(msg)
 	return model, cmd
 }

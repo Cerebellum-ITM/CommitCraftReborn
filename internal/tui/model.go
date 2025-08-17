@@ -45,7 +45,7 @@ type Model struct {
 	finalCommitTypes []commit.CommitType
 	state            appState
 	err              error
-	list             list.Model
+	mainList         list.Model
 	commitTypeList   list.Model
 	scopeInput       textinput.Model
 	msgInput         textarea.Model
@@ -98,7 +98,7 @@ func NewModel(
 		db:             database,
 		state:          stateChoosingCommit,
 		commitTypeList: commitTypesList,
-		list:           workspaceCommitsList,
+		mainList:       workspaceCommitsList,
 		scopeInput:     scopeInput,
 		msgInput:       msgInput,
 		spinner:        spinner,
