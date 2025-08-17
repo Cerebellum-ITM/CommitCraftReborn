@@ -3,11 +3,16 @@ package tui
 import (
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
+	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+// ---------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------
 func calculatePopupPosition(modelWidth, modelHeight int, popupView string) (startX, startY int) {
 	popupWidth := lipgloss.Width(popupView)
 	popupHeight := lipgloss.Height(popupView)
@@ -16,8 +21,8 @@ func calculatePopupPosition(modelWidth, modelHeight int, popupView string) (star
 	return startX, startY
 }
 
-func UpdateCommitList(db *storage.DB, log *logger.Logger, l *list.Model) error {
-	workspaceCommits, err := db.GetCommits()
+func UpdateCommitList(pwd string, db *storage.DB, log *logger.Logger, l *list.Model) error {
+	workspaceCommits, err := db.GetCommits(pwd)
 	if err != nil {
 		log.Error("Error al recargar commits", "error", err)
 		return err
@@ -30,4 +35,32 @@ func UpdateCommitList(db *storage.DB, log *logger.Logger, l *list.Model) error {
 	l.SetItems(items)
 
 	return nil
+}
+
+func TruncatePath(path string, levels int) string {
+	if levels <= 0 || path == "" {
+		return ""
+	}
+
+	parts := strings.Split(path, string(os.PathSeparator))
+	filteredParts := []string{}
+	for _, part := range parts {
+		if part != "" {
+			filteredParts = append(filteredParts, part)
+		}
+	}
+
+	if len(filteredParts) <= levels {
+		return path
+	}
+
+	startIndex := len(filteredParts) - levels
+	truncatedParts := filteredParts[startIndex:]
+
+	prefix := ""
+	if startIndex > 0 {
+		prefix = "..." + string(os.PathSeparator)
+	}
+
+	return prefix + strings.Join(truncatedParts, string(os.PathSeparator))
 }

@@ -23,6 +23,12 @@ func main() {
 
 	finalCommitTypes := config.ResolveCommitTypes(globalCfg, localCfg)
 
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Error trying to get the current directory", "error", err)
+		os.Exit(1)
+	}
+
 	db, err := storage.InitDB()
 	if err != nil {
 		log.Fatal("Failed to initialize database", "error", err)
@@ -30,7 +36,7 @@ func main() {
 	defer db.Close()
 	log.Debug("Database initialized successfully.")
 
-	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes)
+	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes, pwd)
 	if err != nil {
 		log.Fatal("Error creating the TUI model", "error", err)
 	}

@@ -39,6 +39,7 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
+	pwd              string
 	log              *logger.Logger
 	db               *storage.DB
 	finalCommitTypes []commit.CommitType
@@ -69,10 +70,11 @@ func NewModel(
 	database *storage.DB,
 	config config.Config,
 	finalCommitTypes []commit.CommitType,
+	pwd string,
 ) (*Model, error) {
 	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
-	workspaceCommits, err := database.GetCommits()
-	workspaceCommitsList := NewHistoryCommitList(workspaceCommits)
+	workspaceCommits, err := database.GetCommits(pwd)
+	workspaceCommitsList := NewHistoryCommitList(workspaceCommits, pwd)
 
 	// --- Component Initializations ---
 	if err != nil {
@@ -92,6 +94,7 @@ func NewModel(
 
 	m := &Model{
 		log:            log,
+		pwd:            pwd,
 		db:             database,
 		state:          stateChoosingCommit,
 		commitTypeList: commitTypesList,

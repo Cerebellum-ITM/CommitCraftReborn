@@ -210,14 +210,14 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 func (d HistoryCommitDelegate) Height() int  { return 3 }
 func (d HistoryCommitDelegate) Spacing() int { return 1 }
 
-func NewHistoryCommitList(workspaceCommits []storage.Commit) list.Model {
+func NewHistoryCommitList(workspaceCommits []storage.Commit, pwd string) list.Model {
 	items := make([]list.Item, len(workspaceCommits))
 	for i, c := range workspaceCommits {
 		items[i] = HistoryCommitItem{commit: c}
 	}
 
 	historyList := list.New(items, NewHistoryCommitDelegate(), 0, 0)
-	historyList.Title = "Commit History"
+	historyList.Title = fmt.Sprintf("%s - %s", "Commit History", TruncatePath(pwd, 2))
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)

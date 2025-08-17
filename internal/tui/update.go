@@ -39,7 +39,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, nil
 		}
 
-		UpdateCommitList(model.db, model.log, &model.list)
+		UpdateCommitList(model.pwd, model.db, model.log, &model.list)
 		return model, nil
 
 	case tea.KeyMsg:
@@ -86,7 +86,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					Scope:     "user-profile",
 					MessageEN: "Add user profile update functionality.",
 					MessageES: "Agrega funcionalidad de actualización de perfil de usuario.",
-					Workspace: "default",
+					Workspace: model.pwd,
 					CreatedAt: time.Now(),
 				}
 				err := model.db.CreateCommit(newCommit)
@@ -96,7 +96,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					return model, tea.Quit
 				}
 
-				UpdateCommitList(model.db, model.log, &model.list)
+				UpdateCommitList(model.pwd, model.db, model.log, &model.list)
 				listHeight := model.height - 4
 				model.list.SetSize(model.width, listHeight)
 				model.state = stateChoosingCommit
