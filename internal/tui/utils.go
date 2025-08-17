@@ -64,3 +64,32 @@ func TruncatePath(path string, levels int) string {
 
 	return prefix + strings.Join(truncatedParts, string(os.PathSeparator))
 }
+
+func TruncateString(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen < 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
+}
+
+func TruncateMessageLines(message string, width int) string {
+	lines := strings.Split(message, "\n")
+	var formattedLines []string
+
+	for _, line := range lines {
+		if line == "" {
+			formattedLines = append(formattedLines, "")
+			continue
+		}
+		formattedLines = append(formattedLines, TruncateString(line, width))
+	}
+
+	return strings.Join(formattedLines, "\n")
+}

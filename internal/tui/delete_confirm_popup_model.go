@@ -30,8 +30,13 @@ func (m DeleteConfirmPopupModel) Init() tea.Cmd {
 
 func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, m.keys.Quit):
+			return m, tea.Quit
 		case key.Matches(msg, m.keys.Esc):
 			return m, func() tea.Msg { return closePopupMsg{} }
 		case key.Matches(msg, m.keys.Enter):
@@ -44,13 +49,22 @@ func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DeleteConfirmPopupModel) View() string {
-	popupText := "Are you sure you want to delete the commit with the Id=%d (%s)?\n\nPress 'esc' to cancel or 'enter' to delete."
+	popupMessage := fmt.Sprintf(
+		"Are you sure you want to delete the commit with the Id=%d?\n(%s)\nPress 'esc' to cancel or 'enter' to delete.",
+		m.commitId,
+		m.commitMessage,
+	)
+	contentWidth := (m.width / 2) - 4
+	contentWidth = max(contentWidth, 20)
+	renderedContent := TruncateMessageLines(popupMessage, contentWidth)
 
 	popupBox := lipgloss.NewStyle().
+		Width(contentWidth).
+		Align(lipgloss.Center).
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("63")).
-		Render(fmt.Sprintf(popupText, m.commitId, m.commitMessage))
+		Render(renderedContent)
 
 	return popupBox
 }

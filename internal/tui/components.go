@@ -187,8 +187,8 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	maxMsgLength := contentAvailableWidth - msgPrefixWidth
 	maxMsgLength = max(maxMsgLength, 10)
 
-	truncatedOriginalMsg := truncateString(originalMsg, maxMsgLength)
-	truncatedTranslatedMsg := truncateString(translatedMsg, maxMsgLength)
+	truncatedOriginalMsg := TruncateString(originalMsg, maxMsgLength)
+	truncatedTranslatedMsg := TruncateString(translatedMsg, maxMsgLength)
 
 	line1 := fmt.Sprintf("%s %s", indicatorStyle.Render(indicator), line1Content)
 	line2 := fmt.Sprintf("  %s %s", "Msg:", currentMsgOriginalStyle.Render(truncatedOriginalMsg))
@@ -222,20 +222,6 @@ func NewHistoryCommitList(workspaceCommits []storage.Commit, pwd string) list.Mo
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)
 	return historyList
-}
-
-func truncateString(s string, maxLen int) string {
-	if maxLen <= 0 {
-		return ""
-	}
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen < 3 {
-		return string(runes[:maxLen])
-	}
-	return string(runes[:maxLen-3]) + "..."
 }
 
 func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) list.Model {
