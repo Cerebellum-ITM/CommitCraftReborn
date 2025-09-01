@@ -3,6 +3,8 @@ package tui
 import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
+	// "os"
+	// "path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/v2/key"
@@ -19,6 +21,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		listHeight := model.height - 4
 		model.mainList.SetSize(model.width, listHeight)
 		model.commitTypeList.SetSize(model.width, listHeight)
+		model.fileList.SetSize(model.width, listHeight)
 
 	case openPopupMsg:
 		selectedItem := model.mainList.SelectedItem()
@@ -63,6 +66,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return updateChoosingCommit(msg, model)
 	case stateChoosingType:
 		return updateChoosingType(msg, model)
+	case stateChoosingScope:
+		return updateChoosingScope(msg, model)
 
 	case stateWritingMessage:
 		// To be implemented.
@@ -76,6 +81,7 @@ func cancelProcess(model *Model) (tea.Model, tea.Cmd) {
 	model.commitMsg = ""
 	model.commitType = ""
 	model.commitTranslate = ""
+	model.commitScope = ""
 	return model, nil
 }
 
@@ -83,7 +89,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	newCommit := storage.Commit{
 		ID:        0,
 		Type:      model.commitType,
-		Scope:     "user-profile",
+		Scope:     model.commitScope,
 		MessageEN: "Add user profile update functionality.",
 		MessageES: "Agrega funcionalidad de actualización de perfil de usuario.",
 		Workspace: model.pwd,
@@ -106,6 +112,32 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	)
 	return model, nil
 }
+
+func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Esc):
+			cancelProcess(model)
+		case key.Matches(msg, model.keys.Help):
+			model.help.ShowAll = !model.help.ShowAll
+		case key.Matches(msg, model.keys.Enter):
+			commitScopeSelected := model.fileList.SelectedItem()
+			if item, ok := commitScopeSelected.(FileItem); ok {
+				model.commitScope = item.Entry.Name()
+				createCommit(model)
+				return model, nil
+			}
+			return model, nil
+		}
+	}
+
+	model.fileList, cmd = model.fileList.Update(msg)
+	return model, cmd
+}
+
 func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -121,7 +153,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
 				model.commitType = item.Tag
 				model.state = stateChoosingScope
-				return model, model.filePicker.Init()
+				return model, nil
 			}
 		}
 	}

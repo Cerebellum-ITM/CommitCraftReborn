@@ -5,9 +5,9 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
-	"github.com/charmbracelet/bubbles/v2/filepicker"
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -259,4 +259,65 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 	typeList.SetShowHelp(false)
 
 	return typeList
+}
+
+type FileItem struct {
+	Entry os.DirEntry
+}
+
+func (fi FileItem) Title() string       { return fi.Entry.Name() }
+func (fi FileItem) Description() string { return "" }
+func (fi FileItem) FilterValue() string { return fi.Entry.Name() }
+func (fi FileItem) IsDir() bool         { return fi.Entry.IsDir() }
+
+type FileDelegate struct {
+	list.DefaultDelegate
+}
+
+func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	it, ok := listItem.(FileItem)
+	if !ok {
+		return
+	}
+
+	name := it.Title()
+	icon := "📄"
+	if it.IsDir() {
+		icon = "📁"
+	}
+
+	var line string
+	if index == m.Index() {
+		selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+		line = fmt.Sprintf("❯ %s %s", icon, selectedStyle.Render(name))
+	} else {
+		unselectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		line = fmt.Sprintf("  %s %s", icon, unselectedStyle.Render(name))
+	}
+
+	fmt.Fprint(w, line)
+}
+
+func (d FileDelegate) Height() int  { return 1 }
+func (d FileDelegate) Spacing() int { return 0 }
+
+func NewFileList(pwd string) (list.Model, error) {
+	dirEntries, err := os.ReadDir(pwd)
+	if err != nil {
+		return list.Model{}, err
+	}
+
+	items := make([]list.Item, len(dirEntries))
+	for i, entry := range dirEntries {
+		items[i] = FileItem{Entry: entry}
+	}
+
+	fileList := list.New(items, FileDelegate{}, 0, 0)
+	fileList.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
+	fileList.SetShowHelp(false)
+	fileList.SetFilteringEnabled(true)
+	fileList.SetStatusBarItemName("item", "items")
+	fileList.StatusMessageLifetime = 5 * time.Second
+
+	return fileList, nil
 }

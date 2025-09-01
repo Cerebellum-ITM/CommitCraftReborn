@@ -47,6 +47,7 @@ type Model struct {
 	err              error
 	mainList         list.Model
 	commitTypeList   list.Model
+	fileList         list.Model
 	scopeInput       textinput.Model
 	msgInput         textarea.Model
 	spinner          spinner.Model
@@ -80,11 +81,18 @@ func NewModel(
 		config.CommitFormat.TypeFormat,
 	)
 
-	// --- Component Initializations ---
 	if err != nil {
 		log.Error("Failed to load recent scopes from database", "error", err)
 		return nil, err
 	}
+
+	fileList, err := NewFileList(pwd)
+	if err != nil {
+		log.Error("Failed to initialize file list", "error", err)
+		return nil, err
+	}
+
+	// --- Component Initializations ---
 	scopeInput := textinput.New()
 	scopeInput.Placeholder = "module, file, etc..."
 
@@ -102,6 +110,7 @@ func NewModel(
 		state:          stateChoosingCommit,
 		mainList:       workspaceCommitsList,
 		commitTypeList: commitTypesList,
+		fileList:       fileList,
 		scopeInput:     scopeInput,
 		msgInput:       msgInput,
 		spinner:        spinner,
