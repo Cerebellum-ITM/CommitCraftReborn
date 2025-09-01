@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/charmbracelet/bubbles/v2/filepicker"
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -95,14 +96,17 @@ type HistoryCommitDelegate struct {
 	selectedContainerStyle   lipgloss.Style
 	unselectedContainerStyle lipgloss.Style
 
+	commitFormat       string
 	dateStyle          lipgloss.Style
 	idStyle            lipgloss.Style
 	msgOriginalStyle   lipgloss.Style
 	msgTranslatedStyle lipgloss.Style
+	finalMsgStyle      lipgloss.Style
 }
 
-func NewHistoryCommitDelegate() list.ItemDelegate {
+func NewHistoryCommitDelegate(commitFormat string) list.ItemDelegate {
 	return HistoryCommitDelegate{
+		commitFormat: commitFormat,
 		selectedContainerStyle: lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder(), false, false, false, true).
 			BorderForeground(lipgloss.Color("220")).
@@ -122,6 +126,8 @@ func NewHistoryCommitDelegate() list.ItemDelegate {
 		msgOriginalStyle: lipgloss.NewStyle(),
 
 		msgTranslatedStyle: lipgloss.NewStyle(),
+		finalMsgStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")),
 	}
 }
 
@@ -138,6 +144,8 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	idStr := fmt.Sprintf("(ID: %d)", commit.ID)
 	originalMsg := commit.MessageEN
 	translatedMsg := commit.MessageES
+	formattedCommitType := fmt.Sprintf(d.commitFormat, commit.Type)
+	finalStr := fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 
 	var (
 		indicator                 = " "
@@ -148,6 +156,7 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		currentIDStyle            lipgloss.Style
 		currentMsgOriginalStyle   lipgloss.Style
 		currentMsgTranslatedStyle lipgloss.Style
+		currentFinalMsgStyle      lipgloss.Style
 	)
 
 	indicatorStyle = lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
@@ -165,6 +174,7 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		)
 		currentMsgTranslatedStyle = d.msgTranslatedStyle.Italic(true).
 			Foreground(lipgloss.Color("205"))
+		currentFinalMsgStyle = d.finalMsgStyle.Foreground(lipgloss.BrightYellow)
 	} else {
 		itemDisplayStyle = d.unselectedContainerStyle
 		currentDateStyle = d.dateStyle
@@ -172,6 +182,7 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		currentMsgOriginalStyle = d.msgOriginalStyle
 		currentMsgTranslatedStyle = d.msgTranslatedStyle
 		currentCommitTypeStyle = d.commitTypeStyle
+		currentFinalMsgStyle = d.finalMsgStyle
 	}
 	contentAvailableWidth := m.Width() - itemDisplayStyle.GetHorizontalPadding() - itemDisplayStyle.
 		GetHorizontalBorderSize() - lipgloss.Width(indicator+" ")
@@ -190,6 +201,7 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 
 	truncatedOriginalMsg := TruncateString(originalMsg, maxMsgLength)
 	truncatedTranslatedMsg := TruncateString(translatedMsg, maxMsgLength)
+	truncatedFinalStr := TruncateString(finalStr, maxMsgLength)
 
 	line1 := fmt.Sprintf("%s %s", indicatorStyle.Render(indicator), line1Content)
 	line2 := fmt.Sprintf("  %s %s", "Msg:", currentMsgOriginalStyle.Render(truncatedOriginalMsg))
@@ -198,11 +210,13 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		"Trn:",
 		currentMsgTranslatedStyle.Render(truncatedTranslatedMsg),
 	)
+	line4 := fmt.Sprintf("  %s %s", "Fnl:", currentFinalMsgStyle.Render(truncatedFinalStr))
 
 	finalRender := lipgloss.JoinVertical(lipgloss.Left,
 		line1,
 		line2,
 		line3,
+		line4,
 	)
 
 	fmt.Fprint(w, itemDisplayStyle.Width(m.Width()).Render(finalRender))
@@ -211,13 +225,17 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 func (d HistoryCommitDelegate) Height() int  { return 3 }
 func (d HistoryCommitDelegate) Spacing() int { return 1 }
 
-func NewHistoryCommitList(workspaceCommits []storage.Commit, pwd string) list.Model {
+func NewHistoryCommitList(
+	workspaceCommits []storage.Commit,
+	pwd string,
+	commitFormat string,
+) list.Model {
 	items := make([]list.Item, len(workspaceCommits))
 	for i, c := range workspaceCommits {
 		items[i] = HistoryCommitItem{commit: c}
 	}
 
-	historyList := list.New(items, NewHistoryCommitDelegate(), 0, 0)
+	historyList := list.New(items, NewHistoryCommitDelegate(commitFormat), 0, 0)
 	historyList.Title = fmt.Sprintf("%s - %s", "Commit History", TruncatePath(pwd, 2))
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")

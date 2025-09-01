@@ -63,7 +63,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return updateChoosingCommit(msg, model)
 	case stateChoosingType:
 		return updateChoosingType(msg, model)
-		// To be implemented in the next step.
+
 	case stateWritingMessage:
 		// To be implemented.
 	}
@@ -71,6 +71,41 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
+func cancelProcess(model *Model) (tea.Model, tea.Cmd) {
+	model.state = stateChoosingCommit
+	model.commitMsg = ""
+	model.commitType = ""
+	model.commitTranslate = ""
+	return model, nil
+}
+
+func createCommit(model *Model) (tea.Model, tea.Cmd) {
+	newCommit := storage.Commit{
+		ID:        0,
+		Type:      model.commitType,
+		Scope:     "user-profile",
+		MessageEN: "Add user profile update functionality.",
+		MessageES: "Agrega funcionalidad de actualización de perfil de usuario.",
+		Workspace: model.pwd,
+		CreatedAt: time.Now(),
+	}
+	err := model.db.CreateCommit(newCommit)
+	if err != nil {
+		model.log.Error("Error saving commit from stateChoosingType", "error", err)
+		model.err = err
+		return model, tea.Quit
+	}
+
+	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
+	listHeight := model.height - 4
+	model.mainList.SetSize(model.width, listHeight)
+	model.state = stateChoosingCommit
+	statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
+	model.mainList.NewStatusMessage(
+		statusMenssageStyle.Render("record created in the db successfully"),
+	)
+	return model, nil
+}
 func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -78,32 +113,15 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
+		case key.Matches(msg, model.keys.Esc):
+			cancelProcess(model)
+
 		case key.Matches(msg, model.keys.Enter):
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
-				newCommit := storage.Commit{
-					ID:        0,
-					Type:      item.Tag,
-					Scope:     "user-profile",
-					MessageEN: "Add user profile update functionality.",
-					MessageES: "Agrega funcionalidad de actualización de perfil de usuario.",
-					Workspace: model.pwd,
-					CreatedAt: time.Now(),
-				}
-				err := model.db.CreateCommit(newCommit)
-				if err != nil {
-					model.log.Error("Error saving commit from stateChoosingType", "error", err)
-					model.err = err
-					return model, tea.Quit
-				}
-
-				UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
-				listHeight := model.height - 4
-				model.mainList.SetSize(model.width, listHeight)
-				model.state = stateChoosingCommit
-				statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
-				model.mainList.NewStatusMessage(statusMenssageStyle.Render("record created in the db successfully"))
-				return model, nil
+				model.commitType = item.Tag
+				model.state = stateChoosingScope
+				return model, model.filePicker.Init()
 			}
 		}
 	}
@@ -125,13 +143,14 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, model.keys.AddCommit):
 			model.state = stateChoosingType
-			return model, model.commitTypeList.NewStatusMessage("asdasds")
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			selectedItem := model.mainList.SelectedItem()
 			if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-				commitMessage := commitItem.commit.MessageEN
-				model.log.Info("selecting commit", "commitMessage", commitMessage)
-				model.FinalMessage = fmt.Sprintf("%s", commitMessage)
+				commit := commitItem.commit
+				// model.log.Info("selecting commit", "commitMessage", commit.Type, commit.Scope, commit.MessageEN)
+				formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
+				model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 			}
 			return model, tea.Quit
 

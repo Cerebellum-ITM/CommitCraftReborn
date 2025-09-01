@@ -74,13 +74,16 @@ func NewModel(
 ) (*Model, error) {
 	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
 	workspaceCommits, err := database.GetCommits(pwd)
-	workspaceCommitsList := NewHistoryCommitList(workspaceCommits, pwd)
+	workspaceCommitsList := NewHistoryCommitList(
+		workspaceCommits,
+		pwd,
+		config.CommitFormat.TypeFormat,
+	)
 
 	// --- Component Initializations ---
 	if err != nil {
-		// Si hay un error al cargar, lo registramos y podemos devolverlo.
 		log.Error("Failed to load recent scopes from database", "error", err)
-		return nil, err // O manejarlo de otra forma, como continuar con una lista vacía.
+		return nil, err
 	}
 	scopeInput := textinput.New()
 	scopeInput.Placeholder = "module, file, etc..."
@@ -97,8 +100,8 @@ func NewModel(
 		pwd:            pwd,
 		db:             database,
 		state:          stateChoosingCommit,
-		commitTypeList: commitTypesList,
 		mainList:       workspaceCommitsList,
+		commitTypeList: commitTypesList,
 		scopeInput:     scopeInput,
 		msgInput:       msgInput,
 		spinner:        spinner,
@@ -113,6 +116,5 @@ func NewModel(
 
 // Init is the first command that runs when the program starts.
 func (model *Model) Init() tea.Cmd {
-	// Enter the alternate screen buffer on startup.
 	return tea.EnterAltScreen
 }
