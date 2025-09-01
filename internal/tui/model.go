@@ -26,6 +26,8 @@ type (
 	}
 )
 
+var scopeFilePickerPwd string
+
 const (
 	stateChoosingType appState = iota
 	stateChoosingCommit

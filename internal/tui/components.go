@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -240,6 +241,7 @@ func NewHistoryCommitList(
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)
+	historyList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
 	historyList.StatusMessageLifetime = 5 * time.Second
 	return historyList
 }
@@ -255,6 +257,7 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 	}
 	typeList := list.New(items, delegate, 0, 0)
 	typeList.Title = "Choose Commit Type"
+	typeList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
 	typeList.SetFilteringEnabled(true)
 	typeList.SetShowHelp(false)
 
@@ -313,6 +316,7 @@ func NewFileList(pwd string) (list.Model, error) {
 	}
 
 	fileList := list.New(items, FileDelegate{}, 0, 0)
+	fileList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
 	fileList.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	fileList.SetShowHelp(false)
 	fileList.SetFilteringEnabled(true)

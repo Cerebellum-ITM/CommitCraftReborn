@@ -3,6 +3,7 @@ package tui
 import (
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
+	"fmt"
 	"os"
 	"strings"
 
@@ -34,6 +35,20 @@ func UpdateCommitList(pwd string, db *storage.DB, log *logger.Logger, l *list.Mo
 	}
 	l.SetItems(items)
 
+	return nil
+}
+
+func UpdateFileList(pwd string, l *list.Model) error {
+	dirEntries, err := os.ReadDir(pwd)
+	if err != nil {
+		return err
+	}
+	items := make([]list.Item, len(dirEntries))
+	for i, entry := range dirEntries {
+		items[i] = FileItem{Entry: entry}
+	}
+	l.SetItems(items)
+	l.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	return nil
 }
 

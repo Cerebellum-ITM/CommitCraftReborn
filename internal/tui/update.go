@@ -3,8 +3,7 @@ package tui
 import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
-	// "os"
-	// "path/filepath"
+	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/v2/key"
@@ -123,10 +122,26 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			cancelProcess(model)
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
+		case key.Matches(msg, model.keys.Left):
+			parentDir := filepath.Dir(scopeFilePickerPwd)
+			scopeFilePickerPwd = parentDir
+			UpdateFileList(parentDir, &model.fileList)
+			return model, nil
+		case key.Matches(msg, model.keys.Right):
+			selected := model.fileList.SelectedItem()
+			if item, ok := selected.(FileItem); ok {
+				if item.IsDir() {
+					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
+					UpdateFileList(scopeFilePickerPwd, &model.fileList)
+				} else {
+				    model.fileList.NewStatusMessage("The selected item is not a directory")
+				}
+				return model, nil
+			}
 		case key.Matches(msg, model.keys.Enter):
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
-				model.commitScope = item.Entry.Name()
+				model.commitScope = item.Title()
 				createCommit(model)
 				return model, nil
 			}
@@ -152,7 +167,9 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
 				model.commitType = item.Tag
+				scopeFilePickerPwd = model.pwd
 				model.state = stateChoosingScope
+				model.keys = fileListKeys()
 				return model, nil
 			}
 		}
