@@ -286,8 +286,20 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	name := it.Title()
 	var icon string
+	var baseStyle lipgloss.Style
+	info, err := it.Entry.Info()
+	isExecutable := err == nil && info.Mode().Perm()&0111 != 0
 
 	if it.IsDir() {
+		// Color for directories
+		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
+	} else if isExecutable {
+		// Color for executable files
+		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("78"))
+	} else {
+		// Default color for normal files
+		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("253"))
+	}
 
 	d.UseNerdFonts = true
 
@@ -304,10 +316,9 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	var line string
 	if index == m.Index() {
 		selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-		line = fmt.Sprintf("❯ %s %s", icon, selectedStyle.Render(name))
+		line = fmt.Sprintf("❯ %s %s", selectedStyle.Render(icon), selectedStyle.Render(name))
 	} else {
-		unselectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		line = fmt.Sprintf("  %s %s", icon, unselectedStyle.Render(name))
+		line = fmt.Sprintf("  %s %s", baseStyle.Render(icon), baseStyle.Render(name))
 	}
 
 	fmt.Fprint(w, line)
