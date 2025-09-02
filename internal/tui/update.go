@@ -121,7 +121,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.Esc):
-			cancelProcess(model)
+			return cancelProcess(model)
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
 		case key.Matches(msg, model.keys.Left):
@@ -148,8 +148,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
 				model.commitScope = item.Title()
-				createCommit(model)
-				return model, nil
+				return createCommit(model)
 			}
 			return model, nil
 		}
@@ -167,8 +166,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
 		case key.Matches(msg, model.keys.Esc):
-			cancelProcess(model)
-
+			return cancelProcess(model)
 		case key.Matches(msg, model.keys.Enter):
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
