@@ -94,6 +94,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		Workspace: model.pwd,
 		CreatedAt: time.Now(),
 	}
+
 	err := model.db.CreateCommit(newCommit)
 	if err != nil {
 		model.log.Error("Error saving commit from stateChoosingType", "error", err)
@@ -105,6 +106,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	listHeight := model.height - 4
 	model.mainList.SetSize(model.width, listHeight)
 	model.state = stateChoosingCommit
+	model.keys = listKeys()
 	statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
 	model.mainList.NewStatusMessage(
 		statusMenssageStyle.Render("record created in the db successfully"),
@@ -134,7 +136,9 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
 					UpdateFileList(scopeFilePickerPwd, &model.fileList)
 				} else {
-				    model.fileList.NewStatusMessage("The selected item is not a directory")
+					statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.Red)
+					model.fileList.NewStatusMessage(
+						statusMenssageStyle.Render("The selected item is not a directory"))
 				}
 				return model, nil
 			}
