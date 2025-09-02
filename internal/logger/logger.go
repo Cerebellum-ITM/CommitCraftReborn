@@ -57,37 +57,37 @@ func New() *Logger {
 }
 
 func (l *Logger) Debug(msg string, args ...any) {
-	l.consoleLogger.Helper()
-	l.consoleLogger.Debug(msg, args...)
+	// l.consoleLogger.Helper()
+	// l.consoleLogger.Debug(msg, args...)
 	l.fileLogger.Debug(msg, args...)
 }
 
 func (l *Logger) Info(msg string, args ...any) {
-	l.consoleLogger.Helper()
-	l.consoleLogger.Info(msg, args...)
+	// l.consoleLogger.Helper()
+	// l.consoleLogger.Info(msg, args...)
 	l.fileLogger.Info(msg, args...)
 }
 
 func (l *Logger) Warn(msg string, args ...any) {
-	l.consoleLogger.Helper()
-	l.consoleLogger.Warn(msg, args...)
+	// l.consoleLogger.Helper()
+	// l.consoleLogger.Warn(msg, args...)
 	l.fileLogger.Warn(msg, args...)
 }
 
 func (l *Logger) Error(msg string, args ...any) {
-	l.consoleLogger.Helper()
-	l.consoleLogger.Error(msg, args...)
+	// l.consoleLogger.Helper()
+	// l.consoleLogger.Error(msg, args...)
 	l.fileLogger.Error(msg, args...)
 }
 
 func (l *Logger) Fatal(msg string, args ...any) {
-	l.consoleLogger.Helper()
-	l.consoleLogger.Fatal(msg, args...)
+	// l.consoleLogger.Helper()
+	// l.consoleLogger.Fatal(msg, args...)
 	l.fileLogger.Error(msg, args...)
 }
 
 func (l *Logger) Print(msg string, args ...any) {
-	l.consoleLogger.Helper()
-	l.consoleLogger.Print(msg)
+	// l.consoleLogger.Helper()
+	// l.consoleLogger.Print(msg)
 	l.fileLogger.Info(msg, args...)
 }
