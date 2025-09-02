@@ -30,6 +30,7 @@ var scopeFilePickerPwd string
 
 const (
 	stateChoosingType appState = iota
+	stateSettingAPIKey
 	stateChoosingCommit
 	stateShowLogs
 	stateChoosingScope
@@ -47,6 +48,7 @@ type Model struct {
 	finalCommitTypes []commit.CommitType
 	state            appState
 	err              error
+	apiKeyInput      textinput.Model
 	mainList         list.Model
 	commitTypeList   list.Model
 	fileList         list.Model
@@ -75,6 +77,22 @@ func NewModel(
 	finalCommitTypes []commit.CommitType,
 	pwd string,
 ) (*Model, error) {
+	var initalState appState
+	var initialKeys KeyMap
+
+	apiKeyInput := textinput.New()
+
+	if config.TUI.IsAPIKeySet {
+		initalState = stateChoosingCommit
+		initialKeys = listKeys()
+	} else {
+		initalState = stateSettingAPIKey
+		apiKeyInput.Placeholder = "gsk_..."
+		apiKeyInput.EchoMode = textinput.EchoPassword
+		apiKeyInput.Focus()
+		initialKeys = textInputKeys()
+	}
+
 	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
 	workspaceCommits, err := database.GetCommits(pwd)
 	workspaceCommitsList := NewHistoryCommitList(
@@ -109,14 +127,15 @@ func NewModel(
 		log:            log,
 		pwd:            pwd,
 		db:             database,
-		state:          stateChoosingCommit,
+		apiKeyInput:    apiKeyInput,
+		state:          initalState,
 		mainList:       workspaceCommitsList,
 		commitTypeList: commitTypesList,
 		fileList:       fileList,
 		scopeInput:     scopeInput,
 		msgInput:       msgInput,
 		spinner:        spinner,
-		keys:           listKeys(),
+		keys:           initialKeys,
 		help:           help.New(),
 		logViewVisible: false,
 		logViewport:    viewport.New(),

@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
@@ -12,6 +14,11 @@ func (model *Model) View() string {
 	}
 
 	switch model.state {
+	case stateSettingAPIKey:
+		mainContent = fmt.Sprintf(
+			"  Enter your Groq API Key:\n\n  %s\n\n  (Press Enter to save)",
+			model.apiKeyInput.View(),
+		)
 	case stateChoosingCommit:
 		mainContent = model.mainList.View()
 	case stateChoosingType:

@@ -3,7 +3,9 @@ package config
 import "commit_craft_reborn/internal/commit"
 
 type TUIConfig struct {
-	UseNerdFonts bool `toml:"use_nerd_fonts"`
+	UseNerdFonts bool   `toml:"use_nerd_fonts"`
+	GroqAPIKey   string `toml:"-"`
+	IsAPIKeySet  bool   `toml:"-"`
 }
 
 type Config struct {

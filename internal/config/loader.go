@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -50,6 +51,16 @@ func LoadConfigs() (globalCfg, localCfg Config, err error) {
 		return Config{}, Config{}, fmt.Errorf("error checking local config file: %w", err)
 	}
 
+	envPath := filepath.Join(globalDir, ".env")
+	_ = godotenv.Load(envPath)
+
+	apiKey := os.Getenv("GROQ_API_KEY")
+	if apiKey != "" {
+		globalCfg.TUI.GroqAPIKey = apiKey
+		globalCfg.TUI.IsAPIKeySet = true
+	} else {
+		globalCfg.TUI.IsAPIKeySet = false
+	}
 	return globalCfg, localCfg, nil
 }
 

@@ -3,6 +3,7 @@ package tui
 import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -59,6 +60,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Update logic depends on the current state.
 	switch model.state {
+	case stateSettingAPIKey:
+		return updateSettingApiKey(msg, model)
 	case stateChoosingCommit:
 		return updateChoosingCommit(msg, model)
 	case stateChoosingType:
@@ -71,6 +74,22 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return model, nil
+}
+
+func saveAPIKeyToEnv(key string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	configDir := filepath.Join(home, ".config", "commitcraft")
+	envPath := filepath.Join(configDir, ".env")
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+
+	content := fmt.Sprintf("GROQ_API_KEY=%s\n", key)
+	return os.WriteFile(envPath, []byte(content), 0600)
 }
 
 func cancelProcess(model *Model) (tea.Model, tea.Cmd) {
@@ -110,6 +129,33 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		statusMenssageStyle.Render("record created in the db successfully"),
 	)
 	return model, nil
+}
+
+func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	model.apiKeyInput, cmd = model.apiKeyInput.Update(msg)
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Enter):
+			apiKey := model.apiKeyInput.Value()
+			if apiKey != "" {
+				err := saveAPIKeyToEnv(apiKey)
+				if err != nil {
+					model.err = err
+					return model, nil
+				}
+				model.globalConfig.TUI.GroqAPIKey = apiKey
+				model.globalConfig.TUI.IsAPIKeySet = true
+
+				model.state = stateChoosingCommit
+				return model, nil
+			}
+		case key.Matches(msg, model.keys.GlobalQuit):
+			return model, tea.Quit
+		}
+	}
+	return model, cmd
 }
 
 func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
