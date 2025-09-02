@@ -88,7 +88,7 @@ func NewModel(
 		return nil, err
 	}
 
-	fileList, err := NewFileList(pwd)
+	fileList, err := NewFileList(pwd, config.TUI.UseNerdFonts)
 	if err != nil {
 		log.Error("Failed to initialize file list", "error", err)
 		return nil, err

@@ -2,9 +2,14 @@ package config
 
 import "commit_craft_reborn/internal/commit"
 
+type TUIConfig struct {
+	UseNerdFonts bool `toml:"use_nerd_fonts"`
+}
+
 type Config struct {
 	CommitTypes  CommitTypesConfig  `toml:"commit_types"`
 	CommitFormat CommitFormatConfig `toml:"commit_format"`
+	TUI          TUIConfig          `toml:"tui"`
 }
 
 type CommitFormatConfig struct {
@@ -31,6 +36,9 @@ func NewDefaultConfig() Config {
 		CommitTypes: CommitTypesConfig{
 			Behavior: "append",
 			Types:    []CustomCommitType{},
+		},
+		TUI: TUIConfig{
+			UseNerdFonts: true,
 		},
 	}
 }

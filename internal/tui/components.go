@@ -301,8 +301,6 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("253"))
 	}
 
-	d.UseNerdFonts = true
-
 	if d.UseNerdFonts {
 		icon = GetNerdFontIcon(name, it.IsDir())
 	} else {
@@ -327,7 +325,7 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 func (d FileDelegate) Height() int  { return 1 }
 func (d FileDelegate) Spacing() int { return 0 }
 
-func NewFileList(pwd string) (list.Model, error) {
+func NewFileList(pwd string, useNerdFont bool) (list.Model, error) {
 	dirEntries, err := os.ReadDir(pwd)
 	if err != nil {
 		return list.Model{}, err
@@ -338,7 +336,9 @@ func NewFileList(pwd string) (list.Model, error) {
 		items[i] = FileItem{Entry: entry}
 	}
 
-	fileList := list.New(items, FileDelegate{}, 0, 0)
+	fileList := list.New(items, FileDelegate{
+		UseNerdFonts: useNerdFont,
+	}, 0, 0)
 	fileList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
 	fileList.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	fileList.SetShowHelp(false)
