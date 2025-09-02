@@ -54,8 +54,6 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
-		case key.Matches(msg, model.keys.Delete):
-			return model, func() tea.Msg { return openPopupMsg{} }
 		}
 	}
 
@@ -190,25 +188,29 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	// Handle logic specific to this state first.
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, model.keys.Quit):
-			return model, tea.Quit
+		isTypingInFilter := model.mainList.FilterState().String()
+		if isTypingInFilter != "filtering" {
+			switch {
+			case key.Matches(msg, model.keys.Quit):
+				return model, tea.Quit
+			case key.Matches(msg, model.keys.AddCommit):
+				model.state = stateChoosingType
+				return model, nil
+			case key.Matches(msg, model.keys.Delete):
+				return model, func() tea.Msg { return openPopupMsg{} }
+			case key.Matches(msg, model.keys.Enter):
+				selectedItem := model.mainList.SelectedItem()
+				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
+					commit := commitItem.commit
+					// model.log.Info("selecting commit", "commitMessage", commit.Type, commit.Scope, commit.MessageEN)
+					formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
+					model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+				}
+				return model, tea.Quit
 
-		case key.Matches(msg, model.keys.AddCommit):
-			model.state = stateChoosingType
-			return model, nil
-		case key.Matches(msg, model.keys.Enter):
-			selectedItem := model.mainList.SelectedItem()
-			if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-				commit := commitItem.commit
-				// model.log.Info("selecting commit", "commitMessage", commit.Type, commit.Scope, commit.MessageEN)
-				formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
-				model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+			case key.Matches(msg, model.keys.Help):
+				model.help.ShowAll = !model.help.ShowAll
 			}
-			return model, tea.Quit
-
-		case key.Matches(msg, model.keys.Help):
-			model.help.ShowAll = !model.help.ShowAll
 		}
 		// case tea.WindowSizeMsg:
 		// model.mainList.SetSize(msg.Width, msg.Height-4)
