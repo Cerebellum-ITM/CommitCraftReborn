@@ -143,8 +143,8 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 
 	dateStr := commit.CreatedAt.Format("2006-01-02 15:04")
 	idStr := fmt.Sprintf("(ID: %d)", commit.ID)
-	originalMsg := commit.MessageEN
-	translatedMsg := commit.MessageES
+	originalMsg := commit.MessageES
+	translatedMsg := commit.MessageEN
 	formattedCommitType := fmt.Sprintf(d.commitFormat, commit.Type)
 	finalStr := fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 

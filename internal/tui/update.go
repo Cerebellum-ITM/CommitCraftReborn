@@ -106,8 +106,8 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		ID:        0,
 		Type:      model.commitType,
 		Scope:     model.commitScope,
-		MessageEN: "Add user profile update functionality.",
-		MessageES: "Agrega funcionalidad de actualización de perfil de usuario.",
+		MessageES: model.commitMsg,
+		MessageEN: model.commitTranslate,
 		Workspace: model.pwd,
 		CreatedAt: time.Now(),
 	}

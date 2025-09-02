@@ -37,9 +37,6 @@ func (db *DB) GetCommits(pwd string) ([]Commit, error) {
 
 // CreateCommit adds a new commit to the database.
 func (db *DB) CreateCommit(c Commit) error {
-	// Note: Actual translation logic would go elsewhere.
-	messageEN := c.MessageES // Placeholder for translation
-
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
@@ -47,7 +44,7 @@ func (db *DB) CreateCommit(c Commit) error {
 		c.Type,
 		c.Scope,
 		c.MessageES,
-		messageEN,
+		c.MessageEN,
 		c.Workspace,
 		createdAt,
 	)
