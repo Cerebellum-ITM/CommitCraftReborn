@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/storage"
 	"fmt"
 	"os"
@@ -22,6 +23,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.mainList.SetSize(model.width, listHeight)
 		model.commitTypeList.SetSize(model.width, listHeight)
 		model.fileList.SetSize(model.width, listHeight)
+		model.msgInput.SetHeight(listHeight)
 
 	case openPopupMsg:
 		selectedItem := model.mainList.SelectedItem()
@@ -70,7 +72,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return updateChoosingScope(msg, model)
 
 	case stateWritingMessage:
-		// To be implemented.
+		return updateWritingMessage(msg, model)
 	}
 
 	return model, nil
@@ -129,6 +131,41 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		statusMenssageStyle.Render("record created in the db successfully"),
 	)
 	return model, nil
+}
+
+func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	model.msgInput, cmd = model.msgInput.Update(msg)
+	apiKey := model.globalConfig.TUI.GroqAPIKey
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Enter):
+			systemPrompt := "You are a helpful translator. Translate the user's statement in English. Return only the translated statement."
+			userInput := model.msgInput.Value()
+			model.commitMsg = userInput
+			model.log.Debug("Texto de entrada: ", "msgEs", model.commitMsg)
+			messages := []api.Message{
+				{
+					Role:    "system",
+					Content: systemPrompt,
+				},
+				{
+					Role:    "user",
+					Content: userInput,
+				},
+			}
+			response, err := api.GetGroqChatCompletion(apiKey, "gemma2-9b-it", messages)
+			if err != nil {
+				model.log.Error("error", err)
+			}
+			model.commitTranslate = response
+			model.log.Debug("salida de API: ", "msgEN", response)
+			return createCommit(model)
+		}
+	}
+
+	return model, cmd
 }
 
 func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -192,7 +229,10 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
 				model.commitScope = item.Title()
-				return createCommit(model)
+				model.state = stateWritingMessage
+				model.keys = textInputKeys()
+				model.msgInput.Focus()
+				return model, nil
 			}
 			return model, nil
 		}

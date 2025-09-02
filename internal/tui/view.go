@@ -25,8 +25,8 @@ func (model *Model) View() string {
 		mainContent = model.commitTypeList.View()
 	case stateChoosingScope:
 		mainContent = model.fileList.View()
-	case stateTranslating:
-		mainContent = "Translating (WIP)"
+	case stateWritingMessage:
+		mainContent = model.msgInput.View()
 	case stateConfirming:
 		mainContent = "Confirm (WIP)"
 	case stateDone:

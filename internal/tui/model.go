@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/v2/textarea"
 	"github.com/charmbracelet/bubbles/v2/textinput"
 	"github.com/charmbracelet/bubbles/v2/viewport"
+    "github.com/charmbracelet/bubbles/v2/key"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -81,7 +82,6 @@ func NewModel(
 	var initialKeys KeyMap
 
 	apiKeyInput := textinput.New()
-
 	if config.TUI.IsAPIKeySet {
 		initalState = stateChoosingCommit
 		initialKeys = listKeys()
@@ -117,6 +117,9 @@ func NewModel(
 	scopeInput.Placeholder = "module, file, etc..."
 
 	msgInput := textarea.New()
+	msgInput.Prompt = "┃ "
+	msgInput.SetWidth(130)
+    msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgInput.Placeholder = "A short description of the changes..."
 
 	spinner := spinner.New()

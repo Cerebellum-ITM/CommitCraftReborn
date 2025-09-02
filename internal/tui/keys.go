@@ -52,8 +52,9 @@ func listKeys() KeyMap {
 
 func textInputKeys() KeyMap {
 	return KeyMap{
-		Enter: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),
-		Esc:   key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Quit: key.NewBinding(
 			key.WithKeys("q"),
 			key.WithHelp("q", "quit"),
