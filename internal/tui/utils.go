@@ -5,6 +5,7 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/v2/list"
@@ -107,4 +108,81 @@ func TruncateMessageLines(message string, width int) string {
 	}
 
 	return strings.Join(formattedLines, "\n")
+}
+
+func GetNerdFontIcon(filename string, isDir bool) string {
+	if isDir {
+		return ""
+	}
+
+	extension := strings.ToLower(filepath.Ext(filename))
+	name := strings.ToLower(filename)
+
+	switch extension {
+	// Programming languages
+	case ".go":
+		return "󰟓"
+	case ".py":
+		return ""
+	case ".js":
+		return "󰌞"
+	case ".ts":
+		return "󰛦"
+	case ".java":
+		return ""
+	case ".cs":
+		return "󰌛"
+	case ".rs":
+		return ""
+	case ".c":
+		return "󰙱"
+	case ".cpp", ".h":
+		return "󰙲"
+
+		// Configuration and data files
+	case ".json":
+		return "󰘦"
+	case ".yml", ".yaml":
+		return "  yaml"
+	case ".xml":
+		return "󰗀"
+	case ".toml":
+		return ""
+	case ".env":
+		return ""
+
+	// Documentation
+	case ".md", ".mdx":
+		return ""
+
+	// Git
+	case ".git":
+		return " Git"
+
+	// Media
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+		return ""
+
+		// Compressed files
+	case ".zip", ".tar", ".gz", ".rar":
+		return "󰿺"
+
+	default:
+		switch name {
+		// Special cases by full file name
+		case "docker-compose.yml", "dockerfile":
+			return "󰡨"
+		case "makefile":
+			return ""
+		case "readme.md":
+			return "󰂺"
+		case "license":
+			return "󰿃"
+		case ".gitignore":
+			return ""
+		}
+
+		// Default icon for any other file
+		return ""
+	}
 }

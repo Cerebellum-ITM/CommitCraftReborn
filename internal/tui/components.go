@@ -275,6 +275,7 @@ func (fi FileItem) IsDir() bool         { return fi.Entry.IsDir() }
 
 type FileDelegate struct {
 	list.DefaultDelegate
+	UseNerdFonts bool
 }
 
 func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
@@ -284,9 +285,20 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	}
 
 	name := it.Title()
-	icon := "📄"
+	var icon string
+
 	if it.IsDir() {
-		icon = "📁"
+
+	d.UseNerdFonts = true
+
+	if d.UseNerdFonts {
+		icon = GetNerdFontIcon(name, it.IsDir())
+	} else {
+		if it.IsDir() {
+			icon = "📁"
+		} else {
+			icon = "📄"
+		}
 	}
 
 	var line string
