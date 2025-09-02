@@ -128,6 +128,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			parentDir := filepath.Dir(scopeFilePickerPwd)
 			scopeFilePickerPwd = parentDir
 			UpdateFileList(parentDir, &model.fileList)
+			model.fileList.ResetFilter()
 			return model, nil
 		case key.Matches(msg, model.keys.Right):
 			selected := model.fileList.SelectedItem()
@@ -135,6 +136,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				if item.IsDir() {
 					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
 					UpdateFileList(scopeFilePickerPwd, &model.fileList)
+					model.fileList.ResetFilter()
 				} else {
 					statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.Red)
 					model.fileList.NewStatusMessage(
