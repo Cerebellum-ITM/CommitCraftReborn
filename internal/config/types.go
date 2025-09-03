@@ -3,12 +3,15 @@ package config
 import "commit_craft_reborn/internal/commit"
 
 type PromptsConfig struct {
-	SummaryPromptFile       string `toml:"summary_prompt_file"`
-	SummaryPrompt           string `toml:"-"`
-	CommitBuilderPromptFile string `toml:"commit_builder_prompt_file"`
-	CommitBuilderPrompt     string `toml:"-"`
-	OutputFormatPromptFile  string `toml:"outformat_prompt_file"`
-	OutputFormatPrompt      string `toml:"-"`
+	SummaryPromptFile        string `toml:"summary_prompt_file"`
+	SummaryPromptModel       string `toml:"summary_prompt_model"`
+	SummaryPrompt            string `toml:"-"`
+	CommitBuilderPromptFile  string `toml:"commit_builder_prompt_file"`
+	CommitBuilderPromptModel string `toml:"commit_builder_prompt_model"`
+	CommitBuilderPrompt      string `toml:"-"`
+	OutputFormatPromptFile   string `toml:"outformat_prompt_file"`
+	OutputFormatPromptModel  string `toml:"outformat_prompt_model"`
+	OutputFormatPrompt       string `toml:"-"`
 }
 
 type TUIConfig struct {
@@ -53,9 +56,12 @@ func NewDefaultConfig() Config {
 			UseNerdFonts: true,
 		},
 		Prompts: PromptsConfig{
-			SummaryPromptFile:       "prompts/summary.prompt",
-			CommitBuilderPromptFile: "prompts/commit_builder.prompt",
-			OutputFormatPromptFile:  "prompts/output_format.prompt",
+			SummaryPromptFile:        "prompts/summary.prompt",
+			SummaryPromptModel:       "meta-llama/llama-4-scout-17b-16e-instruct",
+			CommitBuilderPromptFile:  "prompts/commit_builder.prompt",
+			CommitBuilderPromptModel: "llama-3.1-8b-instant",
+			OutputFormatPromptFile:   "prompts/output_format.prompt",
+			OutputFormatPromptModel:  "llama-3.1-8b-instant",
 		},
 	}
 }
