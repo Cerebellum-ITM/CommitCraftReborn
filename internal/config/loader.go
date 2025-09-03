@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/joho/godotenv"
@@ -18,48 +19,83 @@ const (
 	globalConfigName = "config.toml"
 )
 
-//NOTE The following comment tells embed which path to look in from the file path
+// NOTE The following comments tells embed which path to look in from the file path
+
 //go:embed prompts/summary.prompt.tmpl
 var defaultSummaryPrompt string
 
-// --- Prompt Resolution Logic ---
-// ResolvePrompt checks for a user's prompt file. If not found, it creates one
-// using the default content. If found, it reads the user's custom content.
-func ResolvePrompt(
-	configDir, promptPath string,
-) (string, error) {
-	defaultSumaryContent := defaultSummaryPrompt
-	if promptPath == "" {
-		return defaultSumaryContent, nil
-	}
+//go:embed prompts/commit_builder.prompt.tmpl
+var defaultCommitBuilderPrompt string
 
-	fullPath := promptPath
+//go:embed prompts/output_format.prompt.tmpl
+var defaultOutputFormatPrompt string
+
+// --- Prompt Resolution Logic ---
+func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
+	var defaultPromptContent string
 	if !filepath.IsAbs(fullPath) {
 		fullPath = filepath.Join(configDir, fullPath)
 	}
 
-	// Check if the user's prompt file exists.
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-
+		baseFileName := filepath.Base(fullPath)
+		promptName := strings.TrimSuffix(baseFileName, filepath.Ext(baseFileName))
+		switch promptName {
+		case "summary":
+			defaultPromptContent = defaultSummaryPrompt
+		case "commit_builder":
+			defaultPromptContent = defaultCommitBuilderPrompt
+		case "output_format":
+			defaultPromptContent = defaultOutputFormatPrompt
+		}
 		parentDir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
 			return "", fmt.Errorf("could not create prompts directory at %s: %w", parentDir, err)
 		}
 
-		if err := os.WriteFile(fullPath, []byte(defaultSumaryContent), 0644); err != nil {
+		if err := os.WriteFile(fullPath, []byte(defaultPromptContent), 0644); err != nil {
 			return "", fmt.Errorf("could not write default prompt file to %s: %w", fullPath, err)
 		}
-		return defaultSumaryContent, nil
+
+		return defaultPromptContent, nil
 	} else if err != nil {
 		return "", fmt.Errorf("error checking prompt file at %s: %w", fullPath, err)
 	}
-
-	// FILE FOUND: Read the user's custom content.
 	promptBytes, err := os.ReadFile(fullPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read prompt file at %s: %w", fullPath, err)
 	}
 	return string(promptBytes), nil
+}
+
+func loadIaPrompts(
+	configDir string, globalConfig *Config,
+) error {
+	summaryPrompt, err := createOrLoadPromptFile(configDir, globalConfig.Prompts.SummaryPromptFile)
+	if err != nil {
+		return err
+	}
+
+	commitBuilderPrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.CommitBuilderPromptFile,
+	)
+	if err != nil {
+		return err
+	}
+
+	outpurFormatPrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.OutputFormatPromptFile,
+	)
+	if err != nil {
+		return err
+	}
+
+	globalConfig.Prompts.SummaryPrompt = summaryPrompt
+	globalConfig.Prompts.CommitBuilderPrompt = commitBuilderPrompt
+	globalConfig.Prompts.OutputFormatPrompt = outpurFormatPrompt
+	return nil
 }
 
 func LoadConfigs() (globalCfg, localCfg Config, err error) {
@@ -96,15 +132,10 @@ func LoadConfigs() (globalCfg, localCfg Config, err error) {
 		return Config{}, Config{}, fmt.Errorf("error checking local config file: %w", err)
 	}
 
-	summaryContent, err := ResolvePrompt(
-		globalDir,
-		globalCfg.Prompts.SummaryPromptFile,
-	)
+	err = loadIaPrompts(globalDir, &globalCfg)
 	if err != nil {
 		return Config{}, Config{}, err
 	}
-
-	globalCfg.Prompts.SummaryPrompt = summaryContent
 
 	envPath := filepath.Join(globalDir, ".env")
 	_ = godotenv.Load(envPath)

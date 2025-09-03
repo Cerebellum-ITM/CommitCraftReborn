@@ -3,8 +3,12 @@ package config
 import "commit_craft_reborn/internal/commit"
 
 type PromptsConfig struct {
-	SummaryPromptFile string `toml:"summary_prompt_file"`
-	SummaryPrompt string `toml:"-"`
+	SummaryPromptFile       string `toml:"summary_prompt_file"`
+	SummaryPrompt           string `toml:"-"`
+	CommitBuilderPromptFile string `toml:"commit_builder_prompt_file"`
+	CommitBuilderPrompt     string `toml:"-"`
+	OutputFormatPromptFile  string `toml:"outformat_prompt_file"`
+	OutputFormatPrompt      string `toml:"-"`
 }
 
 type TUIConfig struct {
@@ -49,7 +53,9 @@ func NewDefaultConfig() Config {
 			UseNerdFonts: true,
 		},
 		Prompts: PromptsConfig{
-			SummaryPromptFile: "prompts/summary.prompt",
+			SummaryPromptFile:       "prompts/summary.prompt",
+			CommitBuilderPromptFile: "prompts/commit_builder.prompt",
+			OutputFormatPromptFile:  "prompts/output_format.prompt",
 		},
 	}
 }
