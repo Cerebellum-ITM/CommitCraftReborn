@@ -5,6 +5,7 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -15,6 +16,51 @@ import (
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
+// GetStagedDiffSummary generates a string containing the diffs of all staged files.
+func GetStagedDiffSummary() (string, error) {
+	// 1. Get the list of staged file names.
+	cmdFiles := exec.Command("git", "diff", "--cached", "--name-only")
+	stagedFilesBytes, err := cmdFiles.Output()
+	if err != nil {
+		// This can happen if not in a git repo or if there's a git error.
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("git command failed: %s", string(exitErr.Stderr))
+		}
+		return "", fmt.Errorf("failed to get staged files: %w", err)
+	}
+
+	// If there are no staged files, return an empty string.
+	if len(stagedFilesBytes) == 0 {
+		return "", nil
+	}
+
+	stagedFiles := strings.Split(strings.TrimSpace(string(stagedFilesBytes)), "\n")
+
+	// Use a strings.Builder for efficient string construction.
+	var resultBuilder strings.Builder
+
+	// 2. Loop through each file and get its specific diff.
+	for _, file := range stagedFiles {
+		if file == "" {
+			continue
+		}
+
+		resultBuilder.WriteString(fmt.Sprintf("=== %s ===\n", file))
+
+		// The "--" is important to handle filenames that might look like flags.
+		cmdDiff := exec.Command("git", "diff", "--cached", "--unified=0", "--", file)
+		diffBytes, err := cmdDiff.Output()
+		if err != nil {
+			return "", fmt.Errorf("failed to get diff for file %s: %w", file, err)
+		}
+
+		resultBuilder.Write(diffBytes)
+		resultBuilder.WriteString("\n")
+	}
+
+	return resultBuilder.String(), nil
+}
+
 func calculatePopupPosition(modelWidth, modelHeight int, popupView string) (startX, startY int) {
 	popupWidth := lipgloss.Width(popupView)
 	popupHeight := lipgloss.Height(popupView)
