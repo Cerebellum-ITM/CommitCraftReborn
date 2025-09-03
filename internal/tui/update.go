@@ -133,34 +133,71 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
+func createAndSendIaMessage(
+	systemPrompt string,
+	userInput string,
+	iaModel string,
+	model *Model,
+) (string, error) {
+	if iaModel == "" {
+		iaModel = "llama-3.1-8b-instant"
+	}
+	apiKey := model.globalConfig.TUI.GroqAPIKey
+	messages := []api.Message{
+		{
+			Role:    "system",
+			Content: systemPrompt,
+		},
+		{
+			Role:    "user",
+			Content: userInput,
+		},
+	}
+	response, err := api.GetGroqChatCompletion(apiKey, iaModel, messages)
+	if err != nil {
+		return "", fmt.Errorf(
+			"An error occurred while making the following call:\n systemPrompt: %s\n userInput: %s\n Error: %s",
+			systemPrompt,
+			userInput,
+			err,
+		)
+	}
+	return response, nil
+}
+
+func ia_commit_builder(userInput string, model *Model) error {
+	diffSummary, err := GetStagedDiffSummary()
+	if err != nil {
+		return fmt.Errorf(
+			"An error occurred while trying to generate the git diff summary.\n%s",
+			err,
+		)
+	}
+
+	iaSumarry, err := createAndSendIaMessage(
+		model.globalConfig.Prompts.SummaryPrompt,
+		fmt.Sprintf("TITLE:\n%s\nCONTEXT:\n%s", userInput, diffSummary),
+		model.globalConfig.Prompts.SummaryPromptModel,
+		model,
+	)
+	model.log.Debug(iaSumarry)
+
+	model.commitTranslate = iaSumarry
+	return nil
+}
+
 func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	model.msgInput, cmd = model.msgInput.Update(msg)
-	apiKey := model.globalConfig.TUI.GroqAPIKey
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.Enter):
-			systemPrompt := "You are a helpful translator. Translate the user's statement in English. Return only the translated statement."
 			userInput := model.msgInput.Value()
-			model.commitMsg = userInput
-			model.log.Debug("Texto de entrada: ", "msgEs", model.commitMsg)
-			messages := []api.Message{
-				{
-					Role:    "system",
-					Content: systemPrompt,
-				},
-				{
-					Role:    "user",
-					Content: userInput,
-				},
-			}
-			response, err := api.GetGroqChatCompletion(apiKey, "gemma2-9b-it", messages)
+			err := ia_commit_builder(userInput, model)
 			if err != nil {
-				model.log.Error("error", err)
+				model.log.Fatal("msg", err)
 			}
-			model.commitTranslate = response
-			model.log.Debug("salida de API: ", "msgEN", response)
 			return createCommit(model)
 		}
 	}
