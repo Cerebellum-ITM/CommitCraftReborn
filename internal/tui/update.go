@@ -167,6 +167,9 @@ func createAndSendIaMessage(
 
 func ia_commit_builder(userInput string, model *Model) error {
 	diffSummary, err := GetStagedDiffSummary()
+	promptConfig := model.globalConfig.Prompts
+	preambleMessage := fmt.Sprintf("%s %s", model.commitType, model.commitScope)
+	model.log.Debug(preambleMessage)
 	if err != nil {
 		return fmt.Errorf(
 			"An error occurred while trying to generate the git diff summary.\n%s",
@@ -175,14 +178,43 @@ func ia_commit_builder(userInput string, model *Model) error {
 	}
 
 	iaSumarry, err := createAndSendIaMessage(
-		model.globalConfig.Prompts.SummaryPrompt,
+		promptConfig.SummaryPrompt,
 		fmt.Sprintf("TITLE:\n%s\nCONTEXT:\n%s", userInput, diffSummary),
-		model.globalConfig.Prompts.SummaryPromptModel,
+		promptConfig.SummaryPromptModel,
 		model,
 	)
-	model.log.Debug(iaSumarry)
 
-	model.commitTranslate = iaSumarry
+	model.log.Debug(iaSumarry)
+	iaCommitRawOutput, err := createAndSendIaMessage(
+		promptConfig.CommitBuilderPrompt,
+		iaSumarry,
+		promptConfig.CommitBuilderPromptModel,
+		model,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"An error occurred while trying to generate the row commit output.\n%s",
+			err,
+		)
+	}
+
+	model.log.Debug(iaCommitRawOutput)
+	iaFormattedOutput, err := createAndSendIaMessage(
+		promptConfig.OutputFormatPrompt,
+		fmt.Sprintf("[PREAMBLE]: %s\n%s", preambleMessage, iaCommitRawOutput),
+		promptConfig.OutputFormatPromptModel,
+		model,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"An error occurred while trying to generate the formatted output.\n%s",
+			err,
+		)
+	}
+
+	model.log.Debug(iaFormattedOutput)
+	model.commitMsg = userInput
+	model.commitTranslate = iaFormattedOutput
 	return nil
 }
 
