@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"commit_craft_reborn/internal/commit"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,50 @@ const (
 	GlobalConfigDir  = ".config/commitcraft"
 	globalConfigName = "config.toml"
 )
+
+//NOTE The following comment tells embed which path to look in from the file path
+//go:embed prompts/summary.prompt.tmpl
+var defaultSummaryPrompt string
+
+// --- Prompt Resolution Logic ---
+// ResolvePrompt checks for a user's prompt file. If not found, it creates one
+// using the default content. If found, it reads the user's custom content.
+func ResolvePrompt(
+	configDir, promptPath string,
+) (string, error) {
+	defaultSumaryContent := defaultSummaryPrompt
+	if promptPath == "" {
+		return defaultSumaryContent, nil
+	}
+
+	fullPath := promptPath
+	if !filepath.IsAbs(fullPath) {
+		fullPath = filepath.Join(configDir, fullPath)
+	}
+
+	// Check if the user's prompt file exists.
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+
+		parentDir := filepath.Dir(fullPath)
+		if err := os.MkdirAll(parentDir, 0755); err != nil {
+			return "", fmt.Errorf("could not create prompts directory at %s: %w", parentDir, err)
+		}
+
+		if err := os.WriteFile(fullPath, []byte(defaultSumaryContent), 0644); err != nil {
+			return "", fmt.Errorf("could not write default prompt file to %s: %w", fullPath, err)
+		}
+		return defaultSumaryContent, nil
+	} else if err != nil {
+		return "", fmt.Errorf("error checking prompt file at %s: %w", fullPath, err)
+	}
+
+	// FILE FOUND: Read the user's custom content.
+	promptBytes, err := os.ReadFile(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read prompt file at %s: %w", fullPath, err)
+	}
+	return string(promptBytes), nil
+}
 
 func LoadConfigs() (globalCfg, localCfg Config, err error) {
 	globalCfg = NewDefaultConfig()
@@ -50,6 +95,16 @@ func LoadConfigs() (globalCfg, localCfg Config, err error) {
 	} else if !os.IsNotExist(err) {
 		return Config{}, Config{}, fmt.Errorf("error checking local config file: %w", err)
 	}
+
+	summaryContent, err := ResolvePrompt(
+		globalDir,
+		globalCfg.Prompts.SummaryPromptFile,
+	)
+	if err != nil {
+		return Config{}, Config{}, err
+	}
+
+	globalCfg.Prompts.SummaryPrompt = summaryContent
 
 	envPath := filepath.Join(globalDir, ".env")
 	_ = godotenv.Load(envPath)

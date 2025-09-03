@@ -2,6 +2,11 @@ package config
 
 import "commit_craft_reborn/internal/commit"
 
+type PromptsConfig struct {
+	SummaryPromptFile string `toml:"summary_prompt_file"`
+	SummaryPrompt string `toml:"-"`
+}
+
 type TUIConfig struct {
 	UseNerdFonts bool   `toml:"use_nerd_fonts"`
 	GroqAPIKey   string `toml:"-"`
@@ -12,6 +17,7 @@ type Config struct {
 	CommitTypes  CommitTypesConfig  `toml:"commit_types"`
 	CommitFormat CommitFormatConfig `toml:"commit_format"`
 	TUI          TUIConfig          `toml:"tui"`
+	Prompts      PromptsConfig      `toml:"prompts"`
 }
 
 type CommitFormatConfig struct {
@@ -41,6 +47,9 @@ func NewDefaultConfig() Config {
 		},
 		TUI: TUIConfig{
 			UseNerdFonts: true,
+		},
+		Prompts: PromptsConfig{
+			SummaryPromptFile: "prompts/summary.prompt",
 		},
 	}
 }
