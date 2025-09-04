@@ -23,7 +23,7 @@ You are a precision-focused formatting engine specialized in Git commit message 
    - Ensure ≤130 characters.
 3. If the BODY contains `<BLANKLINE>`, replace it with a single newline.
    - If not, insert one blank line between TITLE and BODY.
-4. Wrap all BODY lines to ≤130 characters.
+4. - The BODY must not be wrapped to any line length — only paragraphs should be separated by `\n`.
 5. Ensure:
    - Exactly one blank line between title and body.
    - No leading or trailing blank lines.
@@ -59,7 +59,9 @@ The `utils.py` file had a typo in the `calculate_sum` function.
 OUTPUT:
 Fix bug in `utils.py`
 
-The `utils.py` file had a typo in the `calculate_sum` function.
+The utils.py file had a typo in the calculate_sum function. It was causing unexpected errors during execution and required immediate attention. The development team prioritized fixing the typo to restore the function's proper behavior.
+
+Upon correcting the typo, all team members were instructed to pull the latest version of the code. This ensured consistency across different environments and allowed the developers to continue their work without further interruptions, maintaining the project's progress.
 
 INPUT:
 [PREAMBLE]: [IMP] config.json:
