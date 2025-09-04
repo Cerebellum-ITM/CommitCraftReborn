@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3" // SQLite driver, imported for its side-effect.
 	"github.com/pkg/errors"
+	_ "modernc.org/sqlite"
 )
 
 // DB is a wrapper for the sql.DB connection pool.
@@ -28,7 +28,7 @@ func InitDB() (*DB, error) {
 	}
 
 	dbPath := filepath.Join(dbDir, "commits.db")
-	sqlDB, err := sql.Open("sqlite3", dbPath)
+	sqlDB, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open database")
 	}
