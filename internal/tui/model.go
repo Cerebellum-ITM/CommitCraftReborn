@@ -7,14 +7,21 @@ import (
 	"commit_craft_reborn/internal/storage"
 
 	"github.com/charmbracelet/bubbles/v2/help"
+	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/bubbles/v2/spinner"
 	"github.com/charmbracelet/bubbles/v2/textarea"
 	"github.com/charmbracelet/bubbles/v2/textinput"
 	"github.com/charmbracelet/bubbles/v2/viewport"
-    "github.com/charmbracelet/bubbles/v2/key"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
+)
+
+type focusableElement int
+
+const (
+	focusMsgInput   focusableElement = iota // 0
+	focusAIResponse                         // 1
 )
 
 // We use iota to create an "enum" for our application states.
@@ -56,6 +63,8 @@ type Model struct {
 	scopeInput       textinput.Model
 	msgInput         textarea.Model
 	spinner          spinner.Model
+	iaViewport       viewport.Model
+	focusedElement   focusableElement
 	logViewport      viewport.Model
 	logViewVisible   bool
 	commitType       string
@@ -118,9 +127,15 @@ func NewModel(
 
 	msgInput := textarea.New()
 	msgInput.Prompt = "┃ "
-	msgInput.SetWidth(130)
-    msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
+	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgInput.Placeholder = "A short description of the changes..."
+	msgInput.Styles.Focused.Base.BorderForeground(lipgloss.Blue)
+	msgInput.Styles.Blurred.Base.BorderForeground(lipgloss.Black)
+
+	vp := viewport.New()
+	vp.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		PaddingRight(2)
 
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -134,6 +149,8 @@ func NewModel(
 		state:          initalState,
 		mainList:       workspaceCommitsList,
 		commitTypeList: commitTypesList,
+		iaViewport:     vp,
+		focusedElement: focusMsgInput,
 		fileList:       fileList,
 		scopeInput:     scopeInput,
 		msgInput:       msgInput,

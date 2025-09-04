@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/v2/viewport"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss/v2"
@@ -48,27 +47,11 @@ func (model *Model) View() string {
 			inputLabel,
 			model.msgInput.View(),
 		)
-
 		const (
 			glamourGutter = 3
-			width         = 78
-			height        = 20
 		)
 
-		vp := viewport.New()
-		vp.SetWidth(width)
-		vp.SetHeight(height)
-		vp.Style = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("62")).
-			PaddingRight(2)
-
-		translationLabel := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("86")). // Verde para la traducción
-			Render("Mensaje Traducido por la IA:")
-
-		glamourRenderWidth := width - vp.Style.GetHorizontalFrameSize() - glamourGutter
+		glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
 		glamourStyle := styles.DarkStyleConfig
 		renderer, _ := glamour.NewTermRenderer(
 			glamour.WithStyles(glamourStyle),
@@ -80,22 +63,23 @@ func (model *Model) View() string {
 			glamourContent = model.commitTranslate
 		}
 
-		glamourContentStr, _ := renderer.Render(glamourContent)
-		translatedView := lipgloss.JoinVertical(
-			lipgloss.Left,
-			translationLabel,
-			lipgloss.NewStyle().Height(1).Render(""),
-			glamourContentStr,
+		glamourContentStr, _ := renderer.Render(
+			fmt.Sprintf("# Mensaje Traducido por la IA:\n%s", glamourContent),
 		)
+		translatedView := glamourContentStr
+		model.iaViewport.SetContent(translatedView)
 
 		leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
 			selectedDetails,
 			lipgloss.NewStyle().Height(1).Render(""),
 			userInputView,
 			lipgloss.NewStyle().Height(1).Render(""),
-			translatedView,
 		)
-		mainContent = lipgloss.JoinHorizontal(lipgloss.Top, leftTranslatedContent, translatedView)
+		mainContent = lipgloss.JoinHorizontal(
+			lipgloss.Top,
+			leftTranslatedContent,
+			model.iaViewport.View(),
+		)
 	case stateConfirming:
 		mainContent = "Confirm (WIP)"
 	case stateDone:

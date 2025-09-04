@@ -24,6 +24,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.commitTypeList.SetSize(model.width, listHeight)
 		model.fileList.SetSize(model.width, listHeight)
 		model.msgInput.SetHeight(listHeight)
+		model.msgInput.SetWidth(model.width / 2)
+		model.iaViewport.SetHeight(listHeight - 1)
+		model.iaViewport.SetWidth(model.width / 2)
 
 	case openPopupMsg:
 		selectedItem := model.mainList.SelectedItem()
@@ -222,10 +225,34 @@ func ia_commit_builder(userInput string, model *Model) error {
 
 func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	model.msgInput, cmd = model.msgInput.Update(msg)
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.NextField):
+			switch model.focusedElement {
+			case focusMsgInput:
+				model.msgInput.Blur()
+				model.focusedElement = focusAIResponse
+				model.iaViewport.Style.BorderTopBackground(lipgloss.Color("62"))
+			case focusAIResponse:
+				model.msgInput.Focus()
+				model.focusedElement = focusMsgInput
+				model.iaViewport.Style.BorderTopBackground(lipgloss.Black)
+			}
+			return model, nil
+		case key.Matches(msg, model.keys.PrevField):
+			switch model.focusedElement {
+			case focusMsgInput:
+				model.msgInput.Blur()
+				model.focusedElement = focusAIResponse
+				model.iaViewport.Style.BorderTopBackground(lipgloss.Color("62"))
+			case focusAIResponse:
+				model.msgInput.Focus()
+				model.focusedElement = focusMsgInput
+				model.iaViewport.Style.BorderTopBackground(lipgloss.Black)
+			}
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			userInput := model.msgInput.Value()
 			err := ia_commit_builder(userInput, model)
@@ -235,7 +262,12 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 		}
 	}
-
+	switch model.focusedElement {
+	case focusMsgInput:
+		model.msgInput, cmd = model.msgInput.Update(msg)
+	case focusAIResponse:
+		model.iaViewport, cmd = model.iaViewport.Update(msg)
+	}
 	return model, cmd
 }
 
@@ -301,8 +333,9 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if item, ok := commitScopeSelected.(FileItem); ok {
 				model.commitScope = item.Title()
 				model.state = stateWritingMessage
-				model.keys = textInputKeys()
+				model.keys = writingMessageKeys()
 				model.msgInput.Focus()
+				model.iaViewport.Init()
 				return model, nil
 			}
 			return model, nil

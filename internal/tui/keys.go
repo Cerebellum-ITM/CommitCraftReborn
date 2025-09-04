@@ -18,6 +18,25 @@ type KeyMap struct {
 	Filter     key.Binding
 	Logs       key.Binding
 	AddCommit  key.Binding
+	NextField  key.Binding
+	PrevField  key.Binding
+}
+
+func writingMessageKeys() KeyMap {
+	return KeyMap{
+		NextField: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "next field"),
+		),
+		PrevField: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "previous field"),
+		),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+	}
 }
 
 func fileListKeys() KeyMap {
@@ -97,6 +116,12 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.Esc.Enabled() {
 		b = append(b, k.Esc)
+	}
+	if k.NextField.Enabled() {
+		b = append(b, k.NextField)
+	}
+	if k.PrevField.Enabled() {
+		b = append(b, k.PrevField)
 	}
 	return b
 }
