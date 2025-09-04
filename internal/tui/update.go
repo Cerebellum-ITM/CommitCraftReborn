@@ -166,10 +166,12 @@ func createAndSendIaMessage(
 }
 
 func ia_commit_builder(userInput string, model *Model) error {
-	diffSummary, err := GetStagedDiffSummary()
+	diffSummary, err := GetStagedDiffSummary(model.globalConfig.Prompts.SummaryPromptMaxDiffsize)
 	promptConfig := model.globalConfig.Prompts
 	preambleMessage := fmt.Sprintf("%s %s", model.commitType, model.commitScope)
 	model.log.Debug(preambleMessage)
+	model.log.Debug(userInput)
+	model.log.Debug(diffSummary)
 	if err != nil {
 		return fmt.Errorf(
 			"An error occurred while trying to generate the git diff summary.\n%s",
@@ -230,7 +232,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if err != nil {
 				model.log.Fatal("msg", err)
 			}
-			return createCommit(model)
+			return model, nil
 		}
 	}
 

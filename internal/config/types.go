@@ -5,6 +5,7 @@ import "commit_craft_reborn/internal/commit"
 type PromptsConfig struct {
 	SummaryPromptFile        string `toml:"summary_prompt_file"`
 	SummaryPromptModel       string `toml:"summary_prompt_model"`
+	SummaryPromptMaxDiffsize int    `toml:"summary_prompt_max_diff_size"`
 	SummaryPrompt            string `toml:"-"`
 	CommitBuilderPromptFile  string `toml:"commit_builder_prompt_file"`
 	CommitBuilderPromptModel string `toml:"commit_builder_prompt_model"`
@@ -58,6 +59,7 @@ func NewDefaultConfig() Config {
 		Prompts: PromptsConfig{
 			SummaryPromptFile:        "prompts/summary.prompt",
 			SummaryPromptModel:       "meta-llama/llama-4-scout-17b-16e-instruct",
+			SummaryPromptMaxDiffsize: 80000,
 			CommitBuilderPromptFile:  "prompts/commit_builder.prompt",
 			CommitBuilderPromptModel: "llama-3.1-8b-instant",
 			OutputFormatPromptFile:   "prompts/output_format.prompt",
