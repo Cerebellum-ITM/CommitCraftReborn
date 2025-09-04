@@ -5,21 +5,22 @@ import "github.com/charmbracelet/bubbles/v2/key"
 // KeyMap defines a set of keybindings.
 // It implements the help.KeyMap interface.
 type KeyMap struct {
-	Up         key.Binding
-	Down       key.Binding
-	Left       key.Binding
-	Right      key.Binding
-	Enter      key.Binding
-	Delete     key.Binding
-	Quit       key.Binding
-	GlobalQuit key.Binding
-	Help       key.Binding
-	Esc        key.Binding
-	Filter     key.Binding
-	Logs       key.Binding
-	AddCommit  key.Binding
-	NextField  key.Binding
-	PrevField  key.Binding
+	Up             key.Binding
+	Down           key.Binding
+	Left           key.Binding
+	Right          key.Binding
+	Enter          key.Binding
+	Delete         key.Binding
+	Quit           key.Binding
+	GlobalQuit     key.Binding
+	Help           key.Binding
+	Esc            key.Binding
+	Filter         key.Binding
+	Logs           key.Binding
+	AddCommit      key.Binding
+	NextField      key.Binding
+	PrevField      key.Binding
+	CreateIaCommit key.Binding
 }
 
 func writingMessageKeys() KeyMap {
@@ -32,10 +33,17 @@ func writingMessageKeys() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "previous field"),
 		),
-		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
-		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		CreateIaCommit: key.NewBinding(
+			key.WithKeys("ctrl+w"),
+			key.WithHelp("ctrl+w", "Create the commit using AI"),
+		),
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "Accept AI suggestion"),
+		),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 	}
 }
 
@@ -122,6 +130,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.PrevField.Enabled() {
 		b = append(b, k.PrevField)
+	}
+	if k.CreateIaCommit.Enabled() {
+		b = append(b, k.CreateIaCommit)
 	}
 	return b
 }

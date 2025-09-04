@@ -250,6 +250,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
+			createCommit(model)
+			return model, nil
+
+		case key.Matches(msg, model.keys.CreateIaCommit):
 			userInput := model.msgInput.Value()
 			err := ia_commit_builder(userInput, model)
 			if err != nil {
