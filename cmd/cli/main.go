@@ -41,7 +41,7 @@ func main() {
 		log.Fatal("Error creating the TUI model", "error", err)
 	}
 
-	p := tea.NewProgram(initialModel, tea.WithAltScreen())
+	p := tea.NewProgram(initialModel, tea.WithOutput(os.Stderr))
 
 	finalModel, err := p.Run()
 	if err != nil {
