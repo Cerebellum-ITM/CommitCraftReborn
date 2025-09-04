@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+// Main Update Function
 func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Make sure the model is passed as a pointer.
 	switch msg := msg.(type) {
@@ -81,6 +82,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
+// HELPERS
 func saveAPIKeyToEnv(key string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -223,6 +225,18 @@ func ia_commit_builder(userInput string, model *Model) error {
 	return nil
 }
 
+func switchFocusElement(model *Model) {
+	switch model.focusedElement {
+	case focusMsgInput:
+		model.msgInput.Blur()
+		model.focusedElement = focusAIResponse
+	case focusAIResponse:
+		model.msgInput.Focus()
+		model.focusedElement = focusMsgInput
+	}
+}
+
+// UPDATE functions
 func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -230,28 +244,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.NextField):
-			switch model.focusedElement {
-			case focusMsgInput:
-				model.msgInput.Blur()
-				model.focusedElement = focusAIResponse
-				model.iaViewport.Style.BorderTopBackground(lipgloss.Color("62"))
-			case focusAIResponse:
-				model.msgInput.Focus()
-				model.focusedElement = focusMsgInput
-				model.iaViewport.Style.BorderTopBackground(lipgloss.Black)
-			}
+			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.PrevField):
-			switch model.focusedElement {
-			case focusMsgInput:
-				model.msgInput.Blur()
-				model.focusedElement = focusAIResponse
-				model.iaViewport.Style.BorderTopBackground(lipgloss.Color("62"))
-			case focusAIResponse:
-				model.msgInput.Focus()
-				model.focusedElement = focusMsgInput
-				model.iaViewport.Style.BorderTopBackground(lipgloss.Black)
-			}
+			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			userInput := model.msgInput.Value()
@@ -359,6 +355,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
 				model.commitType = item.Tag
+				model.commitTypeColor = item.Color()
 				scopeFilePickerPwd = model.pwd
 				model.state = stateChoosingScope
 				model.keys = fileListKeys()

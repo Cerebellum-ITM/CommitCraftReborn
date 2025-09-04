@@ -35,14 +35,35 @@ func (model *Model) View() string {
 	case stateChoosingScope:
 		mainContent = model.fileList.View()
 	case stateWritingMessage:
-		selectedDetails := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("12")).
-			Padding(0, 1).
-			Render(fmt.Sprintf("Type: %s, Scope: %s", model.commitType, model.commitScope))
+		currentIaViewportStyle := model.iaViewport.Style
+		currentMsgInputPromptSyle := lipgloss.NewStyle()
+		switch model.focusedElement {
+		case focusMsgInput:
+			currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(lipgloss.BrightGreen)
+			currentIaViewportStyle = currentIaViewportStyle.BorderForeground(lipgloss.Black)
+		case focusAIResponse:
+			model.msgInput.Styles.Focused.Base = model.msgInput.Styles.Focused.Base.BorderForeground(
+				lipgloss.Black,
+			)
+			currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(lipgloss.BrightWhite)
+			currentIaViewportStyle = currentIaViewportStyle.BorderForeground(lipgloss.BrightGreen)
+		}
+
+		model.iaViewport.Style = currentIaViewportStyle
+		model.msgInput.Prompt = currentMsgInputPromptSyle.Render("┃ ")
+
+		selectedCommitTypeStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(model.commitTypeColor))
+		selectScopeStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
+		selectedDetails := fmt.Sprintf(
+			"Type: %s, Scope: %s",
+			selectedCommitTypeStyle.Render(model.commitType),
+			selectScopeStyle.Render(model.commitScope),
+		)
 		inputLabel := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("205")).
-			Render("Tu Mensaje de Commit:")
+			Render("write your summary of the changes")
 		userInputView := lipgloss.JoinVertical(lipgloss.Left,
 			inputLabel,
 			model.msgInput.View(),
@@ -64,11 +85,10 @@ func (model *Model) View() string {
 		}
 
 		glamourContentStr, _ := renderer.Render(
-			fmt.Sprintf("# Mensaje Traducido por la IA:\n%s", glamourContent),
+			fmt.Sprintf("# Final response of AI models\n%s", glamourContent),
 		)
 		translatedView := glamourContentStr
 		model.iaViewport.SetContent(translatedView)
-
 		leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
 			selectedDetails,
 			lipgloss.NewStyle().Height(1).Render(""),

@@ -68,6 +68,7 @@ type Model struct {
 	logViewport      viewport.Model
 	logViewVisible   bool
 	commitType       string
+	commitTypeColor  string
 	commitScope      string
 	commitMsg        string
 	commitTranslate  string
@@ -126,7 +127,7 @@ func NewModel(
 	scopeInput.Placeholder = "module, file, etc..."
 
 	msgInput := textarea.New()
-	msgInput.Prompt = "┃ "
+	msgInput.Prompt = lipgloss.NewStyle().Foreground(lipgloss.BrightGreen).Render("┃ ")
 	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgInput.Placeholder = "A short description of the changes..."
 	msgInput.Styles.Focused.Base.BorderForeground(lipgloss.Blue)
@@ -134,7 +135,8 @@ func NewModel(
 
 	vp := viewport.New()
 	vp.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.Border{Left: "┃"}).
+		BorderForeground(lipgloss.Black).
 		PaddingRight(2)
 
 	spinner := spinner.New()

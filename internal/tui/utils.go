@@ -55,7 +55,6 @@ func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 		)
 
 		if currentChars+blockChars > maxDiffChars {
-			resultBuilder.WriteString("TRUNCATED REMOVE ONLY FOR TESTING")
 			break
 		}
 
