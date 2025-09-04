@@ -15,7 +15,7 @@ import (
 
 const (
 	localConfigName  = ".commitcraft.toml"
-	GlobalConfigDir  = ".config/commitcraft"
+	GlobalConfigDir  = ".config/CommitCraft"
 	globalConfigName = "config.toml"
 )
 
