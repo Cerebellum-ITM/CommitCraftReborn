@@ -88,7 +88,7 @@ func saveAPIKeyToEnv(key string) error {
 	if err != nil {
 		return err
 	}
-	configDir := filepath.Join(home, ".config", "commitcraft")
+	configDir := filepath.Join(home, ".config", "CommitCraft")
 	envPath := filepath.Join(configDir, ".env")
 
 	if err := os.MkdirAll(configDir, 0755); err != nil {
