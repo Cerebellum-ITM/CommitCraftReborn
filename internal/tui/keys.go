@@ -56,7 +56,7 @@ func fileListKeys() KeyMap {
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
-		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "filter")),
+		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	}
 }
@@ -71,7 +71,7 @@ func listKeys() KeyMap {
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
-		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "filter")),
+		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		AddCommit:  key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "Create a new commit")),
 	}

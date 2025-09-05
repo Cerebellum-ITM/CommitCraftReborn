@@ -241,7 +241,6 @@ func NewHistoryCommitList(
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)
-	historyList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
 	historyList.StatusMessageLifetime = 5 * time.Second
 	return historyList
 }
@@ -257,8 +256,11 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 	}
 	typeList := list.New(items, delegate, 0, 0)
 	typeList.Title = "Choose Commit Type"
-	typeList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
 	typeList.SetFilteringEnabled(true)
+	typeList.KeyMap.AcceptWhileFiltering = key.NewBinding(
+		key.WithKeys("enter", "/", "ctrl+k", "ctrl+j"),
+	)
+
 	typeList.SetShowHelp(false)
 
 	return typeList
@@ -339,7 +341,11 @@ func NewFileList(pwd string, useNerdFont bool) (list.Model, error) {
 	fileList := list.New(items, FileDelegate{
 		UseNerdFonts: useNerdFont,
 	}, 0, 0)
-	fileList.KeyMap.Filter = key.NewBinding(key.WithKeys("tab"))
+	fileList.KeyMap.AcceptWhileFiltering = key.NewBinding(
+		key.WithKeys("enter", "/", "ctrl+k", "ctrl+j"),
+	)
+	fileList.KeyMap.CancelWhileFiltering = key.NewBinding(key.WithKeys("/"))
+
 	fileList.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	fileList.SetShowHelp(false)
 	fileList.SetFilteringEnabled(true)

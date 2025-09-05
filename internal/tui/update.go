@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/v2/key"
+	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -303,6 +304,16 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if model.fileList.FilterState() == list.Filtering {
+			switch {
+			case key.Matches(msg, model.keys.Up):
+				model.fileList.CursorUp()
+				return model, nil
+			case key.Matches(msg, model.keys.Down):
+				model.fileList.CursorDown()
+				return model, nil
+			}
+		}
 		switch {
 		case key.Matches(msg, model.keys.Esc):
 			return cancelProcess(model)
@@ -350,6 +361,16 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if model.commitTypeList.FilterState() == list.Filtering {
+			switch {
+			case key.Matches(msg, model.keys.Up):
+				model.commitTypeList.CursorUp()
+				return model, nil
+			case key.Matches(msg, model.keys.Down):
+				model.commitTypeList.CursorDown()
+				return model, nil
+			}
+		}
 		switch {
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
