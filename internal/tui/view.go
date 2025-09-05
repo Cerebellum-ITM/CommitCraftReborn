@@ -60,12 +60,8 @@ func (model *Model) View() string {
 			selectedCommitTypeStyle.Render(model.commitType),
 			selectScopeStyle.Render(model.commitScope),
 		)
-		inputLabel := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("205")).
-			Render("write your summary of the changes")
 		userInputView := lipgloss.JoinVertical(lipgloss.Left,
-			inputLabel,
+			model.WritingStatusBar.Render(),
 			model.msgInput.View(),
 		)
 		const (

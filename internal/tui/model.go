@@ -5,6 +5,7 @@ import (
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/components/statusbar"
 
 	"github.com/charmbracelet/bubbles/v2/help"
 	"github.com/charmbracelet/bubbles/v2/key"
@@ -65,6 +66,7 @@ type Model struct {
 	spinner          spinner.Model
 	iaViewport       viewport.Model
 	focusedElement   focusableElement
+	WritingStatusBar statusbar.StatusBar
 	logViewport      viewport.Model
 	logViewVisible   bool
 	commitType       string
@@ -139,29 +141,31 @@ func NewModel(
 		BorderForeground(lipgloss.Black).
 		PaddingRight(2)
 
+	WritingStatusBar := statusbar.New("write your summary of the changes", statusbar.LevelInfo)
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	// --- End of Initializations ---
 
 	m := &Model{
-		log:            log,
-		pwd:            pwd,
-		db:             database,
-		apiKeyInput:    apiKeyInput,
-		state:          initalState,
-		mainList:       workspaceCommitsList,
-		commitTypeList: commitTypesList,
-		iaViewport:     vp,
-		focusedElement: focusMsgInput,
-		fileList:       fileList,
-		scopeInput:     scopeInput,
-		msgInput:       msgInput,
-		spinner:        spinner,
-		keys:           initialKeys,
-		help:           help.New(),
-		logViewVisible: false,
-		logViewport:    viewport.New(),
-		globalConfig:   config,
+		log:              log,
+		pwd:              pwd,
+		db:               database,
+		apiKeyInput:      apiKeyInput,
+		state:            initalState,
+		mainList:         workspaceCommitsList,
+		commitTypeList:   commitTypesList,
+		iaViewport:       vp,
+		focusedElement:   focusMsgInput,
+		fileList:         fileList,
+		WritingStatusBar: WritingStatusBar,
+		scopeInput:       scopeInput,
+		msgInput:         msgInput,
+		spinner:          spinner,
+		keys:             initialKeys,
+		help:             help.New(),
+		logViewVisible:   false,
+		logViewport:      viewport.New(),
+		globalConfig:     config,
 	}
 	return m, nil
 }

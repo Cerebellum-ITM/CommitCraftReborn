@@ -79,7 +79,10 @@ func mainListKeys() KeyMap {
 		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
 		Filter: key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-		AddCommit: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "Create a new commit")),
+		AddCommit: key.NewBinding(
+			key.WithKeys("n", "tab"),
+			key.WithHelp("Tab/n", "Create a new commit"),
+		),
 	}
 }
 

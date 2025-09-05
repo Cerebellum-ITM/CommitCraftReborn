@@ -3,6 +3,7 @@ package tui
 import (
 	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/components/statusbar"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -251,11 +252,21 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
-			createCommit(model)
+			if model.commitTranslate != "" {
+				createCommit(model)
+			} else {
+				model.WritingStatusBar.Content = "You need to first make a request to the AI to continue!!"
+				model.WritingStatusBar.Style = lipgloss.NewStyle().Foreground(lipgloss.BrightRed)
+				model.WritingStatusBar.Level = statusbar.LevelError
+			}
 			return model, nil
 
 		case key.Matches(msg, model.keys.CreateIaCommit):
 			userInput := model.msgInput.Value()
+			model.WritingStatusBar.Content = "write your summary of the changes"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+			model.WritingStatusBar.ResetContentStyle()
+
 			err := ia_commit_builder(userInput, model)
 			if err != nil {
 				model.log.Fatal("msg", err)
