@@ -15,9 +15,17 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+type IaCommitBuilderResultMsg struct {
+	Err error
+}
+
 // Main Update Function
 func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Make sure the model is passed as a pointer.
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+	model.WritingStatusBar, cmd = model.WritingStatusBar.Update(msg)
+	cmds = append(cmds, cmd)
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		model.width = msg.Width
@@ -53,6 +61,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
 		return model, nil
+	case IaCommitBuilderResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+
+		if msg.Err != nil {
+			model.err = msg.Err
+			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else {
+			model.WritingStatusBar.Content = "AI commit message ready!"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+		}
+		model.state = stateWritingMessage
+		return model, tea.Batch(cmds...)
 
 	case tea.KeyMsg:
 		if model.popup != nil {
@@ -67,21 +88,24 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update logic depends on the current state.
+	var subCmd tea.Cmd
+	var subModel tea.Model
+
 	switch model.state {
 	case stateSettingAPIKey:
-		return updateSettingApiKey(msg, model)
+		subModel, subCmd = updateSettingApiKey(msg, model)
 	case stateChoosingCommit:
-		return updateChoosingCommit(msg, model)
+		subModel, subCmd = updateChoosingCommit(msg, model)
 	case stateChoosingType:
-		return updateChoosingType(msg, model)
+		subModel, subCmd = updateChoosingType(msg, model)
 	case stateChoosingScope:
-		return updateChoosingScope(msg, model)
-
+		subModel, subCmd = updateChoosingScope(msg, model)
 	case stateWritingMessage:
-		return updateWritingMessage(msg, model)
+		subModel, subCmd = updateWritingMessage(msg, model)
 	}
 
-	return model, nil
+	cmds = append(cmds, subCmd)
+	return subModel, tea.Batch(cmds...)
 }
 
 // HELPERS
@@ -227,6 +251,13 @@ func ia_commit_builder(userInput string, model *Model) error {
 	return nil
 }
 
+func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
+	return func() tea.Msg {
+		err := ia_commit_builder(userInput, model)
+		return IaCommitBuilderResultMsg{Err: err}
+	}
+}
+
 func switchFocusElement(model *Model) {
 	switch model.focusedElement {
 	case focusMsgInput:
@@ -262,16 +293,14 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 
 		case key.Matches(msg, model.keys.CreateIaCommit):
-			userInput := model.msgInput.Value()
-			model.WritingStatusBar.Content = "write your summary of the changes"
-			model.WritingStatusBar.Level = statusbar.LevelInfo
 			model.WritingStatusBar.ResetContentStyle()
-
-			err := ia_commit_builder(userInput, model)
-			if err != nil {
-				model.log.Fatal("msg", err)
-			}
-			return model, nil
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+			model.WritingStatusBar.Style = lipgloss.NewStyle().Foreground(lipgloss.Blue)
+			spinnerCmd := model.WritingStatusBar.StartSpinner()
+			userInput := model.msgInput.Value()
+			iaBuilderCmd := callIaCommitBuilderCmd(userInput, model)
+			return model, tea.Batch(spinnerCmd, iaBuilderCmd)
 		}
 	}
 	switch model.focusedElement {
