@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+var VerticalSpace = lipgloss.NewStyle().Height(1).Render("")
+
 // View renders the UI based on the current state of the model.
 func (model *Model) View() string {
 	var mainContent string
@@ -35,6 +37,7 @@ func (model *Model) View() string {
 	case stateChoosingScope:
 		mainContent = model.fileList.View()
 	case stateWritingMessage:
+		const glamourGutter = 3
 		currentIaViewportStyle := model.iaViewport.Style
 		currentMsgInputPromptSyle := lipgloss.NewStyle()
 		switch model.focusedElement {
@@ -51,23 +54,10 @@ func (model *Model) View() string {
 
 		model.iaViewport.Style = currentIaViewportStyle
 		model.msgInput.Prompt = currentMsgInputPromptSyle.Render("┃ ")
-
-		selectedCommitTypeStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(model.commitTypeColor))
-		selectScopeStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
-		selectedDetails := fmt.Sprintf(
-			"Type: %s, Scope: %s",
-			selectedCommitTypeStyle.Render(model.commitType),
-			selectScopeStyle.Render(model.commitScope),
-		)
 		userInputView := lipgloss.JoinVertical(lipgloss.Left,
 			model.WritingStatusBar.Render(),
 			model.msgInput.View(),
 		)
-		const (
-			glamourGutter = 3
-		)
-
 		glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
 		glamourStyle := styles.DarkStyleConfig
 		renderer, _ := glamour.NewTermRenderer(
@@ -86,16 +76,22 @@ func (model *Model) View() string {
 		translatedView := glamourContentStr
 		model.iaViewport.SetContent(translatedView)
 		leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
-			selectedDetails,
-			lipgloss.NewStyle().Height(1).Render(""),
+			model.msgInput.View(),
+			VerticalSpace,
 			userInputView,
-			lipgloss.NewStyle().Height(1).Render(""),
+			VerticalSpace,
 		)
-		mainContent = lipgloss.JoinHorizontal(
+		uiElements := lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			leftTranslatedContent,
 			model.iaViewport.View(),
 		)
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			model.WritingStatusBar.Render(),
+			VerticalSpace,
+			uiElements,
+		)
+
 	case stateConfirming:
 		mainContent = "Confirm (WIP)"
 	case stateDone:
@@ -111,6 +107,7 @@ func (model *Model) View() string {
 
 	mainView := lipgloss.JoinVertical(lipgloss.Left,
 		mainContent,
+		VerticalSpace,
 		helpView,
 	)
 	mainLayer := lipgloss.NewLayer(mainView)
