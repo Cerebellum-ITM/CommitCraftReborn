@@ -106,7 +106,7 @@ func (model *Model) View() string {
 		mainContent = "Done! (WIP)"
 	}
 
-	helpView := model.help.View(model.keys)
+	helpView := fmt.Sprintf("  %s", model.help.View(model.keys))
 	contentHeight := model.height - lipgloss.Height(helpView) - appStyle.GetVerticalPadding() - 2
 	mainContent = lipgloss.NewStyle().
 		Height(contentHeight).

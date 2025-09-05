@@ -94,7 +94,7 @@ func NewModel(
 	apiKeyInput := textinput.New()
 	if config.TUI.IsAPIKeySet {
 		initalState = stateChoosingCommit
-		initialKeys = listKeys()
+		initialKeys = mainListKeys()
 	} else {
 		initalState = stateSettingAPIKey
 		apiKeyInput.Placeholder = "gsk_..."

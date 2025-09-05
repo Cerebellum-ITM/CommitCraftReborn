@@ -131,7 +131,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	listHeight := model.height - 4
 	model.mainList.SetSize(model.width, listHeight)
 	model.state = stateChoosingCommit
-	model.keys = listKeys()
+	model.keys = mainListKeys()
 	statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
 	model.mainList.NewStatusMessage(
 		statusMenssageStyle.Render("record created in the db successfully"),
@@ -408,6 +408,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.AddCommit):
 				model.state = stateChoosingType
+				model.keys = listKeys()
 				ResetAndActiveFilterOnList(&model.commitTypeList)
 				return model, nil
 			case key.Matches(msg, model.keys.Delete):

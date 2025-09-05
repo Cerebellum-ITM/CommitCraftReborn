@@ -61,7 +61,7 @@ func fileListKeys() KeyMap {
 	}
 }
 
-func listKeys() KeyMap {
+func mainListKeys() KeyMap {
 	return KeyMap{
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
@@ -70,10 +70,23 @@ func listKeys() KeyMap {
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-		Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
+		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
+		Filter: key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
+		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		AddCommit: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "Create a new commit")),
+	}
+}
+
+func listKeys() KeyMap {
+	return KeyMap{
+		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
+		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-		AddCommit:  key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "Create a new commit")),
 	}
 }
 
@@ -92,14 +105,23 @@ func textInputKeys() KeyMap {
 
 func (k KeyMap) ShortHelp() []key.Binding {
 	b := []key.Binding{}
+	if k.AddCommit.Enabled() {
+		b = append(b, k.AddCommit)
+	}
+	if k.CreateIaCommit.Enabled() {
+		b = append(b, k.CreateIaCommit)
+	}
+	if k.Enter.Enabled() {
+		b = append(b, k.Enter)
+	}
 	if k.Left.Enabled() {
 		b = append(b, k.Left)
 	}
 	if k.Right.Enabled() {
 		b = append(b, k.Right)
 	}
-	if k.Help.Enabled() {
-		b = append(b, k.Help)
+	if k.Esc.Enabled() {
+		b = append(b, k.Esc)
 	}
 	if k.Filter.Enabled() {
 		b = append(b, k.Filter)
@@ -113,17 +135,8 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	if k.GlobalQuit.Enabled() {
 		b = append(b, k.GlobalQuit)
 	}
-	if k.AddCommit.Enabled() {
-		b = append(b, k.AddCommit)
-	}
-	if k.Enter.Enabled() {
-		b = append(b, k.Enter)
-	}
 	if k.Logs.Enabled() {
 		b = append(b, k.Logs)
-	}
-	if k.Esc.Enabled() {
-		b = append(b, k.Esc)
 	}
 	if k.NextField.Enabled() {
 		b = append(b, k.NextField)
@@ -133,6 +146,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.CreateIaCommit.Enabled() {
 		b = append(b, k.CreateIaCommit)
+	}
+	if k.Help.Enabled() {
+		b = append(b, k.Help)
 	}
 	return b
 }
