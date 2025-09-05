@@ -312,7 +312,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			parentDir := filepath.Dir(scopeFilePickerPwd)
 			scopeFilePickerPwd = parentDir
 			UpdateFileList(parentDir, &model.fileList)
-			model.fileList.ResetFilter()
+			ResetAndActiveFilterOnList(&model.fileList)
 			return model, nil
 		case key.Matches(msg, model.keys.Right):
 			selected := model.fileList.SelectedItem()
@@ -320,7 +320,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				if item.IsDir() {
 					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
 					UpdateFileList(scopeFilePickerPwd, &model.fileList)
-					model.fileList.ResetFilter()
+					ResetAndActiveFilterOnList(&model.fileList)
 				} else {
 					statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.Red)
 					model.fileList.NewStatusMessage(
@@ -363,6 +363,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				scopeFilePickerPwd = model.pwd
 				model.state = stateChoosingScope
 				model.keys = fileListKeys()
+				ResetAndActiveFilterOnList(&model.fileList)
 				return model, nil
 			}
 		}
@@ -386,6 +387,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.AddCommit):
 				model.state = stateChoosingType
+				ResetAndActiveFilterOnList(&model.commitTypeList)
 				return model, nil
 			case key.Matches(msg, model.keys.Delete):
 				return model, func() tea.Msg { return openPopupMsg{} }

@@ -13,9 +13,25 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+type FilterState int
+
+const (
+	Unfiltered    FilterState = iota // no filter set
+	Filtering                        // user is actively setting a filter
+	FilterApplied                    // a filter is applied and user is not editing filter
+)
+
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
+func ResetAndActiveFilterOnList(l *list.Model) {
+	if l != nil {
+		l.ResetFilter()
+		l.SetFilterText("")
+		l.SetFilterState(list.FilterState(Filtering))
+	}
+}
+
 // GetStagedDiffSummary generates a string containing the diffs of all staged files.
 func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 	// 1. Get the list of staged file names.
