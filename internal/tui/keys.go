@@ -49,14 +49,20 @@ func writingMessageKeys() KeyMap {
 
 func fileListKeys() KeyMap {
 	return KeyMap{
-		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		Left:       key.NewBinding(key.WithKeys("left"), key.WithHelp("←", "Parent")),
-		Right:      key.NewBinding(key.WithKeys("right"), key.WithHelp("→", "Enter")),
+		Up:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down: key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Left: key.NewBinding(
+			key.WithKeys("left", "shift+tab"),
+			key.WithHelp("←/sft+tab", "Parent dir"),
+		),
+		Right: key.NewBinding(
+			key.WithKeys("right", "tab"),
+			key.WithHelp("→/tab", "Enter to dir"),
+		),
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
-		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
+		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	}
 }
@@ -71,7 +77,7 @@ func mainListKeys() KeyMap {
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
-		Filter: key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
+		Filter: key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		AddCommit: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "Create a new commit")),
 	}
@@ -85,7 +91,7 @@ func listKeys() KeyMap {
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-		Filter:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("/", "filter")),
+		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	}
 }
