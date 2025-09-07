@@ -33,17 +33,18 @@ You are a senior software engineer with deep expertise in Git best practices and
 - The output text must always be in English.
 </constraints>
 <example>
-INPUT:
+<input>
 SUMMARY:
 The files `internal/tui/keys.go`, `internal/tui/model.go`, `internal/tui/update.go`, and `internal/tui/view.go` were modified to support the basic functionality of the AI response visualizer and to add a focus mechanism between main elements. In `internal/tui/keys.go`, a new `KeyMap` struct was introduced with `NextField` and `PrevField` bindings. The `writingMessageKeys` function was added to return a `KeyMap` with specific key bindings. In `internal/tui/model.go`, a new `focusableElement` type and constants were added. The `Model` struct was updated to include an `iaViewport` field and a `focusedElement` field.
 
 The `internal/tui/update.go` file was modified to handle key presses for focus switching between elements. The `updateWritingMessage` function was updated to handle `NextField` and `PrevField` key matches, switching focus between the message input and ai response viewport. The `internal/tui/view.go` file was updated to use the `iaViewport` field and to render the ai response content within it.
-
-OUTPUT:
+</input>
+<output>
 Add ai response visualizer and focus mechanism support
 <BLANKLINE>
 The files `internal/tui/keys.go`, `internal/tui/model.go`, `internal/tui/update.go`, and `internal/tui/view.go` were modified to support the basic functionality of the ai response visualizer and to add a focus mechanism between main elements. In `internal/tui/keys.go`, a new `KeyMap` struct was introduced with `NextField` and `PrevField` bindings. The `writingMessageKeys` function was added to return a `KeyMap` with specific key bindings. In `internal/tui/model.go`, a new `focusableElement` type and constants were added. The `Model` struct was updated to include an `iaViewport` field and a `focusedElement` field.
 
 The `internal/tui/update.go` file was modified to handle key presses for focus switching between elements. The `updateWritingMessage` function was updated to handle `NextField` and `PrevField` key matches, switching focus between the message input and ai response viewport. The `internal/tui/view.go` file was updated to use the `iaViewport` field and to render the ai response content within it.
+</output>
 </example>
 </instructions>
