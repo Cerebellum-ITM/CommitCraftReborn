@@ -89,7 +89,7 @@ func loadIaPrompts(
 		return err
 	}
 
-	outpurFormatPrompt, err := createOrLoadPromptFile(
+	outputFormatPrompt, err := createOrLoadPromptFile(
 		configDir,
 		globalConfig.Prompts.OutputFormatPromptFile,
 	)
@@ -101,14 +101,13 @@ func loadIaPrompts(
 		configDir,
 		globalConfig.Prompts.OnlyTranslatePromptFile,
 	)
-
 	if err != nil {
 		return err
 	}
 
 	globalConfig.Prompts.SummaryPrompt = summaryPrompt
 	globalConfig.Prompts.CommitBuilderPrompt = commitBuilderPrompt
-	globalConfig.Prompts.OutputFormatPrompt = outpurFormatPrompt
+	globalConfig.Prompts.OutputFormatPrompt = outputFormatPrompt
 	globalConfig.Prompts.OnlyTranslatePrompt = onlyTranslatePrompt
 	return nil
 }
