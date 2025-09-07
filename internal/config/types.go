@@ -13,6 +13,9 @@ type PromptsConfig struct {
 	OutputFormatPromptFile   string `toml:"outformat_prompt_file"`
 	OutputFormatPromptModel  string `toml:"outformat_prompt_model"`
 	OutputFormatPrompt       string `toml:"-"`
+	OnlyTranslatePromptFile  string `toml:"only_translate_prompt_file"`
+	OnlyTranslatePromptModel string `toml:"only_translate_prompt_model"`
+	OnlyTranslatePrompt      string `toml:"-"`
 }
 
 type TUIConfig struct {
@@ -64,6 +67,8 @@ func NewDefaultConfig() Config {
 			CommitBuilderPromptModel: "llama-3.1-8b-instant",
 			OutputFormatPromptFile:   "prompts/output_format.prompt",
 			OutputFormatPromptModel:  "llama-3.1-8b-instant",
+			OnlyTranslatePromptFile:   "prompts/only_translate.prompt",
+			OnlyTranslatePromptModel:  "llama-3.1-8b-instant",
 		},
 	}
 }

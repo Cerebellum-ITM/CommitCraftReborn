@@ -30,6 +30,9 @@ var defaultCommitBuilderPrompt string
 //go:embed prompts/output_format.prompt.tmpl
 var defaultOutputFormatPrompt string
 
+//go:embed prompts/only_translate.prompt.tmpl
+var defaultOnlyTranslateFormatPrompt string
+
 // --- Prompt Resolution Logic ---
 func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 	var defaultPromptContent string
@@ -47,6 +50,8 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 			defaultPromptContent = defaultCommitBuilderPrompt
 		case "output_format":
 			defaultPromptContent = defaultOutputFormatPrompt
+		case "only_translate":
+			defaultPromptContent = defaultOnlyTranslateFormatPrompt
 		}
 		parentDir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
@@ -92,9 +97,19 @@ func loadIaPrompts(
 		return err
 	}
 
+	onlyTranslatePrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.OnlyTranslatePromptFile,
+	)
+
+	if err != nil {
+		return err
+	}
+
 	globalConfig.Prompts.SummaryPrompt = summaryPrompt
 	globalConfig.Prompts.CommitBuilderPrompt = commitBuilderPrompt
 	globalConfig.Prompts.OutputFormatPrompt = outpurFormatPrompt
+	globalConfig.Prompts.OnlyTranslatePrompt = onlyTranslatePrompt
 	return nil
 }
 
