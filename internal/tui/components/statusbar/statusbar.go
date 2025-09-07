@@ -86,5 +86,5 @@ func (sb StatusBar) Render() string {
 
 	renderedPrefix := prefixStyle.Render(prefixText)
 	renderedContent := contentStyle.Render(sb.Content)
-	return spinnerView + renderedPrefix + renderedContent
+	return spinnerView + renderedPrefix + renderedContent + spinnerView
 }
