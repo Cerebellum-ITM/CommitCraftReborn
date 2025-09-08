@@ -138,7 +138,7 @@ func NewModel(
 	vp := viewport.New()
 	vp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.Border{Left: "┃"}).
-		BorderForeground(lipgloss.Black).
+		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
 	WritingStatusBar := statusbar.New("write your summary of the changes", statusbar.LevelInfo)

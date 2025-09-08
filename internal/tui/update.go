@@ -34,7 +34,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.mainList.SetSize(model.width, listHeight)
 		model.commitTypeList.SetSize(model.width, listHeight)
 		model.fileList.SetSize(model.width, listHeight)
-		model.msgInput.SetHeight(listHeight - 1)
+		model.msgInput.SetHeight(listHeight - 2)
 		model.msgInput.SetWidth(model.width / 2)
 		model.iaViewport.SetHeight(listHeight)
 		model.iaViewport.SetWidth(model.width / 2)
