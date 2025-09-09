@@ -126,12 +126,32 @@ func saveAPIKeyToEnv(key string) error {
 	return os.WriteFile(envPath, []byte(content), 0600)
 }
 
-func cancelProcess(model *Model) (tea.Model, tea.Cmd) {
-	model.state = stateChoosingCommit
-	model.commitMsg = ""
-	model.commitType = ""
-	model.commitTranslate = ""
-	model.commitScope = ""
+func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
+	var statusBarMessage string
+	switch state {
+	case stateChoosingCommit:
+		statusBarMessage = fmt.Sprintf(
+			"choose, create, or edit a commit ::: %s",
+			model.Theme.AppStyles().
+				Base.Foreground(model.Theme.Tertiary).
+				SetString(model.mainList.Title),
+		)
+		model.commitMsg = ""
+		model.commitType = ""
+		model.commitTranslate = ""
+		model.commitScope = ""
+		model.keys = mainListKeys()
+	case stateChoosingType:
+		model.commitType = ""
+		model.commitScope = ""
+		model.keys = listKeys()
+	case stateChoosingScope:
+		model.commitScope = ""
+		model.keys = fileListKeys()
+		model.msgInput.Blur()
+	}
+	model.state = state
+	model.WritingStatusBar.Content = statusBarMessage
 	return model, nil
 }
 
@@ -288,6 +308,8 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.PrevField):
 			switchFocusElement(model)
 			return model, nil
+		case key.Matches(msg, model.keys.Esc):
+			return model.cancelProcess(stateChoosingScope)
 		case key.Matches(msg, model.keys.Enter):
 			if model.commitTranslate != "" {
 				createCommit(model)
@@ -362,7 +384,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		}
 		switch {
 		case key.Matches(msg, model.keys.Esc):
-			return cancelProcess(model)
+			return model.cancelProcess(stateChoosingType)
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
 		case key.Matches(msg, model.keys.Left):
@@ -388,11 +410,12 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
+				statusBarMessage := "craft your commit"
+				model.WritingStatusBar.Content = statusBarMessage
 				model.commitScope = item.Title()
 				model.state = stateWritingMessage
 				model.keys = writingMessageKeys()
 				model.msgInput.Focus()
-				model.iaViewport.Init()
 				return model, nil
 			}
 			return model, nil
@@ -421,7 +444,8 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
 		case key.Matches(msg, model.keys.Esc):
-			return cancelProcess(model)
+			model.keys = mainListKeys()
+			return model.cancelProcess(stateChoosingCommit)
 		case key.Matches(msg, model.keys.Enter):
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
@@ -444,7 +468,6 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	// Handle logic specific to this state first.
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		isTypingInFilter := model.mainList.FilterState().String()
@@ -473,8 +496,6 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.help.ShowAll = !model.help.ShowAll
 			}
 		}
-		// case tea.WindowSizeMsg:
-		// model.mainList.SetSize(msg.Width, msg.Height-4)
 	}
 
 	model.mainList, cmd = model.mainList.Update(msg)

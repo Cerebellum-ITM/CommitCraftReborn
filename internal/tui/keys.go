@@ -41,6 +41,7 @@ func writingMessageKeys() KeyMap {
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "Accept AI suggestion"),
 		),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),

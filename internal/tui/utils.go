@@ -24,6 +24,7 @@ const (
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
+
 func ResetAndActiveFilterOnList(l *list.Model) {
 	if l != nil {
 		l.ResetFilter()
