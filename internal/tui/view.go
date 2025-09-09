@@ -3,6 +3,7 @@ package tui
 import (
 	_ "embed"
 	"fmt"
+	"image/color"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -12,9 +13,9 @@ import (
 )
 
 var (
-	focusColor     = lipgloss.BrightGreen
-	focusColorText = lipgloss.Magenta
-	blurColor      = lipgloss.BrightWhite
+	focusColor     color.Color
+	focusColorText color.Color
+	blurColor      color.Color
 	VerticalSpace  = lipgloss.NewStyle().Height(1).Render("")
 	LineStyle      = lipgloss.NewStyle()
 	HeaderStyle    = lipgloss.NewStyle().
@@ -31,7 +32,10 @@ var (
 //go:embed prompts/writing_message_instructions.md
 var defaultTranslatedContentPrompt string
 
-func setColorVariables(state string) (textColor, lineColor ansi.Color) {
+func (model *Model) setColorVariables(state string) (textColor, lineColor ansi.Color) {
+	focusColor = model.Theme.Primary
+	focusColorText = model.Theme.Accent
+	blurColor = model.Theme.Blur
 	if state == "focus" {
 		textColor = focusColorText
 		lineColor = focusColor
@@ -43,7 +47,7 @@ func setColorVariables(state string) (textColor, lineColor ansi.Color) {
 }
 
 func (model *Model) iaHeaderView(state string) string {
-	textColor, lineColor := setColorVariables(state)
+	textColor, lineColor := model.setColorVariables(state)
 	title := HeaderStyle.Foreground(textColor).Render("Final response of AI models")
 	line := LineStyle.Foreground(lineColor).
 		Render(strings.Repeat("─", model.iaViewport.Width()-lipgloss.Width(title)))
@@ -51,7 +55,7 @@ func (model *Model) iaHeaderView(state string) string {
 }
 
 func (model *Model) userInputHeaderView(state string) string {
-	textColor, lineColor := setColorVariables(state)
+	textColor, lineColor := model.setColorVariables(state)
 
 	title := HeaderStyle.Foreground(textColor).
 		Render("Enter the text with your summary of the changes")
@@ -61,7 +65,7 @@ func (model *Model) userInputHeaderView(state string) string {
 }
 
 func (model *Model) userInputFooterView(state string) string {
-	textColor, lineColor := setColorVariables(state)
+	textColor, lineColor := model.setColorVariables(state)
 	info := FooterStyle.Foreground(textColor).Render(
 		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value())),
 	)
@@ -71,7 +75,7 @@ func (model *Model) userInputFooterView(state string) string {
 }
 
 func (model *Model) iaFooterView(state string) string {
-	textColor, lineColor := setColorVariables(state)
+	textColor, lineColor := model.setColorVariables(state)
 	info := FooterStyle.Foreground(textColor).
 		Render(fmt.Sprintf("%3.f%%", model.iaViewport.ScrollPercent()*100))
 	line := LineStyle.Foreground(lineColor).
@@ -79,16 +83,99 @@ func (model *Model) iaFooterView(state string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
-// View renders the UI based on the current state of the model.
-func (model *Model) View() string {
+func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	var (
-		mainContent                string
 		glamourContent             string
 		iaViewHeaderContent        string
 		userInputViewHeaderContent string
 		iaViewFooterContent        string
 		userInputiewFooterContent  string
 	)
+
+	const glamourGutter = 3
+	statusBarContent := model.WritingStatusBar.Render()
+	currentIaViewportStyle := model.iaViewport.Style
+	currentMsgInputPromptSyle := lipgloss.NewStyle()
+	switch model.focusedElement {
+	case focusMsgInput:
+		currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(model.Theme.BorderFocus)
+		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.Blur)
+		iaViewHeaderContent = model.iaHeaderView("blur")
+		iaViewFooterContent = model.iaFooterView("blur")
+		userInputViewHeaderContent = model.userInputHeaderView("focus")
+		userInputiewFooterContent = model.userInputFooterView("focus")
+	case focusAIResponse:
+		iaViewHeaderContent = model.iaHeaderView("focus")
+		iaViewFooterContent = model.iaFooterView("focus")
+		userInputViewHeaderContent = model.userInputHeaderView("blur")
+		userInputiewFooterContent = model.userInputFooterView("blur")
+		currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(model.Theme.Blur)
+		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
+	}
+
+	statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
+	verticalSpaceHeight := lipgloss.Height(VerticalSpace)
+	helpViewHeight := lipgloss.Height(model.help.View(model.keys))
+	iaHeaderH := lipgloss.Height(iaViewHeaderContent)
+	iaFooterH := lipgloss.Height(iaViewFooterContent)
+	userInputViewHeaderH := lipgloss.Height(userInputViewHeaderContent)
+	userInputViewFooterH := lipgloss.Height(userInputiewFooterContent)
+	iaVerticalMarginHeight := iaHeaderH + iaFooterH
+	userInputViewVerticalMarginHeight := userInputViewHeaderH + userInputViewFooterH
+	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - 2
+
+	iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
+	userInputVContenHeight := totalAvailableContentHeight - userInputViewVerticalMarginHeight
+	model.iaViewport.SetHeight(iaViewportContentHeight)
+	model.msgInput.SetHeight(userInputVContenHeight - 2)
+
+	model.iaViewport.Style = currentIaViewportStyle
+	model.msgInput.Prompt = currentMsgInputPromptSyle.Render("┃ ")
+	userInputView := lipgloss.JoinVertical(lipgloss.Left,
+		model.msgInput.View(),
+	)
+	glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
+	glamourStyle := styles.DarkStyleConfig
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithStyles(glamourStyle),
+		glamour.WithWordWrap(glamourRenderWidth),
+	)
+	if model.commitTranslate == "" {
+		glamourContent = defaultTranslatedContentPrompt
+	} else {
+		glamourContent = model.commitTranslate
+	}
+
+	glamourContentStr, _ := renderer.Render(glamourContent)
+	translatedView := glamourContentStr
+	model.iaViewport.SetContent(translatedView)
+	leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
+		userInputViewHeaderContent,
+		VerticalSpace,
+		userInputView,
+		VerticalSpace,
+		userInputiewFooterContent,
+	)
+	rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
+		iaViewHeaderContent,
+		model.iaViewport.View(),
+		iaViewFooterContent,
+	)
+	uiElements := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftTranslatedContent,
+		rightTranslatedContent,
+	)
+	return lipgloss.JoinVertical(lipgloss.Left,
+		statusBarContent,
+		VerticalSpace,
+		uiElements,
+	)
+}
+
+// View renders the UI based on the current state of the model.
+func (model *Model) View() string {
+	var mainContent string
 
 	appStyle := lipgloss.NewStyle().
 		Padding(1, 2).
@@ -112,86 +199,7 @@ func (model *Model) View() string {
 	case stateChoosingScope:
 		mainContent = model.fileList.View()
 	case stateWritingMessage:
-		const glamourGutter = 3
-		statusBarContent := model.WritingStatusBar.Render()
-		currentIaViewportStyle := model.iaViewport.Style
-		currentMsgInputPromptSyle := lipgloss.NewStyle()
-		switch model.focusedElement {
-		case focusMsgInput:
-			currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(lipgloss.BrightGreen)
-			currentIaViewportStyle = currentIaViewportStyle.BorderForeground(lipgloss.BrightWhite)
-			iaViewHeaderContent = model.iaHeaderView("blur")
-			iaViewFooterContent = model.iaFooterView("blur")
-			userInputViewHeaderContent = model.userInputHeaderView("focus")
-			userInputiewFooterContent = model.userInputFooterView("focus")
-		case focusAIResponse:
-			iaViewHeaderContent = model.iaHeaderView("focus")
-			iaViewFooterContent = model.iaFooterView("focus")
-			userInputViewHeaderContent = model.userInputHeaderView("blur")
-			userInputiewFooterContent = model.userInputFooterView("blur")
-			currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(lipgloss.BrightWhite)
-			currentIaViewportStyle = currentIaViewportStyle.BorderForeground(lipgloss.BrightGreen)
-		}
-
-		statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
-		verticalSpaceHeight := lipgloss.Height(VerticalSpace)
-		helpViewHeight := lipgloss.Height(model.help.View(model.keys))
-		iaHeaderH := lipgloss.Height(iaViewHeaderContent)
-		iaFooterH := lipgloss.Height(iaViewFooterContent)
-		userInputViewHeaderH := lipgloss.Height(userInputViewHeaderContent)
-		userInputViewFooterH := lipgloss.Height(userInputiewFooterContent)
-		iaVerticalMarginHeight := iaHeaderH + iaFooterH
-		userInputViewVerticalMarginHeight := userInputViewHeaderH + userInputViewFooterH
-		totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - 2
-
-		iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
-		userInputVContenHeight := totalAvailableContentHeight - userInputViewVerticalMarginHeight
-		model.iaViewport.SetHeight(iaViewportContentHeight)
-		model.msgInput.SetHeight(userInputVContenHeight - 2)
-
-		model.iaViewport.Style = currentIaViewportStyle
-		model.msgInput.Prompt = currentMsgInputPromptSyle.Render("┃ ")
-		userInputView := lipgloss.JoinVertical(lipgloss.Left,
-			model.msgInput.View(),
-		)
-		glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
-		glamourStyle := styles.DarkStyleConfig
-		renderer, _ := glamour.NewTermRenderer(
-			glamour.WithStyles(glamourStyle),
-			glamour.WithWordWrap(glamourRenderWidth),
-		)
-		if model.commitTranslate == "" {
-			glamourContent = defaultTranslatedContentPrompt
-		} else {
-			glamourContent = model.commitTranslate
-		}
-
-		glamourContentStr, _ := renderer.Render(glamourContent)
-		translatedView := glamourContentStr
-		model.iaViewport.SetContent(translatedView)
-		leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
-			userInputViewHeaderContent,
-			VerticalSpace,
-			userInputView,
-			VerticalSpace,
-			userInputiewFooterContent,
-		)
-		rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
-			iaViewHeaderContent,
-			model.iaViewport.View(),
-			iaViewFooterContent,
-		)
-		uiElements := lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			leftTranslatedContent,
-			rightTranslatedContent,
-		)
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			uiElements,
-		)
-
+		mainContent = model.buildWritingMessageView(appStyle)
 	case stateConfirming:
 		mainContent = "Confirm (WIP)"
 	case stateDone:
