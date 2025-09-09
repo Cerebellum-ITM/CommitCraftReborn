@@ -89,8 +89,10 @@ func (sb StatusBar) Render() string {
 	case LevelInfo:
 		prefixText = prefixStyle.Background(sb.theme.Info).SetString("  INFO  ").String()
 	case LevelWarning:
-		prefixText = "[WARN]: "
-		prefixStyle = prefixStyle.Foreground(lipgloss.Color("220"))
+		prefixText = prefixStyle.Background(sb.theme.Warning).
+			Foreground(sb.theme.BgOverlay).
+			SetString("  Warning  ").
+			String()
 	case LevelError:
 		prefixText = "[ERROR]: "
 		prefixStyle = prefixStyle.Foreground(lipgloss.Color("9"))
@@ -101,8 +103,8 @@ func (sb StatusBar) Render() string {
 		return contentStyle.Render(sb.Content)
 	}
 
-	renderedContent := contentStyle.Render(" " + sb.Content + "  ")
-	finalContent := prefixText + messageSeparator + renderedContent + spinnerView
+	renderedContent := contentStyle.Render(" " + sb.Content + "  " + spinnerView)
+	finalContent := prefixText + messageSeparator + renderedContent
 	remainingSpace := sb.AppWith - lipgloss.Width(logo.String()) - lipgloss.Width(finalContent) - 10
 	leftDashes := fillContent.SetString(strings.Repeat("─", remainingSpace/2)).String()
 	rightDashes := fillContent.SetString(strings.Repeat("─", remainingSpace-remainingSpace/2)).

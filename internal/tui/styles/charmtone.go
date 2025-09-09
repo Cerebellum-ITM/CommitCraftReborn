@@ -14,6 +14,8 @@ func NewCharmtoneTheme() *Theme {
 		FgBase:      charmtone.Ash,
 		BorderFocus: charmtone.Damson,
 
+		BgOverlay: charmtone.Iron,
+
 		Primary:   charmtone.Sapphire,
 		Secondary: charmtone.Dolly,
 		Tertiary:  charmtone.Damson,

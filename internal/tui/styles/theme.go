@@ -14,6 +14,8 @@ type Theme struct {
 	FgBase      color.Color
 	BorderFocus color.Color
 
+	BgOverlay color.Color
+
 	Primary   color.Color
 	Secondary color.Color
 	Tertiary  color.Color
