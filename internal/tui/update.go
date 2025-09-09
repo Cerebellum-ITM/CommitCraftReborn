@@ -142,6 +142,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.commitScope = ""
 		model.keys = mainListKeys()
 	case stateChoosingType:
+		statusBarMessage = "Select a prefix for the commit"
 		model.commitType = ""
 		model.commitScope = ""
 		model.keys = listKeys()
@@ -476,6 +477,8 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, model.keys.Quit):
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.AddCommit):
+				statusBarMessage := "Select a prefix for the commit"
+				model.WritingStatusBar.Content = statusBarMessage
 				model.state = stateChoosingType
 				model.keys = listKeys()
 				ResetAndActiveFilterOnList(&model.commitTypeList)

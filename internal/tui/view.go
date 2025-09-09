@@ -201,7 +201,14 @@ func (model *Model) View() string {
 			uiElements,
 		)
 	case stateChoosingType:
-		mainContent = model.commitTypeList.View()
+		statusBarContent := model.WritingStatusBar.Render()
+		uiElements := model.commitTypeList.View()
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			statusBarContent,
+			VerticalSpace,
+			uiElements,
+		)
+
 	case stateChoosingScope:
 		mainContent = model.fileList.View()
 	case stateWritingMessage:
