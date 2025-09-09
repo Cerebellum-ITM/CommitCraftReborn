@@ -7,6 +7,7 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/components/statusbar"
 	"commit_craft_reborn/internal/tui/styles"
+	"fmt"
 
 	"github.com/charmbracelet/bubbles/v2/help"
 	"github.com/charmbracelet/bubbles/v2/key"
@@ -144,10 +145,14 @@ func NewModel(
 		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
+	statusBarInitialMessage := fmt.Sprintf(
+		"choose, create, or edit a commit ::: %s",
+		theme.AppStyles().Base.Foreground(theme.Tertiary).SetString(workspaceCommitsList.Title),
+	)
 	WritingStatusBar := statusbar.New(
-		"write your summary of the changes",
+		statusBarInitialMessage,
 		statusbar.LevelInfo,
-		10,
+		50,
 		theme,
 	)
 	spinner := spinner.New()

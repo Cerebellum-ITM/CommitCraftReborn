@@ -18,7 +18,7 @@ func NewCharmtoneTheme() *Theme {
 
 		Primary:   charmtone.Sapphire,
 		Secondary: charmtone.Dolly,
-		Tertiary:  charmtone.Damson,
+		Tertiary:  charmtone.Zest,
 		Accent:    charmtone.Plum,
 		Blur:      charmtone.Pepper,
 

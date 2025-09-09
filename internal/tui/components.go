@@ -237,7 +237,9 @@ func NewHistoryCommitList(
 	}
 
 	historyList := list.New(items, NewHistoryCommitDelegate(commitFormat), 0, 0)
-	historyList.Title = fmt.Sprintf("%s - %s", "Commit History", TruncatePath(pwd, 2))
+	historyList.Title = fmt.Sprintf("%s: %s", "Working directory", TruncatePath(pwd, 2))
+	historyList.SetShowTitle(false)
+	historyList.SetShowFilter(false)
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)

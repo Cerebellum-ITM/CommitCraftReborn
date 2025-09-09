@@ -193,7 +193,13 @@ func (model *Model) View() string {
 			model.apiKeyInput.View(),
 		)
 	case stateChoosingCommit:
-		mainContent = model.mainList.View()
+		statusBarContent := model.WritingStatusBar.Render()
+		uiElements := model.mainList.View()
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			statusBarContent,
+			VerticalSpace,
+			uiElements,
+		)
 	case stateChoosingType:
 		mainContent = model.commitTypeList.View()
 	case stateChoosingScope:
