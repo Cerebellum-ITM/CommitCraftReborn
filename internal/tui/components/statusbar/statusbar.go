@@ -76,7 +76,11 @@ func (sb StatusBar) Render() string {
 	)
 
 	if sb.showSpinner {
-		spinnerView = sb.spinner.View() + " "
+		spinnerView = sb.theme.AppStyles().
+			Base.Foreground(sb.theme.Error).
+			Background(sb.theme.FgBase).
+			SetString("  " + sb.spinner.View() + "  ").
+			String()
 	}
 
 	logo := sb.theme.AppStyles().Base.
@@ -112,8 +116,10 @@ func (sb StatusBar) Render() string {
 		return contentStyle.Render(sb.Content)
 	}
 
-	renderedContent := contentStyle.Render(" " + sb.Content + "  " + spinnerView)
-	finalContent := prefixText + contentStyle.SetString("  »").String() + renderedContent
+	renderedContent := contentStyle.Render(" " + sb.Content + " ")
+	finalContent := prefixText + contentStyle.SetString("  »").
+		String() +
+		renderedContent + spinnerView
 	statusBarSpace := lipgloss.Width(
 		logo.String(),
 	) + lipgloss.Width(
