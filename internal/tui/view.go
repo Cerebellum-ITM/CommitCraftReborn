@@ -187,12 +187,54 @@ func (model *Model) View() string {
 	}
 
 	statusBarContent := model.WritingStatusBar.Render()
+	helpView := fmt.Sprintf("  %s", model.help.View(model.keys))
+	contentHeight := model.height - lipgloss.Height(helpView) - appStyle.GetVerticalPadding() - 2
+	availableWidthForMainContent := max(0, model.width-appStyle.GetHorizontalFrameSize()-appStyle.
+		GetHorizontalPadding())
 
 	switch model.state {
 	case stateSettingAPIKey:
-		mainContent = fmt.Sprintf(
-			"  Enter your Groq API Key:\n\n  %s\n\n  (Press Enter to save)",
+		boxStyle := model.Theme.AppStyles().Base.
+			Border(lipgloss.RoundedBorder(), true).
+			BorderForeground(model.Theme.BorderFocus).
+			Padding(1, 2).
+			Width(80).
+			Height(model.height / 2).
+			Align(lipgloss.Center)
+
+		titleStyle := model.Theme.AppStyles().Base.Foreground(model.Theme.Secondary).Bold(true)
+
+		mainInstructionStyle := model.Theme.AppStyles().Base.Foreground(model.Theme.White)
+		secondaryInstructionStyle := model.Theme.AppStyles().Base.Foreground(model.Theme.Accent)
+		contentLines := []string{
+			titleStyle.Render("Groq API Key Configuration"),
+			"",
+			mainInstructionStyle.Render("Enter your Groq API Key:"),
+			"",
 			model.apiKeyInput.View(),
+			"",
+			secondaryInstructionStyle.Render(
+				"(Press Enter to save, Esc to cancel)",
+			),
+		}
+		boxContent := lipgloss.JoinVertical(lipgloss.Center, contentLines...)
+		renderedBox := boxStyle.Render(boxContent)
+		actualContentHeightForCenteringBox := max(
+			0,
+			contentHeight-lipgloss.Height(statusBarContent)-lipgloss.
+				Height(VerticalSpace),
+		)
+		centeredBox := lipgloss.Place(
+			availableWidthForMainContent,
+			actualContentHeightForCenteringBox,
+			lipgloss.Center,
+			lipgloss.Center,
+			renderedBox,
+		)
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			statusBarContent,
+			VerticalSpace,
+			centeredBox,
 		)
 	case stateChoosingCommit:
 		uiElements := model.mainList.View()
@@ -225,13 +267,10 @@ func (model *Model) View() string {
 		mainContent = "Done! (WIP)"
 	}
 
-	helpView := fmt.Sprintf("  %s", model.help.View(model.keys))
-	contentHeight := model.height - lipgloss.Height(helpView) - appStyle.GetVerticalPadding() - 2
 	mainContent = lipgloss.NewStyle().
 		Height(contentHeight).
 		MaxHeight(contentHeight).
 		Render(mainContent)
-
 	mainView := lipgloss.JoinVertical(lipgloss.Left,
 		mainContent,
 		VerticalSpace,

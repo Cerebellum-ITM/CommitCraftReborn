@@ -27,9 +27,12 @@ func NewCharmtoneTheme() *Theme {
 		Error:   charmtone.Sriracha,
 		Warning: charmtone.Zest,
 		Info:    charmtone.Ox,
+		Fatal:   charmtone.Orchid,
 
-        // Colors
-        Yellow: charmtone.Mustard,
+		// Colors
+		Yellow: charmtone.Mustard,
+		Purple: charmtone.Grape,
+		White:  charmtone.Butter,
 	}
 
 	return t

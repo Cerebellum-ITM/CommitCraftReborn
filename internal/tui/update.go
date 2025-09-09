@@ -31,6 +31,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.width = msg.Width
 		model.height = msg.Height
 		listHeight := model.height - 4
+		model.apiKeyInput.SetWidth(model.width)
 		model.mainList.SetSize(model.width, listHeight)
 		model.commitTypeList.SetSize(model.width, listHeight)
 		model.fileList.SetSize(model.width, listHeight)
@@ -128,6 +129,8 @@ func saveAPIKeyToEnv(key string) error {
 
 func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 	var statusBarMessage string
+	statusBarLevel := statusbar.LevelInfo
+
 	switch state {
 	case stateChoosingCommit:
 		statusBarMessage = fmt.Sprintf(
@@ -154,6 +157,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 	}
 	model.state = state
 	model.WritingStatusBar.Content = statusBarMessage
+	model.WritingStatusBar.Level = statusBarLevel
 	return model, nil
 }
 
@@ -359,8 +363,7 @@ func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.globalConfig.TUI.GroqAPIKey = apiKey
 				model.globalConfig.TUI.IsAPIKeySet = true
 
-				model.state = stateChoosingCommit
-				return model, nil
+				return model.cancelProcess(stateChoosingCommit)
 			}
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit

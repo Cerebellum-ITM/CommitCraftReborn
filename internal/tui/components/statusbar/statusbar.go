@@ -111,8 +111,14 @@ func (sb StatusBar) Render() string {
 		prefixText = "[ERROR]: "
 		prefixStyle = prefixStyle.Foreground(lipgloss.Color("9"))
 	case LevelFatal:
-		prefixText = "[FATAL]: "
-		prefixStyle = prefixStyle.Foreground(lipgloss.Color("196"))
+		contentStyle = prefixStyle.Background(sb.theme.Fatal).
+			Foreground(sb.theme.White)
+
+		prefixText = prefixStyle.Background(sb.theme.Purple).
+			Foreground(sb.theme.White).
+			SetString("  FATAL  ").
+			String()
+
 	default:
 		return contentStyle.Render(sb.Content)
 	}

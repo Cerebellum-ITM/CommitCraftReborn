@@ -26,8 +26,11 @@ type Theme struct {
 	Error   color.Color
 	Warning color.Color
 	Info    color.Color
+	Fatal   color.Color
 
 	Yellow color.Color
+	Purple color.Color
+	White  color.Color
 
 	styles *Styles
 }

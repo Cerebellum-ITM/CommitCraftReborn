@@ -95,18 +95,11 @@ func NewModel(
 ) (*Model, error) {
 	var initalState appState
 	var initialKeys KeyMap
+	var statusBarInitialMessage string
+	var WritingStatusBar statusbar.StatusBar
+	theme := styles.NewCharmtoneTheme()
 
 	apiKeyInput := textinput.New()
-	if config.TUI.IsAPIKeySet {
-		initalState = stateChoosingCommit
-		initialKeys = mainListKeys()
-	} else {
-		initalState = stateSettingAPIKey
-		apiKeyInput.Placeholder = "gsk_..."
-		apiKeyInput.EchoMode = textinput.EchoPassword
-		apiKeyInput.Focus()
-		initialKeys = textInputKeys()
-	}
 
 	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
 	workspaceCommits, err := database.GetCommits(pwd)
@@ -127,7 +120,6 @@ func NewModel(
 		return nil, err
 	}
 
-	theme := styles.NewCharmtoneTheme()
 	// --- Component Initializations ---
 	scopeInput := textinput.New()
 	scopeInput.Placeholder = "module, file, etc..."
@@ -145,18 +137,37 @@ func NewModel(
 		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
-	statusBarInitialMessage := fmt.Sprintf(
-		"choose, create, or edit a commit ::: %s",
-		theme.AppStyles().Base.Foreground(theme.Tertiary).SetString(workspaceCommitsList.Title),
-	)
-	WritingStatusBar := statusbar.New(
-		statusBarInitialMessage,
-		statusbar.LevelInfo,
-		50,
-		theme,
-	)
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
+	if config.TUI.IsAPIKeySet {
+		initalState = stateChoosingCommit
+		initialKeys = mainListKeys()
+		statusBarInitialMessage = fmt.Sprintf(
+			"choose, create, or edit a commit ::: %s",
+			theme.AppStyles().Base.Foreground(theme.Tertiary).SetString(workspaceCommitsList.Title),
+		)
+
+		WritingStatusBar = statusbar.New(
+			statusBarInitialMessage,
+			statusbar.LevelInfo,
+			50,
+			theme,
+		)
+	} else {
+		initalState = stateSettingAPIKey
+		apiKeyInput.Placeholder = "gsk_..."
+		apiKeyInput.EchoMode = textinput.EchoPassword
+		apiKeyInput.Focus()
+		initialKeys = textInputKeys()
+		statusBarInitialMessage = "It is necessary to add a Groq API key"
+		WritingStatusBar = statusbar.New(
+			statusBarInitialMessage,
+			statusbar.LevelFatal,
+			50,
+			theme,
+		)
+	}
 	// --- End of Initializations ---
 
 	m := &Model{
