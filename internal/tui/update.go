@@ -147,6 +147,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.commitScope = ""
 		model.keys = listKeys()
 	case stateChoosingScope:
+		statusBarMessage = "choose a file or folder for your commit"
 		model.commitScope = ""
 		model.keys = fileListKeys()
 		model.msgInput.Blur()
@@ -411,8 +412,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
-				statusBarMessage := "craft your commit"
-				model.WritingStatusBar.Content = statusBarMessage
+				model.WritingStatusBar.Content = "craft your commit"
 				model.commitScope = item.Title()
 				model.state = stateWritingMessage
 				model.keys = writingMessageKeys()
@@ -450,6 +450,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
+				model.WritingStatusBar.Content = "choose a file or folder for your commit"
 				model.commitType = item.Tag
 				model.commitTypeColor = item.Color()
 				scopeFilePickerPwd = model.pwd

@@ -186,6 +186,8 @@ func (model *Model) View() string {
 		return "Error: " + model.err.Error()
 	}
 
+	statusBarContent := model.WritingStatusBar.Render()
+
 	switch model.state {
 	case stateSettingAPIKey:
 		mainContent = fmt.Sprintf(
@@ -193,7 +195,6 @@ func (model *Model) View() string {
 			model.apiKeyInput.View(),
 		)
 	case stateChoosingCommit:
-		statusBarContent := model.WritingStatusBar.Render()
 		uiElements := model.mainList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
@@ -201,7 +202,6 @@ func (model *Model) View() string {
 			uiElements,
 		)
 	case stateChoosingType:
-		statusBarContent := model.WritingStatusBar.Render()
 		uiElements := model.commitTypeList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
@@ -210,7 +210,13 @@ func (model *Model) View() string {
 		)
 
 	case stateChoosingScope:
-		mainContent = model.fileList.View()
+		uiElements := model.fileList.View()
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			statusBarContent,
+			VerticalSpace,
+			uiElements,
+		)
+
 	case stateWritingMessage:
 		mainContent = model.buildWritingMessageView(appStyle)
 	case stateConfirming:
