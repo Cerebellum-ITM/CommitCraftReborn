@@ -23,7 +23,7 @@ type StatusBar struct {
 func New(content string, level LogLevel, with int, theme *styles.Theme) StatusBar {
 	defaultStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
 	s := spinner.New()
-	s.Spinner = spinner.Line
+	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.BrightMagenta)
 	return StatusBar{
 		Content:             content,
@@ -76,10 +76,11 @@ func (sb StatusBar) Render() string {
 	)
 
 	if sb.showSpinner {
+		sb.spinner.Style = sb.spinner.Style.Foreground(sb.theme.Blur)
 		spinnerView = sb.theme.AppStyles().
-			Base.Foreground(sb.theme.Error).
-			Background(sb.theme.FgBase).
-			SetString("  " + sb.spinner.View() + "  ").
+			Base.Background(sb.theme.FgBase).
+			Padding(0, 2).
+			SetString(sb.spinner.View()).
 			String()
 	}
 
