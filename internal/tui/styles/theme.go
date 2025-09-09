@@ -27,6 +27,8 @@ type Theme struct {
 	Warning color.Color
 	Info    color.Color
 
+	Yellow color.Color
+
 	styles *Styles
 }
 

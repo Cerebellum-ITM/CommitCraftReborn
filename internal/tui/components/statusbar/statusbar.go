@@ -76,11 +76,6 @@ func (sb StatusBar) Render() string {
 		Background(sb.theme.Logo).
 		Padding(0, 1).SetString("CommitCraft")
 
-	messageSeparator := sb.theme.AppStyles().
-		Base.Background(sb.theme.Blur).
-		SetString("  »").
-		String()
-
 	prefixStyle := sb.theme.AppStyles().Base
 	fillContent := sb.theme.AppStyles().Base.Background(lipgloss.Black)
 	contentStyle := sb.theme.AppStyles().Base.Background(sb.theme.Blur)
@@ -89,7 +84,10 @@ func (sb StatusBar) Render() string {
 	case LevelInfo:
 		prefixText = prefixStyle.Background(sb.theme.Info).SetString("  INFO  ").String()
 	case LevelWarning:
-		prefixText = prefixStyle.Background(sb.theme.Warning).
+		contentStyle = prefixStyle.Background(sb.theme.Warning).
+			Foreground(sb.theme.BgOverlay)
+
+		prefixText = prefixStyle.Background(sb.theme.Yellow).
 			Foreground(sb.theme.BgOverlay).
 			SetString("  Warning  ").
 			String()
@@ -104,7 +102,7 @@ func (sb StatusBar) Render() string {
 	}
 
 	renderedContent := contentStyle.Render(" " + sb.Content + "  " + spinnerView)
-	finalContent := prefixText + messageSeparator + renderedContent
+	finalContent := prefixText + contentStyle.SetString("  »").String() + renderedContent
 	remainingSpace := sb.AppWith - lipgloss.Width(logo.String()) - lipgloss.Width(finalContent) - 10
 	leftDashes := fillContent.SetString(strings.Repeat("─", remainingSpace/2)).String()
 	rightDashes := fillContent.SetString(strings.Repeat("─", remainingSpace-remainingSpace/2)).
