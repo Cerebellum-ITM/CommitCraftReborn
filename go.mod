@@ -10,9 +10,11 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta.3
 	github.com/charmbracelet/log v0.4.2
+	github.com/charmbracelet/x/ansi v0.10.1
+	github.com/charmbracelet/x/exp/charmtone v0.0.0-20250908230358-4a9fe61cc9a4
 	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-sqlite3 v1.14.30
 	github.com/pkg/errors v0.9.1
+	modernc.org/sqlite v1.38.2
 )
 
 require (
@@ -21,8 +23,8 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/charmbracelet/colorprofile v0.3.1 // indirect
-	github.com/charmbracelet/x/ansi v0.10.1 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.14-0.20250505150409-97991a1f17d1 // indirect
+	github.com/charmbracelet/x/exp/color v0.0.0-20250908230358-4a9fe61cc9a4 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect
 	github.com/charmbracelet/x/input v0.3.7 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
@@ -55,5 +57,4 @@ require (
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.38.2 // indirect
 )

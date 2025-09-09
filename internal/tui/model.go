@@ -6,6 +6,7 @@ import (
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/components/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 
 	"github.com/charmbracelet/bubbles/v2/help"
 	"github.com/charmbracelet/bubbles/v2/key"
@@ -51,6 +52,7 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
+	Theme            *styles.Theme
 	pwd              string
 	log              *logger.Logger
 	db               *storage.DB
@@ -124,6 +126,7 @@ func NewModel(
 		return nil, err
 	}
 
+	theme := styles.NewCharmtoneTheme()
 	// --- Component Initializations ---
 	scopeInput := textinput.New()
 	scopeInput.Placeholder = "module, file, etc..."
@@ -141,7 +144,12 @@ func NewModel(
 		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
-	WritingStatusBar := statusbar.New("write your summary of the changes", statusbar.LevelInfo)
+	WritingStatusBar := statusbar.New(
+		"write your summary of the changes",
+		statusbar.LevelInfo,
+		10,
+		theme,
+	)
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	// --- End of Initializations ---
@@ -166,6 +174,7 @@ func NewModel(
 		logViewVisible:   false,
 		logViewport:      viewport.New(),
 		globalConfig:     config,
+		Theme:            theme,
 	}
 	return m, nil
 }

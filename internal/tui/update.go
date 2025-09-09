@@ -38,6 +38,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.msgInput.SetWidth(model.width / 2)
 		model.iaViewport.SetHeight(listHeight)
 		model.iaViewport.SetWidth(model.width / 2)
+		model.WritingStatusBar.AppWith = model.width
 
 	case openPopupMsg:
 		selectedItem := model.mainList.SelectedItem()
