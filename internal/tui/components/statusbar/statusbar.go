@@ -66,8 +66,15 @@ func (sb *StatusBar) Update(msg tea.Msg) (StatusBar, tea.Cmd) {
 }
 
 func (sb StatusBar) Render() string {
-	var prefixText string
-	var spinnerView string
+	var (
+		prefixText       string
+		spinnerView      string
+		leftDashes       string
+		rightDashes      string
+		leftDashesCount  int
+		rightDashesCount int
+	)
+
 	if sb.showSpinner {
 		spinnerView = sb.spinner.View() + " "
 	}
@@ -79,6 +86,10 @@ func (sb StatusBar) Render() string {
 	prefixStyle := sb.theme.AppStyles().Base
 	fillContent := sb.theme.AppStyles().Base.Background(lipgloss.Black)
 	contentStyle := sb.theme.AppStyles().Base.Background(sb.theme.Blur)
+	horizontalSpace := sb.theme.AppStyles().
+		Base.Background(lipgloss.Black).
+		SetString("     ").
+		String()
 
 	switch sb.Level {
 	case LevelInfo:
@@ -103,18 +114,43 @@ func (sb StatusBar) Render() string {
 
 	renderedContent := contentStyle.Render(" " + sb.Content + "  " + spinnerView)
 	finalContent := prefixText + contentStyle.SetString("  »").String() + renderedContent
-	remainingSpace := sb.AppWith - lipgloss.Width(logo.String()) - lipgloss.Width(finalContent) - 10
-	leftDashes := fillContent.SetString(strings.Repeat("─", remainingSpace/2)).String()
-	rightDashes := fillContent.SetString(strings.Repeat("─", remainingSpace-remainingSpace/2)).
-		String()
+	statusBarSpace := lipgloss.Width(
+		logo.String(),
+	) + lipgloss.Width(
+		finalContent,
+	) + 2*lipgloss.Width(
+		horizontalSpace,
+	)
+
+	effectiveWidth := max(0, sb.AppWith)
+	if statusBarSpace >= effectiveWidth {
+		leftDashes = ""
+		rightDashes = ""
+		leftDashesCount = 0
+		rightDashesCount = 0
+	} else {
+		remainingSpaceForDashes := effectiveWidth - statusBarSpace
+		remainingSpaceForDashes = max(0, remainingSpaceForDashes)
+
+		leftDashesCount = max(0, remainingSpaceForDashes)
+		rightDashesCount = max(0, remainingSpaceForDashes-leftDashesCount)
+
+		leftDashes = fillContent.SetString(strings.Repeat("─", leftDashesCount)).String()
+		rightDashes = fillContent.SetString(strings.Repeat("─", rightDashesCount)).String()
+	}
+	_ = rightDashes
+
+	centralBlock := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		finalContent,
+		horizontalSpace,
+		leftDashes,
+	)
 
 	return lipgloss.JoinHorizontal(
 		lipgloss.Center,
+		centralBlock,
+		horizontalSpace,
 		logo.String(),
-		"     ",
-		leftDashes,
-		finalContent,
-		rightDashes,
-		"      ",
 	)
 }
