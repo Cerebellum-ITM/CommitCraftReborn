@@ -46,7 +46,7 @@ const (
 	stateShowLogs
 	stateChoosingScope
 	stateWritingMessage
-	stateTranslating
+	stateEditMessage
 	stateConfirming
 	stateDone
 )
@@ -64,8 +64,8 @@ type Model struct {
 	mainList         list.Model
 	commitTypeList   list.Model
 	fileList         list.Model
-	scopeInput       textinput.Model
-	msgInput         textarea.Model
+	msgInput         *textarea.Model
+	msgEdit          *textarea.Model
 	spinner          spinner.Model
 	iaViewport       viewport.Model
 	focusedElement   focusableElement
@@ -121,15 +121,17 @@ func NewModel(
 	}
 
 	// --- Component Initializations ---
-	scopeInput := textinput.New()
-	scopeInput.Placeholder = "module, file, etc..."
-
 	msgInput := textarea.New()
-	msgInput.Prompt = lipgloss.NewStyle().Foreground(lipgloss.BrightGreen).Render("┃ ")
+	msgInput.SetStyles(theme.AppStyles().TextArea)
+	msgInput.Prompt = theme.AppStyles().Base.Foreground(theme.BorderFocus).Render("┃ ")
 	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgInput.Placeholder = "A short description of the changes..."
-	msgInput.Styles.Focused.Base.BorderForeground(lipgloss.Blue)
-	msgInput.Styles.Blurred.Base.BorderForeground(lipgloss.Black)
+	//
+	msgEdit := textarea.New()
+	msgEdit.SetStyles(theme.AppStyles().TextArea)
+	msgEdit.Prompt = theme.AppStyles().Base.Foreground(theme.BorderFocus).Render("┃ ")
+	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
+	msgEdit.Placeholder = "A short description of the changes..."
 
 	vp := viewport.New()
 	vp.Style = lipgloss.NewStyle().
@@ -182,8 +184,8 @@ func NewModel(
 		focusedElement:   focusMsgInput,
 		fileList:         fileList,
 		WritingStatusBar: WritingStatusBar,
-		scopeInput:       scopeInput,
 		msgInput:         msgInput,
+		msgEdit:          msgEdit,
 		spinner:          spinner,
 		keys:             initialKeys,
 		help:             help.New(),

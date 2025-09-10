@@ -74,6 +74,26 @@ func (model *Model) userInputFooterView(state string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
+func (model *Model) msgEditHeaderView(state string) string {
+	textColor, lineColor := model.setColorVariables(state)
+
+	title := HeaderStyle.Foreground(textColor).
+		Render("Write the modifications")
+	line := LineStyle.Foreground(lineColor).
+		Render(strings.Repeat("─", model.msgInput.Width()-lipgloss.Width(title)))
+	return lipgloss.JoinHorizontal(lipgloss.Right, title, line)
+}
+
+func (model *Model) msgEditFooterView(state string) string {
+	textColor, lineColor := model.setColorVariables(state)
+	info := FooterStyle.Foreground(textColor).Render(
+		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value())),
+	)
+	line := LineStyle.Foreground(lineColor).
+		Render(strings.Repeat("─", model.msgInput.Width()-lipgloss.Width(info)))
+	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+}
+
 func (model *Model) iaFooterView(state string) string {
 	textColor, lineColor := model.setColorVariables(state)
 	info := FooterStyle.Foreground(textColor).
@@ -98,17 +118,25 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	currentMsgInputPromptSyle := lipgloss.NewStyle()
 	switch model.focusedElement {
 	case focusMsgInput:
+		model.msgInput.Focus()
+
 		currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(model.Theme.BorderFocus)
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.Blur)
+
 		iaViewHeaderContent = model.iaHeaderView("blur")
 		iaViewFooterContent = model.iaFooterView("blur")
+
 		userInputViewHeaderContent = model.userInputHeaderView("focus")
 		userInputiewFooterContent = model.userInputFooterView("focus")
 	case focusAIResponse:
+		model.msgInput.Blur()
+
 		iaViewHeaderContent = model.iaHeaderView("focus")
 		iaViewFooterContent = model.iaFooterView("focus")
+
 		userInputViewHeaderContent = model.userInputHeaderView("blur")
 		userInputiewFooterContent = model.userInputFooterView("blur")
+
 		currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(model.Theme.Blur)
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
 	}
@@ -155,6 +183,104 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		userInputView,
 		VerticalSpace,
 		userInputiewFooterContent,
+	)
+	rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
+		iaViewHeaderContent,
+		model.iaViewport.View(),
+		iaViewFooterContent,
+	)
+	uiElements := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftTranslatedContent,
+		rightTranslatedContent,
+	)
+	return lipgloss.JoinVertical(lipgloss.Left,
+		statusBarContent,
+		VerticalSpace,
+		uiElements,
+	)
+}
+
+func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
+	var (
+		glamourContent           string
+		iaViewHeaderContent      string
+		msgEditViewHeaderContent string
+		iaViewFooterContent      string
+		msgEditiewFooterContent  string
+	)
+
+	const glamourGutter = 3
+	statusBarContent := model.WritingStatusBar.Render()
+	currentIaViewportStyle := model.iaViewport.Style
+	currentMsgInputPromptSyle := lipgloss.NewStyle()
+	switch model.focusedElement {
+	case focusMsgInput:
+		model.msgEdit.Focus()
+
+		currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(model.Theme.BorderFocus)
+		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.Blur)
+
+		iaViewHeaderContent = model.iaHeaderView("blur")
+		iaViewFooterContent = model.iaFooterView("blur")
+
+		msgEditViewHeaderContent = model.msgEditHeaderView("focus")
+		msgEditiewFooterContent = model.msgEditFooterView("focus")
+	case focusAIResponse:
+		model.msgEdit.Blur()
+
+		iaViewHeaderContent = model.iaHeaderView("focus")
+		iaViewFooterContent = model.iaFooterView("focus")
+
+		msgEditViewHeaderContent = model.msgEditHeaderView("blur")
+		msgEditiewFooterContent = model.msgEditFooterView("blur")
+
+		currentMsgInputPromptSyle = currentMsgInputPromptSyle.Foreground(model.Theme.Blur)
+		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
+	}
+
+	statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
+	verticalSpaceHeight := lipgloss.Height(VerticalSpace)
+	helpViewHeight := lipgloss.Height(model.help.View(model.keys))
+	iaHeaderH := lipgloss.Height(iaViewHeaderContent)
+	iaFooterH := lipgloss.Height(iaViewFooterContent)
+	msgEditViewHeaderH := lipgloss.Height(msgEditViewHeaderContent)
+	msgEditViewFooterH := lipgloss.Height(msgEditiewFooterContent)
+	iaVerticalMarginHeight := iaHeaderH + iaFooterH
+	msgEditViewVerticalMarginHeight := msgEditViewHeaderH + msgEditViewFooterH
+	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - 2
+
+	iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
+	msgEditVContenHeight := totalAvailableContentHeight - msgEditViewVerticalMarginHeight
+	model.iaViewport.SetHeight(iaViewportContentHeight)
+	model.msgEdit.SetHeight(msgEditVContenHeight - 2)
+
+	model.iaViewport.Style = currentIaViewportStyle
+	model.msgEdit.Prompt = currentMsgInputPromptSyle.Render("┃ ")
+	msgEditView := lipgloss.JoinVertical(lipgloss.Left,
+		model.msgEdit.View(),
+	)
+	glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
+	glamourStyle := styles.DarkStyleConfig
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithStyles(glamourStyle),
+		glamour.WithWordWrap(glamourRenderWidth),
+	)
+	if model.commitTranslate == "" {
+		glamourContent = defaultTranslatedContentPrompt
+	} else {
+		glamourContent = model.commitTranslate
+	}
+
+	glamourContentStr, _ := renderer.Render(glamourContent)
+	translatedView := glamourContentStr
+	model.iaViewport.SetContent(translatedView)
+	leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
+		msgEditViewHeaderContent,
+		VerticalSpace,
+		msgEditView,
+		VerticalSpace,
+		msgEditiewFooterContent,
 	)
 	rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
 		iaViewHeaderContent,
@@ -261,10 +387,8 @@ func (model *Model) View() string {
 
 	case stateWritingMessage:
 		mainContent = model.buildWritingMessageView(appStyle)
-	case stateConfirming:
-		mainContent = "Confirm (WIP)"
-	case stateDone:
-		mainContent = "Done! (WIP)"
+	case stateEditMessage:
+		mainContent = model.buildEditingMessageView(appStyle)
 	}
 
 	mainContent = lipgloss.NewStyle().

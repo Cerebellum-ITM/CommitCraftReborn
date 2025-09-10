@@ -21,25 +21,55 @@ type KeyMap struct {
 	NextField      key.Binding
 	PrevField      key.Binding
 	CreateIaCommit key.Binding
+	Edit           key.Binding
 }
 
 func writingMessageKeys() KeyMap {
 	return KeyMap{
 		NextField: key.NewBinding(
 			key.WithKeys("tab"),
-			key.WithHelp("tab", "next field"),
+			key.WithHelp("tab", "Switch Focus →"),
 		),
 		PrevField: key.NewBinding(
 			key.WithKeys("shift+tab"),
-			key.WithHelp("shift+tab", "previous field"),
+			key.WithHelp("shift+tab", "Switch Focus ←"),
 		),
 		CreateIaCommit: key.NewBinding(
 			key.WithKeys("ctrl+w"),
 			key.WithHelp("ctrl+w", "Create the commit using AI"),
 		),
+		Edit: key.NewBinding(
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("ctrl+e", "Edit Ia Respone"),
+		),
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "Accept AI suggestion"),
+		),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
+	}
+}
+
+func editingMessageKeys() KeyMap {
+	return KeyMap{
+		NextField: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "Switch Focus →"),
+		),
+		PrevField: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "Switch Focus ←"),
+		),
+		Edit: key.NewBinding(
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("ctrl+e", "Return to Crafter"),
+		),
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "Apply changes And Return to Crafter"),
 		),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
@@ -121,6 +151,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	if k.CreateIaCommit.Enabled() {
 		b = append(b, k.CreateIaCommit)
 	}
+	if k.Edit.Enabled() {
+		b = append(b, k.Edit)
+	}
 	if k.Enter.Enabled() {
 		b = append(b, k.Enter)
 	}
@@ -153,9 +186,6 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.PrevField.Enabled() {
 		b = append(b, k.PrevField)
-	}
-	if k.CreateIaCommit.Enabled() {
-		b = append(b, k.CreateIaCommit)
 	}
 	if k.Help.Enabled() {
 		b = append(b, k.Help)

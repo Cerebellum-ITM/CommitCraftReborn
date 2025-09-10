@@ -39,6 +39,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.msgInput.SetWidth(model.width / 2)
 		model.iaViewport.SetHeight(listHeight)
 		model.iaViewport.SetWidth(model.width / 2)
+		model.msgEdit.SetHeight(listHeight - 2)
+		model.msgEdit.SetWidth(model.width / 2)
 		model.WritingStatusBar.AppWith = model.width
 
 	case openPopupMsg:
@@ -104,6 +106,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateChoosingScope(msg, model)
 	case stateWritingMessage:
 		subModel, subCmd = updateWritingMessage(msg, model)
+	case stateEditMessage:
+		subModel, subCmd = updateEditingMessage(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)
@@ -111,6 +115,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // HELPERS
+
 func saveAPIKeyToEnv(key string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -184,10 +189,8 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	model.mainList.SetSize(model.width, listHeight)
 	model.state = stateChoosingCommit
 	model.keys = mainListKeys()
-	statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
-	model.mainList.NewStatusMessage(
-		statusMenssageStyle.Render("record created in the db successfully"),
-	)
+	model.WritingStatusBar.Level = statusbar.LevelSuccess
+	model.WritingStatusBar.Content = "Record created in the db successfully"
 	return model, nil
 }
 
@@ -293,15 +296,50 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 func switchFocusElement(model *Model) {
 	switch model.focusedElement {
 	case focusMsgInput:
-		model.msgInput.Blur()
 		model.focusedElement = focusAIResponse
 	case focusAIResponse:
-		model.msgInput.Focus()
 		model.focusedElement = focusMsgInput
 	}
 }
 
 // UPDATE functions
+
+func updateEditingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.NextField):
+			switchFocusElement(model)
+			return model, nil
+		case key.Matches(msg, model.keys.PrevField):
+			switchFocusElement(model)
+			return model, nil
+		case key.Matches(msg, model.keys.Edit):
+			model.state = stateWritingMessage
+			model.keys = writingMessageKeys()
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+			model.WritingStatusBar.Content = "No change was applied"
+
+		case key.Matches(msg, model.keys.Enter):
+			model.commitTranslate = model.msgEdit.Value()
+			model.WritingStatusBar.Level = statusbar.LevelSuccess
+			model.WritingStatusBar.Content = "Changes applied"
+			model.keys = writingMessageKeys()
+			model.state = stateWritingMessage
+			return model, nil
+		}
+	}
+	switch model.focusedElement {
+	case focusMsgInput:
+		model.msgEdit, cmd = model.msgEdit.Update(msg)
+	case focusAIResponse:
+		model.iaViewport, cmd = model.iaViewport.Update(msg)
+	}
+	return model, cmd
+}
+
 func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -316,12 +354,18 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 		case key.Matches(msg, model.keys.Esc):
 			return model.cancelProcess(stateChoosingScope)
+		case key.Matches(msg, model.keys.Edit):
+			model.WritingStatusBar.Content = "You are making modifications to the AI's response"
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+			model.state = stateEditMessage
+			model.keys = editingMessageKeys()
+			model.msgEdit.SetValue(model.commitTranslate)
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			if model.commitTranslate != "" {
 				createCommit(model)
 			} else {
 				model.WritingStatusBar.Content = "You need to first make a request to the AI to continue!!"
-				model.WritingStatusBar.Style = lipgloss.NewStyle().Foreground(lipgloss.BrightRed)
 				model.WritingStatusBar.Level = statusbar.LevelError
 			}
 			return model, nil
@@ -330,7 +374,6 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.ResetContentStyle()
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
-			model.WritingStatusBar.Style = lipgloss.NewStyle().Foreground(lipgloss.Blue)
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
 			userInput := model.msgInput.Value()
 			iaBuilderCmd := callIaCommitBuilderCmd(userInput, model)
@@ -415,7 +458,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
-				model.WritingStatusBar.Content = "craft your commit"
+				model.WritingStatusBar.Content = "Craft your commit"
 				model.commitScope = item.Title()
 				model.state = stateWritingMessage
 				model.keys = writingMessageKeys()
@@ -453,7 +496,7 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
-				model.WritingStatusBar.Content = "choose a file or folder for your commit"
+				model.WritingStatusBar.Content = "Choose a file or folder for your commit"
 				model.commitType = item.Tag
 				model.commitTypeColor = item.Color()
 				scopeFilePickerPwd = model.pwd
@@ -481,8 +524,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, model.keys.Quit):
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.AddCommit):
-				statusBarMessage := "Select a prefix for the commit"
-				model.WritingStatusBar.Content = statusBarMessage
+				model.WritingStatusBar.Content = "Select a prefix for the commit"
 				model.state = stateChoosingType
 				model.keys = listKeys()
 				ResetAndActiveFilterOnList(&model.commitTypeList)
