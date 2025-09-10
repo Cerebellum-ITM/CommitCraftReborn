@@ -88,7 +88,7 @@ func (sb StatusBar) Render() string {
 		Background(sb.theme.Logo).
 		Padding(0, 1).SetString("CommitCraft")
 
-	prefixStyle := sb.theme.AppStyles().Base
+	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
 	fillContent := sb.theme.AppStyles().Base.Background(lipgloss.Black)
 	contentStyle := sb.theme.AppStyles().Base.Background(sb.theme.Blur)
 	horizontalSpace := sb.theme.AppStyles().
@@ -98,25 +98,39 @@ func (sb StatusBar) Render() string {
 
 	switch sb.Level {
 	case LevelInfo:
-		prefixText = prefixStyle.Background(sb.theme.Info).SetString("  INFO  ").String()
+		prefixText = prefixStyle.Background(sb.theme.Info).SetString(sb.Level.String()).String()
+	case LevelSuccess:
+		contentStyle = contentStyle.Background(sb.theme.Success).
+			Foreground(sb.theme.Black)
+
+		prefixText = prefixStyle.Background(sb.theme.Green).
+			Foreground(sb.theme.White).
+			SetString(sb.Level.String()).
+			String()
+
 	case LevelWarning:
-		contentStyle = prefixStyle.Background(sb.theme.Warning).
+		contentStyle = contentStyle.Background(sb.theme.Warning).
 			Foreground(sb.theme.BgOverlay)
 
 		prefixText = prefixStyle.Background(sb.theme.Yellow).
 			Foreground(sb.theme.BgOverlay).
-			SetString("  Warning  ").
+			SetString(sb.Level.String()).
 			String()
 	case LevelError:
-		prefixText = "[ERROR]: "
-		prefixStyle = prefixStyle.Foreground(lipgloss.Color("9"))
+		contentStyle = contentStyle.Background(sb.theme.Red).
+			Foreground(sb.theme.White)
+
+		prefixText = prefixStyle.Background(sb.theme.Error).
+			Foreground(sb.theme.White).
+			SetString(sb.Level.String()).
+			String()
 	case LevelFatal:
-		contentStyle = prefixStyle.Background(sb.theme.Fatal).
+		contentStyle = contentStyle.Background(sb.theme.Fatal).
 			Foreground(sb.theme.White)
 
 		prefixText = prefixStyle.Background(sb.theme.Purple).
 			Foreground(sb.theme.White).
-			SetString("  FATAL  ").
+			SetString(sb.Level.String()).
 			String()
 
 	default:
