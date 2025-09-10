@@ -12,6 +12,9 @@ func NewCharmtoneTheme() *Theme {
 		Logo:   charmtone.Oceania,
 
 		FgBase:      charmtone.Ash,
+		FgMuted:     charmtone.Squid,
+		FgHalfMuted: charmtone.Smoke,
+		FgSubtle:    charmtone.Oyster,
 		BorderFocus: charmtone.Damson,
 
 		BgOverlay: charmtone.Iron,
@@ -23,7 +26,7 @@ func NewCharmtoneTheme() *Theme {
 		Blur:      charmtone.Pepper,
 
 		// Status
-		Success: charmtone.Guac,
+		Success: charmtone.Bok,
 		Error:   charmtone.Sriracha,
 		Warning: charmtone.Zest,
 		Info:    charmtone.Ox,
@@ -33,6 +36,9 @@ func NewCharmtoneTheme() *Theme {
 		Yellow: charmtone.Mustard,
 		Purple: charmtone.Grape,
 		White:  charmtone.Butter,
+		Red:    charmtone.Coral,
+		Green:  charmtone.Guac,
+		Black:  charmtone.Pepper,
 	}
 
 	return t
