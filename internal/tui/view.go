@@ -378,6 +378,10 @@ func (model *Model) View() string {
 		)
 
 	case stateChoosingScope:
+		statusBarH := lipgloss.Height(statusBarContent)
+		VerticalSpaceH := lipgloss.Height(VerticalSpace)
+		availableHeightForFileList := contentHeight - statusBarH - VerticalSpaceH
+		model.fileList.SetSize(model.width, availableHeightForFileList)
 		uiElements := model.fileList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
