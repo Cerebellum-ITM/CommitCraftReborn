@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	// "github.com/charmbracelet/lipgloss/v2"
 )
 
 type IaCommitBuilderResultMsg struct {
@@ -437,6 +437,9 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Left):
 			parentDir := filepath.Dir(scopeFilePickerPwd)
 			scopeFilePickerPwd = parentDir
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+			model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
+
 			UpdateFileList(parentDir, &model.fileList)
 			ResetAndActiveFilterOnList(&model.fileList)
 			return model, nil
@@ -447,10 +450,12 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
 					UpdateFileList(scopeFilePickerPwd, &model.fileList)
 					ResetAndActiveFilterOnList(&model.fileList)
+					model.WritingStatusBar.Level = statusbar.LevelInfo
+					model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
+
 				} else {
-					statusMenssageStyle := lipgloss.NewStyle().Foreground(lipgloss.Red)
-					model.fileList.NewStatusMessage(
-						statusMenssageStyle.Render("The selected item is not a directory"))
+					model.WritingStatusBar.Level = statusbar.LevelError
+					model.WritingStatusBar.Content = "The selected item is not a directory"
 				}
 				return model, nil
 			}
@@ -495,10 +500,10 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
-				model.WritingStatusBar.Content = "Choose a file or folder for your commit"
 				model.commitType = item.Tag
 				model.commitTypeColor = item.Color()
 				scopeFilePickerPwd = model.pwd
+				model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
 				model.state = stateChoosingScope
 				model.keys = fileListKeys()
 				ResetAndActiveFilterOnList(&model.fileList)
