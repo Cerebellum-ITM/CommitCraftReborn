@@ -89,10 +89,10 @@ func (sb StatusBar) Render() string {
 		Padding(0, 1).SetString("CommitCraft")
 
 	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
-	fillContent := sb.theme.AppStyles().Base.Background(lipgloss.Black)
+	fillContent := sb.theme.AppStyles().Base
 	contentStyle := sb.theme.AppStyles().Base.Background(sb.theme.Blur)
 	horizontalSpace := sb.theme.AppStyles().
-		Base.Background(lipgloss.Black).
+		Base.
 		SetString("     ").
 		String()
 
