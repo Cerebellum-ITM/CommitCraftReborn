@@ -64,6 +64,7 @@ type Model struct {
 	mainList         list.Model
 	commitTypeList   list.Model
 	fileList         list.Model
+	gitStatusData    GitStatusData
 	msgInput         *textarea.Model
 	msgEdit          *textarea.Model
 	spinner          spinner.Model
@@ -100,6 +101,11 @@ func NewModel(
 	theme := styles.NewCharmtoneTheme()
 
 	apiKeyInput := textinput.New()
+	gitStatusData, err := GetAllGitStatusData()
+	if err != nil {
+		log.Error("Failed to initialize git Status Data", "error", err)
+		return nil, err
+	}
 
 	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
 	workspaceCommits, err := database.GetCommits(pwd)
@@ -114,7 +120,7 @@ func NewModel(
 		return nil, err
 	}
 
-	fileList, err := NewFileList(pwd, config.TUI.UseNerdFonts)
+	fileList, err := NewFileList(pwd, config.TUI.UseNerdFonts, gitStatusData)
 	if err != nil {
 		log.Error("Failed to initialize file list", "error", err)
 		return nil, err
@@ -170,6 +176,7 @@ func NewModel(
 			theme,
 		)
 	}
+
 	// --- End of Initializations ---
 
 	m := &Model{
@@ -183,6 +190,7 @@ func NewModel(
 		iaViewport:       vp,
 		focusedElement:   focusMsgInput,
 		fileList:         fileList,
+		gitStatusData:    gitStatusData,
 		WritingStatusBar: WritingStatusBar,
 		msgInput:         msgInput,
 		msgEdit:          msgEdit,

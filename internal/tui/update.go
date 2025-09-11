@@ -440,7 +440,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 			model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
 
-			UpdateFileList(parentDir, &model.fileList)
+			UpdateFileList(parentDir, &model.fileList, model.gitStatusData)
 			ResetAndActiveFilterOnList(&model.fileList)
 			return model, nil
 		case key.Matches(msg, model.keys.Right):
@@ -448,7 +448,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if item, ok := selected.(FileItem); ok {
 				if item.IsDir() {
 					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
-					UpdateFileList(scopeFilePickerPwd, &model.fileList)
+					UpdateFileList(scopeFilePickerPwd, &model.fileList, model.gitStatusData)
 					ResetAndActiveFilterOnList(&model.fileList)
 					model.WritingStatusBar.Level = statusbar.LevelInfo
 					model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
@@ -503,6 +503,11 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.commitType = item.Tag
 				model.commitTypeColor = item.Color()
 				scopeFilePickerPwd = model.pwd
+				gitStatusMap, err := GetGitDiffNameStatus()
+				if err != nil {
+					model.log.Error("Error getting git diff status", "error", err)
+				}
+				model.log.Debug("Git Diff Status Map", "map_content", fmt.Sprintf("%v", gitStatusMap))
 				model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
 				model.state = stateChoosingScope
 				model.keys = fileListKeys()

@@ -21,6 +21,12 @@ const (
 	FilterApplied                    // a filter is applied and user is not editing filter
 )
 
+type GitStatusData struct {
+	Root                string
+	FileStatus          map[string]string // Key: full path relative to Git root, Value: "A", "M", "D", etc.
+	AffectedDirectories map[string]bool   // Key: full path relative to Git root, Value: true if directory
+}
+
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
@@ -31,6 +37,41 @@ func ResetAndActiveFilterOnList(l *list.Model) {
 		l.SetFilterText("")
 		l.SetFilterState(list.FilterState(Filtering))
 	}
+}
+
+func GetAllGitStatusData() (GitStatusData, error) {
+	var data GitStatusData
+	data.FileStatus = make(map[string]string)
+	data.AffectedDirectories = make(map[string]bool)
+
+	gitRootBytes, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err == nil {
+		data.Root = strings.TrimSpace(string(gitRootBytes))
+	} else {
+		return data, fmt.Errorf("could not determine git repository root: %w", err)
+	}
+
+	data.FileStatus, err = GetGitDiffNameStatus()
+	if err != nil {
+		data.FileStatus = make(map[string]string)
+		return data, fmt.Errorf("could not get git diff name status: %w", err)
+	}
+
+	if data.Root != "" {
+		for filePath := range data.FileStatus {
+			dir := filepath.Dir(filePath)
+			currentDir := dir
+			for currentDir != "" && currentDir != "." && currentDir != "/" {
+				data.AffectedDirectories[currentDir] = true
+				currentDir = filepath.Dir(currentDir)
+			}
+			if dir == "." {
+				data.AffectedDirectories["."] = true
+			}
+		}
+	}
+
+	return data, nil
 }
 
 // GetStagedDiffSummary generates a string containing the diffs of all staged files.
@@ -66,7 +107,7 @@ func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 			return "", fmt.Errorf("failed to get diff for file %s: %w", file, err)
 		}
 
-		block := fmt.Sprintf("=== %s ===\\n%s\\n", file, string(diffBytes))
+		block := fmt.Sprintf("=== %s ===\n%s\n", file, string(diffBytes))
 		blockChars := len(
 			block,
 		)
@@ -80,6 +121,36 @@ func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 	}
 
 	return resultBuilder.String(), nil
+}
+
+func GetGitDiffNameStatus() (map[string]string, error) {
+	cmd := exec.Command("git", "diff", "--staged", "--name-status")
+	outputBytes, err := cmd.Output()
+	if err != nil {
+		// If there are no staged changes, git diff --name-status returns an empty string
+		// and a non-zero exit code. We should treat this as no changes, not an error.
+		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) == 0 {
+			return make(map[string]string), nil
+		}
+		return nil, fmt.Errorf("failed to get git diff --name-status: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(outputBytes)), "\n")
+	statusMap := make(map[string]string)
+
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			status := parts[0]
+			filePath := parts[1]
+			statusMap[filePath] = status
+		}
+	}
+
+	return statusMap, nil
 }
 
 func calculatePopupPosition(modelWidth, modelHeight int, popupView string) (startX, startY int) {
@@ -106,17 +177,55 @@ func UpdateCommitList(pwd string, db *storage.DB, log *logger.Logger, l *list.Mo
 	return nil
 }
 
-func UpdateFileList(pwd string, l *list.Model) error {
+func CreateFileItemsList(pwd string, gitData GitStatusData) ([]list.Item, error) {
 	dirEntries, err := os.ReadDir(pwd)
 	if err != nil {
-		return err
+		return make([]list.Item, 0), err
 	}
+
 	items := make([]list.Item, len(dirEntries))
 	for i, entry := range dirEntries {
-		items[i] = FileItem{Entry: entry}
+		status := ""
+		var fullPathRelativeToGitRoot string
+
+		absPath, err := filepath.Abs(filepath.Join(pwd, entry.Name()))
+		if err == nil {
+			if gitData.Root != "" {
+				fullPathRelativeToGitRoot, err = filepath.Rel(
+					gitData.Root,
+					absPath,
+				)
+				if err != nil {
+					fullPathRelativeToGitRoot = absPath
+				}
+			} else {
+				fullPathRelativeToGitRoot = absPath
+			}
+		} else {
+			fullPathRelativeToGitRoot = filepath.Join(pwd, entry.Name())
+		}
+
+		if s, ok := gitData.FileStatus[fullPathRelativeToGitRoot]; ok {
+			status = s
+		} else if entry.IsDir() {
+			if _, ok := gitData.AffectedDirectories[fullPathRelativeToGitRoot]; ok {
+				status = "M"
+			}
+		}
+
+		items[i] = FileItem{Entry: entry, Status: status}
 	}
+	return items, nil
+}
+
+func UpdateFileList(pwd string, l *list.Model, gitData GitStatusData) error {
+	items, err := CreateFileItemsList(pwd, gitData)
+	if err != nil {
+		return fmt.Errorf("Error changing list items %s", err)
+	}
+
 	l.SetItems(items)
-	l.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
+	// l.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	return nil
 }
 

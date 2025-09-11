@@ -269,7 +269,8 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 }
 
 type FileItem struct {
-	Entry os.DirEntry
+	Entry  os.DirEntry
+	Status string
 }
 
 func (fi FileItem) Title() string       { return fi.Entry.Name() }
@@ -280,6 +281,16 @@ func (fi FileItem) IsDir() bool         { return fi.Entry.IsDir() }
 type FileDelegate struct {
 	list.DefaultDelegate
 	UseNerdFonts bool
+}
+
+var statusStyles = map[string]lipgloss.Style{
+	"U": lipgloss.NewStyle().Foreground(lipgloss.Color("135")), // Unmerged
+	"M": lipgloss.NewStyle().Foreground(lipgloss.Color("220")), // Modified
+	"A": lipgloss.NewStyle().Foreground(lipgloss.Color("10")),  // Added
+	"D": lipgloss.NewStyle().Foreground(lipgloss.Color("9")),   // Deleted
+	"R": lipgloss.NewStyle().Foreground(lipgloss.Color("45")),  // Renamed
+	"C": lipgloss.NewStyle().Foreground(lipgloss.Color("165")), // Copied
+	"":  lipgloss.NewStyle().Foreground(lipgloss.Color("240")), // Default
 }
 
 func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
@@ -315,29 +326,40 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		}
 	}
 
-	var line string
-	if index == m.Index() {
-		selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-		line = fmt.Sprintf("❯ %s %s", selectedStyle.Render(icon), selectedStyle.Render(name))
-	} else {
-		line = fmt.Sprintf("  %s %s", baseStyle.Render(icon), baseStyle.Render(name))
+	statusText := " "
+	statusStyle := statusStyles[""]
+	if it.Status != "" {
+		statusText = fmt.Sprintf("%s", it.Status)
+		if style, found := statusStyles[it.Status]; found {
+			statusStyle = style
+		}
 	}
 
-	fmt.Fprint(w, line)
+	if index == m.Index() {
+		selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+		fmt.Fprintf(
+			w,
+			"❯ %s %s %s",
+			statusStyle.Render(statusText),
+			selectedStyle.Render(icon),
+			selectedStyle.
+				Render(name),
+		)
+	} else {
+		fmt.Fprintf(w, "  %s %s %s", statusStyle.Render(statusText), baseStyle.Render(icon),
+			baseStyle.Render(name))
+	}
+
+	// fmt.Fprint(w, line)
 }
 
 func (d FileDelegate) Height() int  { return 1 }
 func (d FileDelegate) Spacing() int { return 0 }
 
-func NewFileList(pwd string, useNerdFont bool) (list.Model, error) {
-	dirEntries, err := os.ReadDir(pwd)
+func NewFileList(pwd string, useNerdFont bool, gitData GitStatusData) (list.Model, error) {
+	items, err := CreateFileItemsList(pwd, gitData)
 	if err != nil {
-		return list.Model{}, err
-	}
-
-	items := make([]list.Item, len(dirEntries))
-	for i, entry := range dirEntries {
-		items[i] = FileItem{Entry: entry}
+		return list.Model{}, fmt.Errorf("Error changing list items %s", err)
 	}
 
 	fileList := list.New(items, FileDelegate{
@@ -351,6 +373,7 @@ func NewFileList(pwd string, useNerdFont bool) (list.Model, error) {
 	fileList.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	fileList.SetShowHelp(false)
 	fileList.SetFilteringEnabled(true)
+	fileList.SetShowPagination(true)
 	fileList.SetStatusBarItemName("item", "items")
 	fileList.StatusMessageLifetime = 5 * time.Second
 
