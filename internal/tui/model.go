@@ -53,37 +53,39 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
-	Theme            *styles.Theme
-	pwd              string
-	log              *logger.Logger
-	db               *storage.DB
-	finalCommitTypes []commit.CommitType
-	state            appState
-	err              error
-	apiKeyInput      textinput.Model
-	mainList         list.Model
-	commitTypeList   list.Model
-	fileList         list.Model
-	gitStatusData    GitStatusData
-	msgInput         *textarea.Model
-	msgEdit          *textarea.Model
-	spinner          spinner.Model
-	iaViewport       viewport.Model
-	focusedElement   focusableElement
-	WritingStatusBar statusbar.StatusBar
-	logViewport      viewport.Model
-	logViewVisible   bool
-	commitType       string
-	commitTypeColor  string
-	commitScope      string
-	commitMsg        string
-	commitTranslate  string
-	FinalMessage     string
-	keys             KeyMap
-	help             help.Model
-	popup            tea.Model
-	width, height    int
-	globalConfig     config.Config
+	Theme                   *styles.Theme
+	pwd                     string
+	log                     *logger.Logger
+	db                      *storage.DB
+	finalCommitTypes        []commit.CommitType
+	state                   appState
+	err                     error
+	apiKeyInput             textinput.Model
+	mainList                list.Model
+	commitTypeList          list.Model
+	fileList                list.Model
+	fileListFilter          bool
+	currentUpdateFileListFn UpdateFileListFunc
+	gitStatusData           GitStatusData
+	msgInput                *textarea.Model
+	msgEdit                 *textarea.Model
+	spinner                 spinner.Model
+	iaViewport              viewport.Model
+	focusedElement          focusableElement
+	WritingStatusBar        statusbar.StatusBar
+	logViewport             viewport.Model
+	logViewVisible          bool
+	commitType              string
+	commitTypeColor         string
+	commitScope             string
+	commitMsg               string
+	commitTranslate         string
+	FinalMessage            string
+	keys                    KeyMap
+	help                    help.Model
+	popup                   tea.Model
+	width, height           int
+	globalConfig            config.Config
 }
 
 // NewModel is the constructor for our model.
@@ -180,27 +182,29 @@ func NewModel(
 	// --- End of Initializations ---
 
 	m := &Model{
-		log:              log,
-		pwd:              pwd,
-		db:               database,
-		apiKeyInput:      apiKeyInput,
-		state:            initalState,
-		mainList:         workspaceCommitsList,
-		commitTypeList:   commitTypesList,
-		iaViewport:       vp,
-		focusedElement:   focusMsgInput,
-		fileList:         fileList,
-		gitStatusData:    gitStatusData,
-		WritingStatusBar: WritingStatusBar,
-		msgInput:         msgInput,
-		msgEdit:          msgEdit,
-		spinner:          spinner,
-		keys:             initialKeys,
-		help:             help.New(),
-		logViewVisible:   false,
-		logViewport:      viewport.New(),
-		globalConfig:     config,
-		Theme:            theme,
+		log:                     log,
+		pwd:                     pwd,
+		db:                      database,
+		apiKeyInput:             apiKeyInput,
+		state:                   initalState,
+		mainList:                workspaceCommitsList,
+		commitTypeList:          commitTypesList,
+		iaViewport:              vp,
+		focusedElement:          focusMsgInput,
+		fileList:                fileList,
+		fileListFilter:          false,
+		currentUpdateFileListFn: ChooseUpdateFileListFunction(false),
+		gitStatusData:           gitStatusData,
+		WritingStatusBar:        WritingStatusBar,
+		msgInput:                msgInput,
+		msgEdit:                 msgEdit,
+		spinner:                 spinner,
+		keys:                    initialKeys,
+		help:                    help.New(),
+		logViewVisible:          false,
+		logViewport:             viewport.New(),
+		globalConfig:            config,
+		Theme:                   theme,
 	}
 	return m, nil
 }

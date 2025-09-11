@@ -13,6 +13,7 @@ type KeyMap struct {
 	Delete         key.Binding
 	Quit           key.Binding
 	GlobalQuit     key.Binding
+	Toggle         key.Binding
 	Help           key.Binding
 	Esc            key.Binding
 	Filter         key.Binding
@@ -90,6 +91,10 @@ func fileListKeys() KeyMap {
 			key.WithKeys("right", "tab"),
 			key.WithHelp("→/tab", "Enter to dir"),
 		),
+		Toggle: key.NewBinding(
+			key.WithKeys("ctrl+r"),
+			key.WithHelp("ctrl+r", "Toggle show only Modified files"),
+		),
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
@@ -162,6 +167,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.Right.Enabled() {
 		b = append(b, k.Right)
+	}
+	if k.Toggle.Enabled() {
+		b = append(b, k.Toggle)
 	}
 	if k.Esc.Enabled() {
 		b = append(b, k.Esc)

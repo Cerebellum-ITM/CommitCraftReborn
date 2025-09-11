@@ -435,6 +435,11 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model.cancelProcess(stateChoosingType)
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
+		case key.Matches(msg, model.keys.Toggle):
+			model.fileListFilter = !model.fileListFilter
+			model.currentUpdateFileListFn = ChooseUpdateFileListFunction(model.fileListFilter)
+			model.currentUpdateFileListFn(scopeFilePickerPwd, &model.fileList, model.gitStatusData)
+			ResetAndActiveFilterOnList(&model.fileList)
 		case key.Matches(msg, model.keys.Left):
 			parentDir := filepath.Dir(scopeFilePickerPwd)
 			absParentDir := filepath.Clean(parentDir)
@@ -444,7 +449,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				scopeFilePickerPwd = parentDir
 				model.WritingStatusBar.Level = statusbar.LevelInfo
 				model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())
-				UpdateFileList(parentDir, &model.fileList, model.gitStatusData)
+				model.currentUpdateFileListFn(parentDir, &model.fileList, model.gitStatusData)
 				ResetAndActiveFilterOnList(&model.fileList)
 			} else {
 				model.WritingStatusBar.Level = statusbar.LevelError
@@ -457,7 +462,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if item, ok := selected.(FileItem); ok {
 				if item.IsDir() {
 					scopeFilePickerPwd = filepath.Join(scopeFilePickerPwd, item.Title())
-					UpdateFileList(scopeFilePickerPwd, &model.fileList, model.gitStatusData)
+					model.currentUpdateFileListFn(scopeFilePickerPwd, &model.fileList, model.gitStatusData)
 					ResetAndActiveFilterOnList(&model.fileList)
 					model.WritingStatusBar.Level = statusbar.LevelInfo
 					model.WritingStatusBar.Content = fmt.Sprintf("Choose a file or folder for your commit ::: %s", model.Theme.AppStyles().Base.Foreground(model.Theme.Tertiary).SetString(TruncatePath(scopeFilePickerPwd, 2)).String())

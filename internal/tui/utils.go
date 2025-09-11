@@ -27,6 +27,8 @@ type GitStatusData struct {
 	AffectedDirectories map[string]bool   // Key: full path relative to Git root, Value: true if directory
 }
 
+type UpdateFileListFunc func(pwd string, l *list.Model, gitData GitStatusData) error
+
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
@@ -218,6 +220,24 @@ func CreateFileItemsList(pwd string, gitData GitStatusData) ([]list.Item, error)
 	return items, nil
 }
 
+func UpdateFileListWithFilterItems(pwd string, l *list.Model, gitData GitStatusData) error {
+	items, err := CreateFileItemsList(pwd, gitData)
+	if err != nil {
+		return fmt.Errorf("Error changing list items %s", err)
+	}
+
+	var filteredItems []list.Item
+	for _, item := range items {
+		if fileItem, ok := item.(FileItem); ok {
+			if fileItem.Status != "" {
+				filteredItems = append(filteredItems, fileItem)
+			}
+		}
+	}
+	l.SetItems(filteredItems)
+	return nil
+}
+
 func UpdateFileList(pwd string, l *list.Model, gitData GitStatusData) error {
 	items, err := CreateFileItemsList(pwd, gitData)
 	if err != nil {
@@ -225,8 +245,14 @@ func UpdateFileList(pwd string, l *list.Model, gitData GitStatusData) error {
 	}
 
 	l.SetItems(items)
-	// l.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
 	return nil
+}
+
+func ChooseUpdateFileListFunction(showOnlyModified bool) UpdateFileListFunc {
+	if showOnlyModified {
+		return UpdateFileListWithFilterItems
+	}
+	return UpdateFileList
 }
 
 func TruncatePath(path string, levels int) string {
