@@ -39,7 +39,7 @@ type Theme struct {
 	White  color.Color
 	Red    color.Color
 	Green  color.Color
-    Black color.Color
+	Black  color.Color
 
 	styles *Styles
 }
@@ -69,7 +69,7 @@ func (t *Theme) buildStyles() *Styles {
 				CursorLine:       base.Background(t.BgOverlay),
 				CursorLineNumber: base.Foreground(t.White),
 				Placeholder:      base.Foreground(t.White),
-				Prompt:           base.Foreground(t.Tertiary),
+				Prompt:           base.Foreground(t.BorderFocus),
 			},
 			Blurred: textarea.StyleState{
 				Base:             base,

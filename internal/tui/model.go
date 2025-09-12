@@ -131,13 +131,13 @@ func NewModel(
 	// --- Component Initializations ---
 	msgInput := textarea.New()
 	msgInput.SetStyles(theme.AppStyles().TextArea)
-	msgInput.Prompt = theme.AppStyles().Base.Foreground(theme.BorderFocus).Render("┃ ")
+	msgInput.Prompt = "┃ "
 	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgInput.Placeholder = "A short description of the changes..."
 	//
 	msgEdit := textarea.New()
 	msgEdit.SetStyles(theme.AppStyles().TextArea)
-	msgEdit.Prompt = theme.AppStyles().Base.Foreground(theme.BorderFocus).Render("┃ ")
+	msgInput.Prompt = "┃ "
 	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgEdit.Placeholder = "A short description of the changes..."
 
