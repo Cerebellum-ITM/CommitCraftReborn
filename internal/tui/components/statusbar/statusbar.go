@@ -88,12 +88,17 @@ func (sb StatusBar) Render() string {
 		Background(sb.theme.Logo).
 		Padding(0, 1).SetString("CommitCraft")
 
+	version := sb.theme.AppStyles().Base.
+		Background(sb.theme.Black).
+		Foreground(sb.theme.White).
+		Padding(0, 1).SetString("v0.2.2")
+
 	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
 	fillContent := sb.theme.AppStyles().Base
 	contentStyle := sb.theme.AppStyles().Base.Background(sb.theme.Blur)
 	horizontalSpace := sb.theme.AppStyles().
 		Base.
-		SetString("     ").
+		SetString("   ").
 		String()
 
 	switch sb.Level {
@@ -141,13 +146,10 @@ func (sb StatusBar) Render() string {
 	finalContent := prefixText + contentStyle.SetString("  »").
 		String() +
 		renderedContent + spinnerView
-	statusBarSpace := lipgloss.Width(
-		logo.String(),
-	) + lipgloss.Width(
-		finalContent,
-	) + 2*lipgloss.Width(
-		horizontalSpace,
-	)
+	statusBarSpace := lipgloss.Width(logo.String()) +
+		lipgloss.Width(finalContent) +
+		2*lipgloss.Width(horizontalSpace) +
+		lipgloss.Width(version.String())
 
 	effectiveWidth := max(0, sb.AppWith)
 	if statusBarSpace >= effectiveWidth {
@@ -178,6 +180,7 @@ func (sb StatusBar) Render() string {
 		lipgloss.Center,
 		centralBlock,
 		horizontalSpace,
+		version.String(),
 		logo.String(),
 	)
 }
