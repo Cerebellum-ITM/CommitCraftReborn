@@ -50,7 +50,7 @@ func (model *Model) iaHeaderView(state string) string {
 	textColor, lineColor := model.setColorVariables(state)
 	title := HeaderStyle.Foreground(textColor).Render("Final response of AI models")
 	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.iaViewport.Width()-lipgloss.Width(title))))
+		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(title))))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
 }
 
@@ -59,7 +59,7 @@ func (model *Model) userInputHeaderView(state string) string {
 	title := HeaderStyle.Foreground(textColor).
 		Render("Enter the text with your summary of the changes")
 	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.iaViewport.Width()-lipgloss.Width(title))))
+		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(title))))
 	return lipgloss.JoinHorizontal(lipgloss.Right, title, line)
 }
 
@@ -69,7 +69,7 @@ func (model *Model) userInputFooterView(state string) string {
 		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value())),
 	)
 	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.iaViewport.Width()-lipgloss.Width(info))))
+		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
@@ -78,7 +78,7 @@ func (model *Model) msgEditHeaderView(state string) string {
 	title := HeaderStyle.Foreground(textColor).
 		Render("Write the modifications")
 	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.iaViewport.Width()-lipgloss.Width(title))))
+		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(title))))
 	return lipgloss.JoinHorizontal(lipgloss.Right, title, line)
 }
 
@@ -88,7 +88,7 @@ func (model *Model) msgEditFooterView(state string) string {
 		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value())),
 	)
 	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.iaViewport.Width()-lipgloss.Width(info))))
+		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
@@ -97,7 +97,7 @@ func (model *Model) iaFooterView(state string) string {
 	info := FooterStyle.Foreground(textColor).
 		Render(fmt.Sprintf("%3.f%%", model.iaViewport.ScrollPercent()*100))
 	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.iaViewport.Width()-lipgloss.Width(info))))
+		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
