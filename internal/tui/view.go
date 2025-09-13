@@ -348,6 +348,10 @@ func (model *Model) View() string {
 			centeredBox,
 		)
 	case stateChoosingCommit:
+		statusBarH := lipgloss.Height(statusBarContent)
+		VerticalSpaceH := lipgloss.Height(VerticalSpace)
+		availableHeightList := contentHeight - statusBarH - VerticalSpaceH
+		model.mainList.SetSize(model.width, availableHeightList)
 		uiElements := model.mainList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
