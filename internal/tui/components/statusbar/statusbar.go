@@ -10,30 +10,25 @@ import (
 )
 
 type StatusBar struct {
-	Content             string
-	theme               *styles.Theme
-	Style               lipgloss.Style
-	Level               LogLevel
-	spinner             spinner.Model
-	showSpinner         bool
-	defaultContentStyle *lipgloss.Style
-	AppWith             int
+	Content     string
+	theme       *styles.Theme
+	Level       LogLevel
+	spinner     spinner.Model
+	showSpinner bool
+	AppWith     int
 }
 
 func New(content string, level LogLevel, with int, theme *styles.Theme) StatusBar {
-	defaultStyle := lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
 	s := spinner.New()
 	s.Spinner = spinner.Points
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.BrightMagenta)
 	return StatusBar{
-		Content:             content,
-		Level:               level,
-		Style:               lipgloss.NewStyle().Foreground(lipgloss.BrightYellow),
-		defaultContentStyle: &defaultStyle,
-		spinner:             s,
-		showSpinner:         false,
-		theme:               theme,
-		AppWith:             with,
+		Content:     content,
+		Level:       level,
+		spinner:     s,
+		showSpinner: false,
+		theme:       theme,
+		AppWith:     with,
 	}
 }
 
@@ -45,16 +40,6 @@ func (sb *StatusBar) StartSpinner() tea.Cmd {
 func (sb *StatusBar) StopSpinner() tea.Cmd {
 	sb.showSpinner = false
 	return nil
-}
-
-func (sb *StatusBar) SetDefaultContentStyle(style lipgloss.Style) {
-	sb.defaultContentStyle = &style
-}
-
-func (sb *StatusBar) ResetContentStyle() {
-	if sb.defaultContentStyle != nil {
-		sb.Style = *sb.defaultContentStyle
-	}
 }
 
 func (sb *StatusBar) Update(msg tea.Msg) (StatusBar, tea.Cmd) {
