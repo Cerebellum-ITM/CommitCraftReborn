@@ -15,15 +15,18 @@ func NewCharmtoneTheme() *Theme {
 		FgMuted:     charmtone.Squid,
 		FgHalfMuted: charmtone.Smoke,
 		FgSubtle:    charmtone.Oyster,
-		BorderFocus: charmtone.Damson,
+
+		BorderFocus:      charmtone.Damson,
+		FillTextLine:     charmtone.Sardine,
+		FocusableElement: charmtone.Mustard,
 
 		BgOverlay: charmtone.Iron,
 
-		Primary:   charmtone.Sapphire,
+		Primary:   charmtone.Oceania,
 		Secondary: charmtone.Dolly,
 		Tertiary:  charmtone.Zest,
-		Accent:    charmtone.Plum,
-		Blur:      charmtone.Pepper,
+		Accent:    charmtone.Anchovy,
+		Blur:      charmtone.Charcoal,
 
 		// Status
 		Success: charmtone.Bok,

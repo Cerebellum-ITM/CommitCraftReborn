@@ -116,7 +116,9 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	switch model.focusedElement {
 	case focusMsgInput:
 		model.msgInput.Focus()
-		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.Blur)
+		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(
+			model.Theme.FocusableElement,
+		)
 
 		iaViewHeaderContent = model.iaHeaderView("blur")
 		iaViewFooterContent = model.iaFooterView("blur")
@@ -207,7 +209,9 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 	switch model.focusedElement {
 	case focusMsgInput:
 		model.msgEdit.Focus()
-		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.Blur)
+		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(
+			model.Theme.FocusableElement,
+		)
 
 		iaViewHeaderContent = model.iaHeaderView("blur")
 		iaViewFooterContent = model.iaFooterView("blur")

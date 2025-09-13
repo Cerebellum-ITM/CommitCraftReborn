@@ -18,7 +18,9 @@ type Theme struct {
 	FgHalfMuted color.Color
 	FgSubtle    color.Color
 
-	BorderFocus color.Color
+	BorderFocus      color.Color
+	FillTextLine     color.Color
+	FocusableElement color.Color
 
 	BgOverlay color.Color
 
@@ -63,7 +65,7 @@ func (t *Theme) buildStyles() *Styles {
 		Base: base,
 		TextArea: textarea.Styles{
 			Focused: textarea.StyleState{
-				Base:             base,
+				Base:             base.Foreground(t.FillTextLine),
 				Text:             base,
 				LineNumber:       base.Foreground(t.White),
 				CursorLine:       base.Background(t.BgOverlay),
@@ -72,13 +74,13 @@ func (t *Theme) buildStyles() *Styles {
 				Prompt:           base.Foreground(t.BorderFocus),
 			},
 			Blurred: textarea.StyleState{
-				Base:             base,
+				Base:             base.Foreground(t.FocusableElement),
 				Text:             base.Foreground(t.FgMuted),
 				LineNumber:       base.Foreground(t.Blur),
 				CursorLine:       base,
 				CursorLineNumber: base.Foreground(t.Blur),
 				Placeholder:      base.Foreground(t.Blur),
-				Prompt:           base.Foreground(t.Blur),
+				Prompt:           base.Foreground(t.FocusableElement),
 			},
 			Cursor: textarea.CursorStyle{
 				Color: t.Secondary,
