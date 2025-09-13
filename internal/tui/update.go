@@ -13,7 +13,6 @@ import (
 	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
-	// "github.com/charmbracelet/lipgloss/v2"
 )
 
 type IaCommitBuilderResultMsg struct {
@@ -31,16 +30,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		model.width = msg.Width
 		model.height = msg.Height
-		listHeight := model.height - 4
 		model.apiKeyInput.SetWidth(model.width)
-		model.mainList.SetSize(model.width, listHeight)
-		model.commitTypeList.SetSize(model.width, listHeight)
-		model.iaViewport.SetHeight(listHeight)
-		model.iaViewport.SetWidth(model.width / 2)
-		model.msgInput.SetWidth(model.width / 2)
-		model.msgInput.SetHeight(listHeight)
-		model.msgEdit.SetHeight(listHeight - 2)
-		model.msgEdit.SetWidth(model.width / 2)
+		model.WritingStatusBar.AppWith = model.width
 		model.WritingStatusBar.AppWith = model.width
 
 	case openPopupMsg:
@@ -185,8 +176,6 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
-	listHeight := model.height - 4
-	model.mainList.SetSize(model.width, listHeight)
 	model.state = stateChoosingCommit
 	model.keys = mainListKeys()
 	model.WritingStatusBar.Level = statusbar.LevelSuccess
@@ -371,7 +360,6 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 
 		case key.Matches(msg, model.keys.CreateIaCommit):
-			model.WritingStatusBar.ResetContentStyle()
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
@@ -479,6 +467,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.WritingStatusBar.Content = "Craft your commit"
 				model.commitScope = item.Title()
 				model.state = stateWritingMessage
+				model.focusedElement = focusMsgInput
 				model.keys = writingMessageKeys()
 				model.msgInput.Focus()
 				return model, nil

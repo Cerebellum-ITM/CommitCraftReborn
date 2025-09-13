@@ -290,8 +290,8 @@ func (model *Model) View() string {
 
 	appStyle := lipgloss.NewStyle().
 		Padding(1, 2).
-		Width(model.width - 4).
-		Height(model.height - 2)
+		Width(model.width).
+		Height(model.height)
 
 	if model.err != nil {
 		return "Error: " + model.err.Error()
@@ -299,9 +299,15 @@ func (model *Model) View() string {
 
 	statusBarContent := model.WritingStatusBar.Render()
 	helpView := fmt.Sprintf("  %s", model.help.View(model.keys))
-	contentHeight := model.height - lipgloss.Height(helpView) - appStyle.GetVerticalPadding() - 2
+	contentHeight := model.height
 	availableWidthForMainContent := max(0, model.width-appStyle.GetHorizontalFrameSize()-appStyle.
 		GetHorizontalPadding())
+	if model.height > 10 {
+		contentHeight = contentHeight - model.height/10*2
+	}
+	statusBarH := lipgloss.Height(statusBarContent)
+	VerticalSpaceH := 2 * lipgloss.Height(VerticalSpace)
+	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH
 
 	switch model.state {
 	case stateSettingAPIKey:
@@ -348,10 +354,7 @@ func (model *Model) View() string {
 			centeredBox,
 		)
 	case stateChoosingCommit:
-		statusBarH := lipgloss.Height(statusBarContent)
-		VerticalSpaceH := lipgloss.Height(VerticalSpace)
-		availableHeightList := contentHeight - statusBarH - VerticalSpaceH
-		model.mainList.SetSize(model.width, availableHeightList)
+		model.mainList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
 		uiElements := model.mainList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
@@ -359,6 +362,7 @@ func (model *Model) View() string {
 			uiElements,
 		)
 	case stateChoosingType:
+		model.commitTypeList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
 		uiElements := model.commitTypeList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
@@ -367,10 +371,7 @@ func (model *Model) View() string {
 		)
 
 	case stateChoosingScope:
-		statusBarH := lipgloss.Height(statusBarContent)
-		VerticalSpaceH := lipgloss.Height(VerticalSpace)
-		availableHeightForFileList := contentHeight - statusBarH - VerticalSpaceH
-		model.fileList.SetSize(model.width, availableHeightForFileList)
+		model.fileList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
 		uiElements := model.fileList.View()
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			statusBarContent,
@@ -384,10 +385,6 @@ func (model *Model) View() string {
 		mainContent = model.buildEditingMessageView(appStyle)
 	}
 
-	mainContent = lipgloss.NewStyle().
-		Height(contentHeight).
-		MaxHeight(contentHeight).
-		Render(mainContent)
 	mainView := lipgloss.JoinVertical(lipgloss.Left,
 		mainContent,
 		VerticalSpace,
