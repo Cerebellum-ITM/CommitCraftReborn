@@ -22,6 +22,8 @@ func main() {
 	}
 
 	finalCommitTypes := config.ResolveCommitTypes(globalCfg, localCfg)
+    config.PopulateCommitTypeColors(&globalCfg, finalCommitTypes)
+
 
 	pwd, err := os.Getwd()
 	if err != nil {

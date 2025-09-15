@@ -21,6 +21,8 @@ func NewCharmtoneTheme() *Theme {
 		FocusableElement: charmtone.Mustard,
 
 		BgOverlay: charmtone.Iron,
+		Input:     charmtone.Sardine,
+		Output:    charmtone.Guppy,
 
 		Primary:   charmtone.Oceania,
 		Secondary: charmtone.Dolly,

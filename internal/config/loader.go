@@ -33,6 +33,15 @@ var defaultOutputFormatPrompt string
 //go:embed prompts/only_translate.prompt.tmpl
 var defaultOnlyTranslateFormatPrompt string
 
+func PopulateCommitTypeColors(cfg *Config, commitTypes []commit.CommitType) {
+	if cfg.CommitFormat.CommitTypeColors == nil {
+		cfg.CommitFormat.CommitTypeColors = make(map[string]string)
+	}
+	for _, ct := range commitTypes {
+		cfg.CommitFormat.CommitTypeColors[ct.Tag] = ct.Color
+	}
+}
+
 // --- Prompt Resolution Logic ---
 func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 	var defaultPromptContent string

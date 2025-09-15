@@ -23,6 +23,8 @@ type Theme struct {
 	FocusableElement color.Color
 
 	BgOverlay color.Color
+	Input     color.Color
+	Output    color.Color
 
 	Primary   color.Color
 	Secondary color.Color

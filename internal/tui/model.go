@@ -114,7 +114,7 @@ func NewModel(
 	workspaceCommitsList := NewHistoryCommitList(
 		workspaceCommits,
 		pwd,
-		config.CommitFormat.TypeFormat,
+		config,
 		theme,
 	)
 

@@ -2,9 +2,11 @@ package tui
 
 import (
 	"commit_craft_reborn/internal/commit"
+	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/styles"
 	"fmt"
+	"image/color"
 	"io"
 	"os"
 	"time"
@@ -98,6 +100,8 @@ type HistoryCommitDelegate struct {
 	selectedContainerStyle   lipgloss.Style
 	unselectedContainerStyle lipgloss.Style
 	Theme                    *styles.Theme
+	globalConfig             config.Config
+	infoText                 lipgloss.Style
 
 	commitFormat       string
 	dateStyle          lipgloss.Style
@@ -107,31 +111,43 @@ type HistoryCommitDelegate struct {
 	finalMsgStyle      lipgloss.Style
 }
 
-func NewHistoryCommitDelegate(commitFormat string, theme *styles.Theme) list.ItemDelegate {
+func NewHistoryCommitDelegate(globalConfig config.Config, theme *styles.Theme) list.ItemDelegate {
+	baseStyle := theme.AppStyles().Base
 	return HistoryCommitDelegate{
-		commitFormat: commitFormat,
-		selectedContainerStyle: lipgloss.NewStyle().
+		globalConfig: globalConfig,
+		commitFormat: globalConfig.CommitFormat.TypeFormat,
+		Theme:        theme,
+		selectedContainerStyle: baseStyle.
 			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color("220")).
+			BorderForeground(theme.FocusableElement).
 			PaddingLeft(1),
 
-		unselectedContainerStyle: lipgloss.NewStyle().
+		unselectedContainerStyle: baseStyle.
 			PaddingLeft(2),
 
-		commitTypeStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")),
-		dateStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")),
+		commitTypeStyle: baseStyle.
+			Foreground(theme.Blur),
+		dateStyle: baseStyle.
+			Foreground(theme.Blur),
 
-		idStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")),
+		idStyle: baseStyle.
+			Foreground(theme.Blur),
 
-		msgOriginalStyle: lipgloss.NewStyle(),
+		msgOriginalStyle: baseStyle.Foreground(theme.Blur),
 
-		msgTranslatedStyle: lipgloss.NewStyle(),
-		finalMsgStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")),
+		msgTranslatedStyle: baseStyle.Foreground(theme.Blur),
+		finalMsgStyle:      baseStyle.Foreground(theme.Blur),
+		infoText:           baseStyle.Foreground(theme.Blur),
 	}
+}
+
+func (d HistoryCommitDelegate) GetCommitTypeColor(commitType string) color.Color {
+	colorStr, ok := d.globalConfig.CommitFormat.CommitTypeColors[commitType]
+	if !ok || colorStr == "" {
+		// Fallback color if not found
+		return d.Theme.White
+	}
+	return lipgloss.Color(colorStr)
 }
 
 func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
@@ -141,10 +157,10 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	}
 
 	commit := it.commit
-	tagStr := fmt.Sprintf("(Type: %s)", commit.Type)
+	tagStr := fmt.Sprintf("%s", commit.Type)
 
 	dateStr := commit.CreatedAt.Format("2006-01-02 15:04")
-	idStr := fmt.Sprintf("(ID: %d)", commit.ID)
+	idStr := fmt.Sprintf("ID: %d", commit.ID)
 	originalMsg := commit.MessageES
 	translatedMsg := commit.MessageEN
 	formattedCommitType := fmt.Sprintf(d.commitFormat, commit.Type)
@@ -160,24 +176,26 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		currentMsgOriginalStyle   lipgloss.Style
 		currentMsgTranslatedStyle lipgloss.Style
 		currentFinalMsgStyle      lipgloss.Style
+		currentInfoText           lipgloss.Style
+		adicionalUiText           lipgloss.Style
 	)
 
-	indicatorStyle = lipgloss.NewStyle().Foreground(lipgloss.BrightYellow)
+	indicatorStyle = lipgloss.NewStyle().Foreground(d.Theme.Yellow)
 
 	if index == m.Index() {
 		indicator = "❯"
-		currentCommitTypeStyle = d.commitTypeStyle.Foreground(lipgloss.BrightMagenta)
+		currentCommitTypeStyle = d.commitTypeStyle.Foreground(d.GetCommitTypeColor(commit.Type))
 		itemDisplayStyle = d.selectedContainerStyle
 		currentDateStyle = d.dateStyle.Bold(true).
-			Foreground(lipgloss.Color("10"))
+			Foreground(d.Theme.Yellow)
 		currentIDStyle = d.idStyle.Bold(true).
-			Foreground(lipgloss.Color("45"))
-		currentMsgOriginalStyle = d.msgOriginalStyle.Foreground(
-			lipgloss.Color("255"),
-		)
+			Foreground(d.Theme.FillTextLine)
+		currentMsgOriginalStyle = d.msgOriginalStyle.Foreground(d.Theme.Input)
 		currentMsgTranslatedStyle = d.msgTranslatedStyle.Italic(true).
-			Foreground(lipgloss.Color("205"))
-		currentFinalMsgStyle = d.finalMsgStyle.Foreground(lipgloss.BrightYellow)
+			Foreground(d.Theme.Output)
+		currentFinalMsgStyle = d.finalMsgStyle.Foreground(d.GetCommitTypeColor(commit.Type))
+		currentInfoText = d.infoText.Foreground(d.Theme.FgSubtle)
+		adicionalUiText = d.Theme.AppStyles().Base.Foreground(d.Theme.White)
 	} else {
 		itemDisplayStyle = d.unselectedContainerStyle
 		currentDateStyle = d.dateStyle
@@ -186,16 +204,32 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		currentMsgTranslatedStyle = d.msgTranslatedStyle
 		currentCommitTypeStyle = d.commitTypeStyle
 		currentFinalMsgStyle = d.finalMsgStyle
+		currentInfoText = d.infoText
+		adicionalUiText = d.Theme.AppStyles().Base.Foreground(d.Theme.Blur)
 	}
 	contentAvailableWidth := m.Width() - itemDisplayStyle.GetHorizontalPadding() - itemDisplayStyle.
 		GetHorizontalBorderSize() - lipgloss.Width(indicator+" ")
 
-	line1Content := lipgloss.JoinHorizontal(lipgloss.Top,
+	openBracket := adicionalUiText.SetString("(").String()
+	closeBracket := adicionalUiText.SetString(")").String()
+	line1Content := lipgloss.JoinHorizontal(
+		lipgloss.Top,
 		currentDateStyle.Render(dateStr),
 		" ",
-		currentIDStyle.Render(idStr),
+		lipgloss.JoinHorizontal(
+			lipgloss.Top,
+			openBracket,
+			currentIDStyle.Render(idStr),
+			closeBracket,
+		),
 		" ",
-		currentCommitTypeStyle.Render(tagStr),
+		lipgloss.JoinHorizontal(
+			lipgloss.Top,
+			openBracket,
+			currentCommitTypeStyle.SetString("Type: ").String(),
+			currentCommitTypeStyle.Render(tagStr),
+			closeBracket,
+		),
 	)
 
 	msgPrefixWidth := 7
@@ -207,13 +241,21 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	truncatedFinalStr := TruncateString(finalStr, maxMsgLength)
 
 	line1 := fmt.Sprintf("%s %s", indicatorStyle.Render(indicator), line1Content)
-	line2 := fmt.Sprintf("  %s %s", "Msg:", currentMsgOriginalStyle.Render(truncatedOriginalMsg))
+	line2 := fmt.Sprintf(
+		"  %s %s",
+		currentInfoText.Render("Inp:"),
+		currentMsgOriginalStyle.Render(truncatedOriginalMsg),
+	)
 	line3 := fmt.Sprintf(
 		"  %s %s",
-		"Trn:",
+		currentInfoText.Render("Out:"),
 		currentMsgTranslatedStyle.Render(truncatedTranslatedMsg),
 	)
-	line4 := fmt.Sprintf("  %s %s", "Fnl:", currentFinalMsgStyle.Render(truncatedFinalStr))
+	line4 := fmt.Sprintf(
+		"  %s %s",
+		currentInfoText.Render("Fnl:"),
+		currentFinalMsgStyle.Render(truncatedFinalStr),
+	)
 
 	finalRender := lipgloss.JoinVertical(lipgloss.Left,
 		line1,
@@ -231,15 +273,15 @@ func (d HistoryCommitDelegate) Spacing() int { return 1 }
 func NewHistoryCommitList(
 	workspaceCommits []storage.Commit,
 	pwd string,
-	commitFormat string,
-    theme *styles.Theme,
+	globalConfig config.Config,
+	theme *styles.Theme,
 ) list.Model {
 	items := make([]list.Item, len(workspaceCommits))
 	for i, c := range workspaceCommits {
 		items[i] = HistoryCommitItem{commit: c}
 	}
 
-	historyList := list.New(items, NewHistoryCommitDelegate(commitFormat, theme), 0, 0)
+	historyList := list.New(items, NewHistoryCommitDelegate(globalConfig, theme), 0, 0)
 	historyList.Title = fmt.Sprintf("%s: %s", "Working directory", TruncatePath(pwd, 2))
 	historyList.SetShowTitle(false)
 	historyList.SetShowFilter(false)

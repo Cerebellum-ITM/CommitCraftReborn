@@ -32,7 +32,8 @@ type Config struct {
 }
 
 type CommitFormatConfig struct {
-	TypeFormat string `toml:"type_format"`
+	TypeFormat       string            `toml:"type_format"`
+	CommitTypeColors map[string]string `toml:"-"` // Map of commit type tag to color
 }
 
 type CommitTypesConfig struct {
