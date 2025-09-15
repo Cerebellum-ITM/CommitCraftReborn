@@ -464,6 +464,7 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			commitScopeSelected := model.fileList.SelectedItem()
 			if item, ok := commitScopeSelected.(FileItem); ok {
+				model.WritingStatusBar.Level = statusbar.LevelInfo
 				model.WritingStatusBar.Content = "Craft your commit"
 				model.commitScope = item.Title()
 				model.state = stateWritingMessage
