@@ -242,6 +242,8 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 
 	iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
 	msgEditVContenHeight := totalAvailableContentHeight - msgEditViewVerticalMarginHeight
+	model.iaViewport.SetWidth(model.width / 2)
+	model.msgEdit.SetWidth(model.width / 2)
 	model.iaViewport.SetHeight(iaViewportContentHeight)
 	model.msgEdit.SetHeight(msgEditVContenHeight - 2)
 
