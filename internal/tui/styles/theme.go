@@ -3,6 +3,7 @@ package styles
 import (
 	"image/color"
 
+	"github.com/charmbracelet/bubbles/v2/help"
 	"github.com/charmbracelet/bubbles/v2/textarea"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
@@ -50,6 +51,7 @@ type Theme struct {
 
 type Styles struct {
 	Base     lipgloss.Style
+	Help     help.Styles
 	TextArea textarea.Styles
 }
 
@@ -65,6 +67,15 @@ func (t *Theme) buildStyles() *Styles {
 		Foreground(t.FgBase)
 	return &Styles{
 		Base: base,
+		Help: help.Styles{
+			ShortKey:       base.Foreground(t.Accent),
+			ShortDesc:      base.Foreground(t.FgMuted),
+			ShortSeparator: base.Foreground(t.White),
+			FullKey:        base.Foreground(t.Accent),
+			FullDesc:       base.Foreground(t.FgMuted),
+			FullSeparator:  base.Foreground(t.White),
+			Ellipsis:       base.Foreground(t.FgSubtle),
+		},
 		TextArea: textarea.Styles{
 			Focused: textarea.StyleState{
 				Base:             base.Foreground(t.BorderFocus),

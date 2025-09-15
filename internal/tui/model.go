@@ -180,6 +180,8 @@ func NewModel(
 		)
 	}
 
+	help := help.New()
+	help.Styles = theme.AppStyles().Help
 	// --- End of Initializations ---
 
 	m := &Model{
@@ -201,7 +203,7 @@ func NewModel(
 		msgEdit:                 msgEdit,
 		spinner:                 spinner,
 		keys:                    initialKeys,
-		help:                    help.New(),
+		help:                    help,
 		logViewVisible:          false,
 		logViewport:             viewport.New(),
 		globalConfig:            config,
