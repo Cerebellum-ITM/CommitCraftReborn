@@ -117,7 +117,7 @@ func NewHistoryCommitDelegate(globalConfig config.Config, theme *styles.Theme) l
 		Theme:        theme,
 		selectedContainerStyle: baseStyle.
 			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(theme.FocusableElement).
+			BorderForeground(theme.Accent).
 			PaddingLeft(1),
 
 		unselectedContainerStyle: baseStyle.
@@ -178,14 +178,14 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		adicionalUiText           lipgloss.Style
 	)
 
-	indicatorStyle = lipgloss.NewStyle().Foreground(d.Theme.Yellow)
+	indicatorStyle = lipgloss.NewStyle().Foreground(d.Theme.Accent)
 
 	if index == m.Index() {
 		indicator = "❯"
 		currentCommitTypeStyle = d.commitTypeStyle.Foreground(d.GetCommitTypeColor(commit.Type))
 		itemDisplayStyle = d.selectedContainerStyle
 		currentDateStyle = d.dateStyle.Bold(true).
-			Foreground(d.Theme.Yellow)
+			Foreground(d.Theme.Accent)
 		currentIDStyle = d.idStyle.Bold(true).
 			Foreground(d.Theme.FillTextLine)
 		currentMsgOriginalStyle = d.msgOriginalStyle.Foreground(d.Theme.Input)
