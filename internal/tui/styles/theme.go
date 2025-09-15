@@ -65,13 +65,13 @@ func (t *Theme) buildStyles() *Styles {
 		Base: base,
 		TextArea: textarea.Styles{
 			Focused: textarea.StyleState{
-				Base:             base.Foreground(t.FillTextLine),
+				Base:             base.Foreground(t.BorderFocus),
 				Text:             base,
 				LineNumber:       base.Foreground(t.White),
 				CursorLine:       base.Background(t.BgOverlay),
 				CursorLineNumber: base.Foreground(t.White),
 				Placeholder:      base.Foreground(t.White),
-				Prompt:           base.Foreground(t.BorderFocus),
+				Prompt:           base.Foreground(t.FillTextLine),
 			},
 			Blurred: textarea.StyleState{
 				Base:             base.Foreground(t.FocusableElement),
