@@ -88,8 +88,6 @@ func (hci HistoryCommitItem) Description() string {
 
 func (hci HistoryCommitItem) FilterValue() string {
 	return hci.commit.MessageEN + " " + hci.commit.MessageES + " " +
-		hci.commit.CreatedAt.Format("2006-01-02") + " " +
-		fmt.Sprintf("%d", hci.commit.ID) + " " +
 		hci.commit.Type + " " + hci.commit.Scope
 }
 
@@ -284,7 +282,7 @@ func NewHistoryCommitList(
 	historyList := list.New(items, NewHistoryCommitDelegate(globalConfig, theme), 0, 0)
 	historyList.Title = fmt.Sprintf("%s: %s", "Working directory", TruncatePath(pwd, 2))
 	historyList.SetShowTitle(false)
-	historyList.SetShowFilter(false)
+	historyList.SetShowFilter(true)
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.SetFilteringEnabled(true)
