@@ -115,6 +115,7 @@ func NewModel(
 		workspaceCommits,
 		pwd,
 		config.CommitFormat.TypeFormat,
+		theme,
 	)
 
 	if err != nil {

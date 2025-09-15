@@ -3,6 +3,7 @@ package tui
 import (
 	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/styles"
 	"fmt"
 	"io"
 	"os"
@@ -96,6 +97,7 @@ type HistoryCommitDelegate struct {
 	commitTypeStyle          lipgloss.Style
 	selectedContainerStyle   lipgloss.Style
 	unselectedContainerStyle lipgloss.Style
+	Theme                    *styles.Theme
 
 	commitFormat       string
 	dateStyle          lipgloss.Style
@@ -105,7 +107,7 @@ type HistoryCommitDelegate struct {
 	finalMsgStyle      lipgloss.Style
 }
 
-func NewHistoryCommitDelegate(commitFormat string) list.ItemDelegate {
+func NewHistoryCommitDelegate(commitFormat string, theme *styles.Theme) list.ItemDelegate {
 	return HistoryCommitDelegate{
 		commitFormat: commitFormat,
 		selectedContainerStyle: lipgloss.NewStyle().
@@ -230,13 +232,14 @@ func NewHistoryCommitList(
 	workspaceCommits []storage.Commit,
 	pwd string,
 	commitFormat string,
+    theme *styles.Theme,
 ) list.Model {
 	items := make([]list.Item, len(workspaceCommits))
 	for i, c := range workspaceCommits {
 		items[i] = HistoryCommitItem{commit: c}
 	}
 
-	historyList := list.New(items, NewHistoryCommitDelegate(commitFormat), 0, 0)
+	historyList := list.New(items, NewHistoryCommitDelegate(commitFormat, theme), 0, 0)
 	historyList.Title = fmt.Sprintf("%s: %s", "Working directory", TruncatePath(pwd, 2))
 	historyList.SetShowTitle(false)
 	historyList.SetShowFilter(false)
