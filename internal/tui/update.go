@@ -498,6 +498,9 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.Help):
 			model.help.ShowAll = !model.help.ShowAll
+			return model, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: model.width, Height: model.height}
+			}
 		case key.Matches(msg, model.keys.Esc):
 			model.keys = mainListKeys()
 			return model.cancelProcess(stateChoosingCommit)
@@ -556,6 +559,10 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, model.keys.Help):
 				model.help.ShowAll = !model.help.ShowAll
+				return model, func() tea.Msg {
+					return tea.WindowSizeMsg{Width: model.width, Height: model.height}
+				}
+
 			}
 		}
 	}

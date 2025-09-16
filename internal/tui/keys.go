@@ -202,6 +202,60 @@ func (k KeyMap) ShortHelp() []key.Binding {
 }
 
 func (k KeyMap) FullHelp() [][]key.Binding {
-	b := [][]key.Binding{{}}
-	return b
+	b := []key.Binding{}
+	if k.Up.Enabled() {
+		b = append(b, k.Up)
+	}
+	if k.Down.Enabled() {
+		b = append(b, k.Down)
+	}
+	if k.Left.Enabled() {
+		b = append(b, k.Left)
+	}
+	if k.Right.Enabled() {
+		b = append(b, k.Right)
+	}
+	if k.Enter.Enabled() {
+		b = append(b, k.Enter)
+	}
+	if k.Delete.Enabled() {
+		b = append(b, k.Delete)
+	}
+	if k.Quit.Enabled() {
+		b = append(b, k.Quit)
+	}
+	if k.GlobalQuit.Enabled() {
+		b = append(b, k.GlobalQuit)
+	}
+	if k.Toggle.Enabled() {
+		b = append(b, k.Toggle)
+	}
+	if k.Help.Enabled() {
+		b = append(b, k.Help)
+	}
+	if k.Esc.Enabled() {
+		b = append(b, k.Esc)
+	}
+	if k.Filter.Enabled() {
+		b = append(b, k.Filter)
+	}
+	if k.Logs.Enabled() {
+		b = append(b, k.Logs)
+	}
+	if k.AddCommit.Enabled() {
+		b = append(b, k.AddCommit)
+	}
+	if k.NextField.Enabled() {
+		b = append(b, k.NextField)
+	}
+	if k.PrevField.Enabled() {
+		b = append(b, k.PrevField)
+	}
+	if k.CreateIaCommit.Enabled() {
+		b = append(b, k.CreateIaCommit)
+	}
+	if k.Edit.Enabled() {
+		b = append(b, k.Edit)
+	}
+	return [][]key.Binding{b}
 }

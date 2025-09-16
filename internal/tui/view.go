@@ -302,10 +302,10 @@ func (model *Model) View() string {
 	if model.err != nil {
 		return "Error: " + model.err.Error()
 	}
-
 	statusBarContent := model.WritingStatusBar.Render()
-	helpView := fmt.Sprintf("  %s", model.help.View(model.keys))
+	helpView := lipgloss.NewStyle().Padding(0, 2).SetString(model.help.View(model.keys)).String()
 	contentHeight := model.height
+	helpViewH := lipgloss.Height(helpView)
 	availableWidthForMainContent := max(0, model.width-appStyle.GetHorizontalFrameSize()-appStyle.
 		GetHorizontalPadding())
 	if model.height > 10 {
@@ -313,7 +313,7 @@ func (model *Model) View() string {
 	}
 	statusBarH := lipgloss.Height(statusBarContent)
 	VerticalSpaceH := 2 * lipgloss.Height(VerticalSpace)
-	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH
+	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH - helpViewH
 
 	switch model.state {
 	case stateSettingAPIKey:
