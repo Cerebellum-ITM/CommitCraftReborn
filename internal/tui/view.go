@@ -85,7 +85,7 @@ func (model *Model) msgEditHeaderView(state string) string {
 func (model *Model) msgEditFooterView(state string) string {
 	textColor, lineColor := model.setColorVariables(state)
 	info := FooterStyle.Foreground(textColor).Render(
-		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value())),
+		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgEdit.Value())),
 	)
 	line := LineStyle.Foreground(lineColor).
 		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
