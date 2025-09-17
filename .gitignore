@@ -12,5 +12,5 @@ Makefile
 .crush.json
 CRUSH.md
 /bin
-create_realeale.sh
+create_release.sh
 .commitcraft.toml
