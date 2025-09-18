@@ -81,8 +81,8 @@ func (l *Logger) Error(msg string, args ...any) {
 }
 
 func (l *Logger) Fatal(msg string, args ...any) {
-	// l.consoleLogger.Helper()
-	// l.consoleLogger.Fatal(msg, args...)
+	l.consoleLogger.Helper()
+	l.consoleLogger.Fatal(msg, args...)
 	l.fileLogger.Error(msg, args...)
 }
 
