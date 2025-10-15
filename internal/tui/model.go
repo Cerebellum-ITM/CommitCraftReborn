@@ -1,13 +1,14 @@
 package tui
 
 import (
+	"fmt"
+
 	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/components/statusbar"
 	"commit_craft_reborn/internal/tui/styles"
-	"fmt"
 
 	"github.com/charmbracelet/bubbles/v2/help"
 	"github.com/charmbracelet/bubbles/v2/key"
@@ -80,6 +81,8 @@ type Model struct {
 	commitScope             string
 	commitMsg               string
 	commitTranslate         string
+	diffCode                string
+	useDbCommmit            bool
 	FinalMessage            string
 	keys                    KeyMap
 	help                    help.Model
@@ -208,6 +211,7 @@ func NewModel(
 		logViewport:             viewport.New(),
 		globalConfig:            config,
 		Theme:                   theme,
+		useDbCommmit:            false,
 	}
 	return m, nil
 }

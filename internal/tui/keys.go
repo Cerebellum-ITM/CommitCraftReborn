@@ -22,6 +22,7 @@ type KeyMap struct {
 	NextField      key.Binding
 	PrevField      key.Binding
 	CreateIaCommit key.Binding
+	EditIaCommit   key.Binding
 	Edit           key.Binding
 }
 
@@ -75,8 +76,7 @@ func editingMessageKeys() KeyMap {
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-        GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
-
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 	}
 }
 
@@ -98,7 +98,7 @@ func fileListKeys() KeyMap {
 		),
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
-        GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 	}
@@ -106,13 +106,14 @@ func fileListKeys() KeyMap {
 
 func mainListKeys() KeyMap {
 	return KeyMap{
-		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
-		Delete:     key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
-		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
-        GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
-		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		Up:           key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:         key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Enter:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Delete:       key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
+		Quit:         key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		GlobalQuit:   key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+		Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		EditIaCommit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Edit commit")),
 		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
 		Filter: key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
@@ -215,6 +216,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.Right.Enabled() {
 		b = append(b, k.Right)
+	}
+	if k.EditIaCommit.Enabled() {
+		b = append(b, k.EditIaCommit)
 	}
 	if k.Enter.Enabled() {
 		b = append(b, k.Enter)

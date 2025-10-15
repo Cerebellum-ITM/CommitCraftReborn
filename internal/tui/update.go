@@ -1,14 +1,15 @@
 package tui
 
 import (
-	"commit_craft_reborn/internal/api"
-	"commit_craft_reborn/internal/storage"
-	"commit_craft_reborn/internal/tui/components/statusbar"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"commit_craft_reborn/internal/api"
+	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/components/statusbar"
 
 	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"
@@ -115,12 +116,12 @@ func saveAPIKeyToEnv(key string) error {
 	configDir := filepath.Join(home, ".config", "CommitCraft")
 	envPath := filepath.Join(configDir, ".env")
 
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return err
 	}
 
 	content := fmt.Sprintf("GROQ_API_KEY=%s\n", key)
-	return os.WriteFile(envPath, []byte(content), 0600)
+	return os.WriteFile(envPath, []byte(content), 0o600)
 }
 
 func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
@@ -165,6 +166,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		MessageES: model.commitMsg,
 		MessageEN: model.commitTranslate,
 		Workspace: model.pwd,
+		Diff_code: model.diffCode,
 		CreatedAt: time.Now(),
 	}
 
@@ -216,18 +218,26 @@ func createAndSendIaMessage(
 }
 
 func ia_commit_builder(userInput string, model *Model) error {
-	diffSummary, err := GetStagedDiffSummary(model.globalConfig.Prompts.SummaryPromptMaxDiffsize)
+	var diffSummary string
+	var err error
+
+	if model.useDbCommmit {
+		diffSummary = model.diffCode
+	} else {
+		diffSummary, err = GetStagedDiffSummary(model.globalConfig.Prompts.SummaryPromptMaxDiffsize)
+		if err != nil {
+			return fmt.Errorf(
+				"An error occurred while trying to generate the git diff summary.\n%s",
+				err,
+			)
+		}
+
+	}
 	promptConfig := model.globalConfig.Prompts
 	// formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, model.commitType)
 	preambleMessage := fmt.Sprintf("%s %s: ", model.commitType, model.commitScope)
 	model.log.Debug("User Input", "preambleMessage", userInput)
 	model.log.Debug("git diff summary", "diffSummary", diffSummary)
-	if err != nil {
-		return fmt.Errorf(
-			"An error occurred while trying to generate the git diff summary.\n%s",
-			err,
-		)
-	}
 
 	iaSumarry, err := createAndSendIaMessage(
 		promptConfig.SummaryPrompt,
@@ -239,7 +249,7 @@ func ia_commit_builder(userInput string, model *Model) error {
 	model.log.Debug("exit summary prompt", "iaSumarry", iaSumarry)
 	iaCommitRawOutput, err := createAndSendIaMessage(
 		promptConfig.CommitBuilderPrompt,
-		iaSumarry,
+		fmt.Sprintf("COMMIT_TYPE:\n%s\nSUMMARY:\n%s", model.commitType, iaSumarry),
 		promptConfig.CommitBuilderPromptModel,
 		model,
 	)
@@ -272,6 +282,7 @@ func ia_commit_builder(userInput string, model *Model) error {
 	)
 	model.commitMsg = userInput
 	model.commitTranslate = iaFormattedOutput
+	model.diffCode = diffSummary
 	return nil
 }
 
@@ -353,6 +364,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			if model.commitTranslate != "" {
 				createCommit(model)
+				model.useDbCommmit = false
 			} else {
 				model.WritingStatusBar.Content = "You need to first make a request to the AI to continue!!"
 				model.WritingStatusBar.Level = statusbar.LevelError
@@ -545,6 +557,22 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.keys = listKeys()
 				ResetAndActiveFilterOnList(&model.commitTypeList)
 				return model, nil
+			case key.Matches(msg, model.keys.EditIaCommit):
+				selectedItem := model.mainList.SelectedItem()
+				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
+					commit := commitItem.commit
+					model.commitScope = commit.Scope
+					model.commitType = commit.Type
+					model.diffCode = commit.Diff_code
+					model.commitMsg = commit.MessageES
+					model.commitTranslate = commit.MessageEN
+					model.useDbCommmit = true
+					model.msgInput.SetValue(commit.MessageES)
+					model.state = stateWritingMessage
+					model.keys = writingMessageKeys()
+				}
+				return model, nil
+
 			case key.Matches(msg, model.keys.Delete):
 				return model, func() tea.Msg { return openPopupMsg{} }
 			case key.Matches(msg, model.keys.Enter):
