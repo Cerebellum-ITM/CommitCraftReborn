@@ -10,5 +10,6 @@ type Commit struct {
 	MessageES string
 	MessageEN string
 	Workspace string
+	Diff_code string
 	CreatedAt time.Time
 }

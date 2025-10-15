@@ -9,7 +9,7 @@ import (
 // GetCommits retrieves all commits from the database.
 func (db *DB) GetCommits(pwd string) ([]Commit, error) {
 	rows, err := db.Query(
-		"SELECT id, type, scope, message_es, message_en, workspace, created_at FROM commits WHERE workspace = ? ORDER BY created_at DESC",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, created_at FROM commits WHERE workspace = ? ORDER BY created_at DESC",
 		pwd,
 	)
 	if err != nil {
@@ -21,7 +21,7 @@ func (db *DB) GetCommits(pwd string) ([]Commit, error) {
 	for rows.Next() {
 		var c Commit
 		var createdAt string
-		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &c.MessageES, &c.MessageEN, &c.Workspace, &createdAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &c.MessageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
 
@@ -40,12 +40,13 @@ func (db *DB) CreateCommit(c Commit) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
-		"INSERT INTO commits (type, scope, message_es, message_en, workspace, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, created_at) VALUES (?, ?, ?, ?, ?, ?,?)",
 		c.Type,
 		c.Scope,
 		c.MessageES,
 		c.MessageEN,
 		c.Workspace,
+		c.Diff_code,
 		createdAt,
 	)
 	return errors.Wrap(err, "failed to insert commit")
