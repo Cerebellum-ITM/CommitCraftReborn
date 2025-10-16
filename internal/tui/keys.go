@@ -5,25 +5,28 @@ import "github.com/charmbracelet/bubbles/v2/key"
 // KeyMap defines a set of keybindings.
 // It implements the help.KeyMap interface.
 type KeyMap struct {
-	Up             key.Binding
-	Down           key.Binding
-	Left           key.Binding
-	Right          key.Binding
-	Enter          key.Binding
-	Delete         key.Binding
-	Quit           key.Binding
-	GlobalQuit     key.Binding
-	Toggle         key.Binding
-	Help           key.Binding
-	Esc            key.Binding
-	Filter         key.Binding
-	Logs           key.Binding
-	AddCommit      key.Binding
-	NextField      key.Binding
-	PrevField      key.Binding
-	CreateIaCommit key.Binding
-	EditIaCommit   key.Binding
-	Edit           key.Binding
+	Up              key.Binding
+	Down            key.Binding
+	Left            key.Binding
+	Right           key.Binding
+	Enter           key.Binding
+	Delete          key.Binding
+	Quit            key.Binding
+	GlobalQuit      key.Binding
+	Toggle          key.Binding
+	Help            key.Binding
+	Esc             key.Binding
+	Filter          key.Binding
+	Logs            key.Binding
+	AddCommit       key.Binding
+	NextField       key.Binding
+	PrevField       key.Binding
+	CreateIaCommit  key.Binding
+	EditIaCommit    key.Binding
+	Edit            key.Binding
+	deleteForward   key.Binding
+	deleteBackwards key.Binding
+	delteLine       key.Binding
 }
 
 func writingMessageKeys() KeyMap {
@@ -73,6 +76,19 @@ func editingMessageKeys() KeyMap {
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "Apply changes And Return to Crafter"),
 		),
+		deleteForward: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("ctrl+c", "deletes forward from the cursor"),
+		),
+		deleteBackwards: key.NewBinding(
+			key.WithKeys("ctrl+z"),
+			key.WithHelp("ctrl+z", "deletes backwards from the cursor"),
+		),
+		delteLine: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("ctrl+d", "delete selected line"),
+		),
+
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
@@ -243,6 +259,12 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.Filter.Enabled() {
 		b = append(b, k.Filter)
+	}
+	if k.deleteBackwards.Enabled() {
+		b = append(b, k.deleteBackwards)
+	}
+	if k.deleteForward.Enabled() {
+		b = append(b, k.deleteForward)
 	}
 	if k.Logs.Enabled() {
 		b = append(b, k.Logs)

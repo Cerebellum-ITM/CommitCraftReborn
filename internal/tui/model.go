@@ -141,7 +141,9 @@ func NewModel(
 	//
 	msgEdit := textarea.New()
 	msgEdit.SetStyles(theme.AppStyles().TextArea)
-	msgInput.Prompt = "┃ "
+	msgEdit.Prompt = "┃ "
+	msgEdit.KeyMap.DeleteAfterCursor = key.NewBinding(key.WithKeys("ctrl+c"))
+	msgEdit.KeyMap.DeleteBeforeCursor = key.NewBinding(key.WithKeys("ctrl+z"))
 	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
 	msgEdit.Placeholder = "A short description of the changes..."
 

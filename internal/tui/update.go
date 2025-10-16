@@ -316,6 +316,17 @@ func updateEditingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.PrevField):
 			switchFocusElement(model)
 			return model, nil
+		case key.Matches(msg, model.keys.delteLine):
+			lineToDelete := model.msgEdit.Line()
+			lines := strings.Split(model.msgEdit.Value(), "\n")
+			lines = append(lines[:lineToDelete], lines[lineToDelete+1:]...)
+			model.msgEdit.SetValue(strings.Join(lines, "\n"))
+
+			for model.msgEdit.Line() > lineToDelete {
+				model.msgEdit.CursorUp()
+			}
+
+			return model, nil
 		case key.Matches(msg, model.keys.Edit):
 			model.state = stateWritingMessage
 			model.keys = writingMessageKeys()
