@@ -7,7 +7,7 @@ import (
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
-	"commit_craft_reborn/internal/tui/components/statusbar"
+	"commit_craft_reborn/internal/tui/statusbar"
 	"commit_craft_reborn/internal/tui/styles"
 
 	"github.com/charmbracelet/bubbles/v2/help"

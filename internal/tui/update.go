@@ -9,7 +9,7 @@ import (
 
 	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/storage"
-	"commit_craft_reborn/internal/tui/components/statusbar"
+	"commit_craft_reborn/internal/tui/statusbar"
 
 	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"

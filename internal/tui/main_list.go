@@ -1,77 +1,18 @@
 package tui
 
 import (
-	"commit_craft_reborn/internal/commit"
-	"commit_craft_reborn/internal/config"
-	"commit_craft_reborn/internal/storage"
-	"commit_craft_reborn/internal/tui/styles"
 	"fmt"
 	"image/color"
 	"io"
-	"os"
 	"time"
 
-	"github.com/charmbracelet/bubbles/v2/key"
+	"commit_craft_reborn/internal/config"
+	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/styles"
+
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
 )
-
-type CommitTypeDelegate struct {
-	list.DefaultDelegate
-	TypeFormat string
-	Color      string
-}
-type CommitTypeItem struct {
-	commit.CommitType
-}
-
-func (cti CommitTypeItem) Title() string { return cti.CommitType.Tag }
-func (cti CommitTypeItem) Color() string { return cti.CommitType.Color }
-
-func (cti CommitTypeItem) Description() string { return cti.CommitType.Description }
-
-func (cti CommitTypeItem) FilterValue() string {
-	return cti.CommitType.Tag + " " + cti.CommitType.Description
-}
-
-func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	it, ok := listItem.(CommitTypeItem)
-	if !ok {
-		return
-	}
-
-	commitType := it.Title()
-	commitDesc := it.Description()
-	commitColor := it.Color()
-	formattedCommitType := fmt.Sprintf(d.TypeFormat, commitType)
-
-	var renderedType, renderedDesc string
-
-	if index == m.Index() {
-		styleType := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(commitColor)).
-			Bold(true)
-
-		styleDesc := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("229")) // Amarillo claro
-
-		renderedType = styleType.Render(formattedCommitType)
-		renderedDesc = styleDesc.Render(commitDesc)
-
-		fmt.Fprintf(w, "❯ %s - %s", renderedType, renderedDesc)
-	} else {
-		styleType := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")) // Gris
-
-		styleDesc := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244")) // Gris más oscuro
-
-		renderedType = styleType.Render(formattedCommitType)
-		renderedDesc = styleDesc.Render(commitDesc)
-
-		fmt.Fprintf(w, "  %s - %s", renderedType, renderedDesc)
-	}
-}
 
 // HistoryCommitItem
 type HistoryCommitItem struct {
@@ -289,137 +230,4 @@ func NewHistoryCommitList(
 	historyList.SetFilteringEnabled(true)
 	historyList.StatusMessageLifetime = 5 * time.Second
 	return historyList
-}
-
-func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) list.Model {
-	items := make([]list.Item, len(commitTypes))
-	for i, ct := range commitTypes {
-		items[i] = CommitTypeItem{CommitType: ct}
-	}
-
-	delegate := CommitTypeDelegate{
-		TypeFormat: commitFormat,
-	}
-	typeList := list.New(items, delegate, 0, 0)
-	typeList.Title = "Choose Commit Type"
-	typeList.SetFilteringEnabled(true)
-	typeList.KeyMap.AcceptWhileFiltering = key.NewBinding(
-		key.WithKeys("enter", "/", "ctrl+k", "ctrl+j"),
-	)
-
-	typeList.SetShowHelp(false)
-
-	return typeList
-}
-
-type FileItem struct {
-	Entry  os.DirEntry
-	Status string
-}
-
-func (fi FileItem) Title() string       { return fi.Entry.Name() }
-func (fi FileItem) Description() string { return "" }
-func (fi FileItem) FilterValue() string { return fi.Entry.Name() }
-func (fi FileItem) IsDir() bool         { return fi.Entry.IsDir() }
-
-type FileDelegate struct {
-	list.DefaultDelegate
-	UseNerdFonts bool
-}
-
-var statusStyles = map[string]lipgloss.Style{
-	"U": lipgloss.NewStyle().Foreground(lipgloss.Color("135")), // Unmerged
-	"M": lipgloss.NewStyle().Foreground(lipgloss.Color("220")), // Modified
-	"A": lipgloss.NewStyle().Foreground(lipgloss.Color("10")),  // Added
-	"D": lipgloss.NewStyle().Foreground(lipgloss.Color("9")),   // Deleted
-	"R": lipgloss.NewStyle().Foreground(lipgloss.Color("45")),  // Renamed
-	"C": lipgloss.NewStyle().Foreground(lipgloss.Color("165")), // Copied
-	"":  lipgloss.NewStyle().Foreground(lipgloss.Color("240")), // Default
-}
-
-func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	it, ok := listItem.(FileItem)
-	if !ok {
-		return
-	}
-
-	name := it.Title()
-	var icon string
-	var baseStyle lipgloss.Style
-	info, err := it.Entry.Info()
-	isExecutable := err == nil && info.Mode().Perm()&0111 != 0
-
-	if it.IsDir() {
-		// Color for directories
-		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
-	} else if isExecutable {
-		// Color for executable files
-		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("78"))
-	} else {
-		// Default color for normal files
-		baseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("253"))
-	}
-
-	if d.UseNerdFonts {
-		icon = GetNerdFontIcon(name, it.IsDir())
-	} else {
-		if it.IsDir() {
-			icon = "📁"
-		} else {
-			icon = "📄"
-		}
-	}
-
-	statusText := " "
-	statusStyle := statusStyles[""]
-	if it.Status != "" {
-		statusText = fmt.Sprintf("%s", it.Status)
-		if style, found := statusStyles[it.Status]; found {
-			statusStyle = style
-		}
-	}
-
-	if index == m.Index() {
-		selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
-		fmt.Fprintf(
-			w,
-			"❯ %s %s %s",
-			statusStyle.Render(statusText),
-			selectedStyle.Render(icon),
-			selectedStyle.
-				Render(name),
-		)
-	} else {
-		fmt.Fprintf(w, "  %s %s %s", statusStyle.Render(statusText), baseStyle.Render(icon),
-			baseStyle.Render(name))
-	}
-
-	// fmt.Fprint(w, line)
-}
-
-func (d FileDelegate) Height() int  { return 1 }
-func (d FileDelegate) Spacing() int { return 0 }
-
-func NewFileList(pwd string, useNerdFont bool, gitData GitStatusData) (list.Model, error) {
-	items, err := CreateFileItemsList(pwd, gitData)
-	if err != nil {
-		return list.Model{}, fmt.Errorf("Error changing list items %s", err)
-	}
-
-	fileList := list.New(items, FileDelegate{
-		UseNerdFonts: useNerdFont,
-	}, 0, 0)
-	fileList.KeyMap.AcceptWhileFiltering = key.NewBinding(
-		key.WithKeys("enter", "/", "ctrl+k", "ctrl+j"),
-	)
-	fileList.KeyMap.CancelWhileFiltering = key.NewBinding(key.WithKeys("/"))
-
-	fileList.Title = fmt.Sprintf("Select a file or directory in %s", TruncatePath(pwd, 2))
-	fileList.SetShowHelp(false)
-	fileList.SetFilteringEnabled(true)
-	fileList.SetShowPagination(true)
-	fileList.SetStatusBarItemName("item", "items")
-	fileList.StatusMessageLifetime = 5 * time.Second
-
-	return fileList, nil
 }
