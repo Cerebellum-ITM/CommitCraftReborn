@@ -1,8 +1,9 @@
 package statusbar
 
 import (
-	"commit_craft_reborn/internal/tui/styles"
 	"strings"
+
+	"commit_craft_reborn/internal/tui/styles"
 
 	"github.com/charmbracelet/bubbles/v2/spinner"
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -76,7 +77,7 @@ func (sb StatusBar) Render() string {
 	version := sb.theme.AppStyles().Base.
 		Background(sb.theme.Black).
 		Foreground(sb.theme.White).
-		Padding(0, 1).SetString("v0.2.4")
+		Padding(0, 1).SetString("v0.2.5")
 
 	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
 	fillContent := sb.theme.AppStyles().Base
