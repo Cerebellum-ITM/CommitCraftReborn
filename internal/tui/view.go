@@ -32,6 +32,38 @@ var (
 //go:embed prompts/writing_message_instructions.md
 var defaultTranslatedContentPrompt string
 
+type BorderAlignment int
+
+const (
+	AlignHeader BorderAlignment = iota
+	AlignFooter
+)
+
+func (m *Model) buildStyledBorder(
+	state string,
+	content string,
+	baseStyle lipgloss.Style,
+	componentWidth int,
+	alignment BorderAlignment,
+) string {
+	textColor, lineColor := m.setColorVariables(state)
+
+	styledContent := baseStyle.Foreground(textColor).Render(content)
+
+	contentWidth := lipgloss.Width(styledContent)
+	line := LineStyle.Foreground(lineColor).
+		Render(strings.Repeat("─", max(0, componentWidth-contentWidth)))
+
+	switch alignment {
+	case AlignHeader:
+		return lipgloss.JoinHorizontal(lipgloss.Left, styledContent, line)
+	case AlignFooter:
+		return lipgloss.JoinHorizontal(lipgloss.Left, line, styledContent)
+	default:
+		return ""
+	}
+}
+
 func (model *Model) setColorVariables(state string) (textColor, lineColor ansi.Color) {
 	focusColor = model.Theme.Primary
 	focusColorText = model.Theme.Accent
@@ -47,58 +79,69 @@ func (model *Model) setColorVariables(state string) (textColor, lineColor ansi.C
 }
 
 func (model *Model) iaHeaderView(state string) string {
-	textColor, lineColor := model.setColorVariables(state)
-	title := HeaderStyle.Foreground(textColor).Render("Final response of AI models")
-	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(title))))
-	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
-}
-
-func (model *Model) userInputHeaderView(state string) string {
-	textColor, lineColor := model.setColorVariables(state)
-	title := HeaderStyle.Foreground(textColor).
-		Render("Enter the text with your summary of the changes")
-	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(title))))
-	return lipgloss.JoinHorizontal(lipgloss.Right, title, line)
-}
-
-func (model *Model) userInputFooterView(state string) string {
-	textColor, lineColor := model.setColorVariables(state)
-	info := FooterStyle.Foreground(textColor).Render(
-		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value())),
+	title := "Final response of AI models"
+	return model.buildStyledBorder(
+		state,
+		title,
+		HeaderStyle,
+		model.width/2,
+		AlignHeader,
 	)
-	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
-}
-
-func (model *Model) msgEditHeaderView(state string) string {
-	textColor, lineColor := model.setColorVariables(state)
-	title := HeaderStyle.Foreground(textColor).
-		Render("Write the modifications")
-	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(title))))
-	return lipgloss.JoinHorizontal(lipgloss.Right, title, line)
-}
-
-func (model *Model) msgEditFooterView(state string) string {
-	textColor, lineColor := model.setColorVariables(state)
-	info := FooterStyle.Foreground(textColor).Render(
-		fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgEdit.Value())),
-	)
-	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
 func (model *Model) iaFooterView(state string) string {
-	textColor, lineColor := model.setColorVariables(state)
-	info := FooterStyle.Foreground(textColor).
-		Render(fmt.Sprintf("%3.f%%", model.iaViewport.ScrollPercent()*100))
-	line := LineStyle.Foreground(lineColor).
-		Render(strings.Repeat("─", max(0, model.width/2-lipgloss.Width(info))))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+	info := fmt.Sprintf("%3.f%%", model.iaViewport.ScrollPercent()*100)
+	return model.buildStyledBorder(
+		state,
+		info,
+		FooterStyle,
+		model.width/2,
+		AlignFooter,
+	)
+}
+
+func (model *Model) userInputHeaderView(state string) string {
+	title := "Enter the text with your summary of the changes"
+	return model.buildStyledBorder(
+		state,
+		title,
+		HeaderStyle,
+		model.width/2,
+		AlignHeader,
+	)
+}
+
+func (model *Model) userInputFooterView(state string) string {
+	info := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value()))
+	return model.buildStyledBorder(
+		state,
+		info,
+		FooterStyle,
+		model.width/2,
+		AlignFooter,
+	)
+}
+
+func (model *Model) msgEditHeaderView(state string) string {
+	title := "Write the modifications"
+	return model.buildStyledBorder(
+		state,
+		title,
+		HeaderStyle,
+		model.width/2,
+		AlignHeader,
+	)
+}
+
+func (model *Model) msgEditFooterView(state string) string {
+	info := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgEdit.Value()))
+	return model.buildStyledBorder(
+		state,
+		info,
+		FooterStyle,
+		model.width/2,
+		AlignFooter,
+	)
 }
 
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {

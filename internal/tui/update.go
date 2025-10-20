@@ -33,8 +33,6 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.height = msg.Height
 		model.apiKeyInput.SetWidth(model.width)
 		model.WritingStatusBar.AppWith = model.width
-		model.WritingStatusBar.AppWith = model.width
-
 	case openPopupMsg:
 		selectedItem := model.mainList.SelectedItem()
 		if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
