@@ -19,6 +19,7 @@ func NewCharmtoneTheme() *Theme {
 		BorderFocus:      charmtone.Damson,
 		FillTextLine:     charmtone.Sardine,
 		FocusableElement: charmtone.Mustard,
+		Indicators:       charmtone.Bok,
 
 		BgOverlay: charmtone.Iron,
 		Input:     charmtone.Sardine,

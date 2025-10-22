@@ -26,6 +26,8 @@ type focusableElement int
 const (
 	focusMsgInput   focusableElement = iota // 0
 	focusAIResponse                         // 1
+	focusListElement
+	focusViewportElement
 )
 
 // We use iota to create an "enum" for our application states.
@@ -49,6 +51,7 @@ const (
 	stateWritingMessage
 	stateEditMessage
 	stateConfirming
+	stateReleaseChoosingCommits
 	stateDone
 )
 
@@ -63,6 +66,9 @@ type Model struct {
 	err                     error
 	apiKeyInput             textinput.Model
 	mainList                list.Model
+	releaseCommitList       list.Model
+	releaseViewport         viewport.Model
+	commitLivePreview       string
 	commitTypeList          list.Model
 	fileList                list.Model
 	fileListFilter          bool
@@ -153,6 +159,12 @@ func NewModel(
 		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
+	releaseViewport := viewport.New()
+	releaseViewport.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.Border{Left: "┃"}).
+		BorderForeground(theme.FocusableElement).
+		PaddingRight(2)
+
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
@@ -196,6 +208,7 @@ func NewModel(
 		apiKeyInput:             apiKeyInput,
 		state:                   initalState,
 		mainList:                workspaceCommitsList,
+		releaseViewport:         releaseViewport,
 		commitTypeList:          commitTypesList,
 		iaViewport:              vp,
 		focusedElement:          focusMsgInput,

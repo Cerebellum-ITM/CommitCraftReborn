@@ -22,6 +22,7 @@ type Theme struct {
 	BorderFocus      color.Color
 	FillTextLine     color.Color
 	FocusableElement color.Color
+	Indicators       color.Color
 
 	BgOverlay color.Color
 	Input     color.Color
@@ -50,9 +51,10 @@ type Theme struct {
 }
 
 type Styles struct {
-	Base     lipgloss.Style
-	Help     help.Styles
-	TextArea textarea.Styles
+	Base           lipgloss.Style
+	IndicatorStyle lipgloss.Style
+	Help           help.Styles
+	TextArea       textarea.Styles
 }
 
 func (t *Theme) AppStyles() *Styles {
@@ -65,8 +67,10 @@ func (t *Theme) AppStyles() *Styles {
 func (t *Theme) buildStyles() *Styles {
 	base := lipgloss.NewStyle().
 		Foreground(t.FgBase)
+	indicator := base.Foreground(t.Indicators)
 	return &Styles{
-		Base: base,
+		Base:           base,
+		IndicatorStyle: indicator,
 		Help: help.Styles{
 			ShortKey:       base.Foreground(t.Accent),
 			ShortDesc:      base.Foreground(t.FgMuted),

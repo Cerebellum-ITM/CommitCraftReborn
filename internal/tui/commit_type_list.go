@@ -83,7 +83,6 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 	typeList.KeyMap.AcceptWhileFiltering = key.NewBinding(
 		key.WithKeys("enter", "/", "ctrl+k", "ctrl+j"),
 	)
-
 	typeList.SetShowHelp(false)
 
 	return typeList

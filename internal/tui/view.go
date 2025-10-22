@@ -144,6 +144,28 @@ func (model *Model) msgEditFooterView(state string) string {
 	)
 }
 
+func (model *Model) releaseHeaderView(state string) string {
+	title := "Write the modifications"
+	return model.buildStyledBorder(
+		state,
+		title,
+		HeaderStyle,
+		model.width/2,
+		AlignHeader,
+	)
+}
+
+func (model *Model) releaseFooterView(state string) string {
+	info := fmt.Sprintf("%3.f%%", model.iaViewport.ScrollPercent()*100)
+	return model.buildStyledBorder(
+		state,
+		info,
+		FooterStyle,
+		model.width/2,
+		AlignFooter,
+	)
+}
+
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	var (
 		glamourContent             string
@@ -333,6 +355,88 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 	)
 }
 
+func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
+	const glamourGutter = 3
+	var (
+		header         string
+		footer         string
+		headerViewport string
+		footerViewport string
+		viewportStyle  lipgloss.Style
+	)
+
+	statusBarContent := model.WritingStatusBar.Render()
+	statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
+	verticalSpaceHeight := lipgloss.Height(VerticalSpace)
+	helpViewHeight := lipgloss.Height(model.help.View(model.keys))
+	viewportStyle = model.releaseViewport.Style
+
+	switch model.focusedElement {
+	case focusViewportElement:
+		viewportStyle = viewportStyle.BorderForeground(model.Theme.BorderFocus)
+		header = model.releaseHeaderView("blur")
+		footer = model.releaseFooterView("blur")
+		headerViewport = model.releaseHeaderView("focus")
+		footerViewport = model.releaseFooterView("focus")
+
+	case focusListElement:
+		viewportStyle = viewportStyle.BorderForeground(model.Theme.FocusableElement)
+		header = model.releaseHeaderView("focus")
+		footer = model.releaseFooterView("focus")
+		headerViewport = model.releaseHeaderView("blur")
+		footerViewport = model.releaseFooterView("blur")
+
+	}
+
+	iaHeaderH := lipgloss.Height(header)
+	iaFooterH := lipgloss.Height(footer)
+
+	model.releaseViewport.Style = viewportStyle
+	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - iaFooterH - iaHeaderH - 2
+	model.releaseCommitList.SetWidth(model.width / 2)
+	model.releaseCommitList.SetHeight(totalAvailableContentHeight)
+	model.releaseViewport.SetWidth(model.width / 2)
+	model.releaseViewport.SetHeight(totalAvailableContentHeight)
+
+	glamourRenderWidth := model.releaseViewport.Width() - model.releaseViewport.Style.GetHorizontalFrameSize() - glamourGutter
+	glamourStyle := styles.DarkStyleConfig
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithStyles(glamourStyle),
+		glamour.WithWordWrap(glamourRenderWidth),
+	)
+
+	glamourContentStr, _ := renderer.Render(model.commitLivePreview)
+	model.releaseViewport.SetContent(glamourContentStr)
+
+	leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		VerticalSpace,
+		model.releaseCommitList.View(),
+		VerticalSpace,
+		footer,
+	)
+
+	rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
+		headerViewport,
+		VerticalSpace,
+		model.releaseViewport.View(),
+		VerticalSpace,
+		footerViewport,
+	)
+
+	uiElements := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftTranslatedContent,
+		rightTranslatedContent,
+	)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		statusBarContent,
+		VerticalSpace,
+		uiElements,
+	)
+}
+
 // View renders the UI based on the current state of the model.
 func (model *Model) View() string {
 	var mainContent string
@@ -432,6 +536,8 @@ func (model *Model) View() string {
 		mainContent = model.buildWritingMessageView(appStyle)
 	case stateEditMessage:
 		mainContent = model.buildEditingMessageView(appStyle)
+	case stateReleaseChoosingCommits:
+		mainContent = model.buildReleaseView(appStyle)
 	}
 
 	mainView := lipgloss.JoinVertical(lipgloss.Left,

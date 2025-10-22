@@ -27,6 +27,7 @@ type KeyMap struct {
 	deleteForward   key.Binding
 	deleteBackwards key.Binding
 	delteLine       key.Binding
+	ReleaseCommit   key.Binding
 }
 
 func writingMessageKeys() KeyMap {
@@ -131,11 +132,33 @@ func mainListKeys() KeyMap {
 		Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		EditIaCommit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Edit commit")),
 		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
-		Filter: key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+		ReleaseCommit: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "Create a release")),
+		Filter:        key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		AddCommit: key.NewBinding(
 			key.WithKeys("n", "tab"),
 			key.WithHelp("Tab/n", "Create a new commit"),
+		),
+	}
+}
+
+func releaseKeys() KeyMap {
+	return KeyMap{
+		Up:         key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "up")),
+		Down:       key.NewBinding(key.WithKeys("down"), key.WithHelp("↓", "down")),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		NextField: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "Switch Focus →"),
+		),
+		PrevField: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "Switch Focus ←"),
 		),
 	}
 }
@@ -235,6 +258,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.EditIaCommit.Enabled() {
 		b = append(b, k.EditIaCommit)
+	}
+	if k.ReleaseCommit.Enabled() {
+		b = append(b, k.ReleaseCommit)
 	}
 	if k.Enter.Enabled() {
 		b = append(b, k.Enter)

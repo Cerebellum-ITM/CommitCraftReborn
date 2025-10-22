@@ -98,6 +98,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateWritingMessage(msg, model)
 	case stateEditMessage:
 		subModel, subCmd = updateEditingMessage(msg, model)
+	case stateReleaseChoosingCommits:
+		subModel, subCmd = updateReleaseChoosingCommits(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)
@@ -293,6 +295,10 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 
 func switchFocusElement(model *Model) {
 	switch model.focusedElement {
+	case focusListElement:
+		model.focusedElement = focusViewportElement
+	case focusViewportElement:
+		model.focusedElement = focusListElement
 	case focusMsgInput:
 		model.focusedElement = focusAIResponse
 	case focusAIResponse:
@@ -301,6 +307,34 @@ func switchFocusElement(model *Model) {
 }
 
 // UPDATE functions
+func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Up, model.keys.Down):
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.commitLivePreview = item.Preview
+			}
+		case key.Matches(msg, model.keys.NextField):
+			switchFocusElement(model)
+			return model, nil
+		case key.Matches(msg, model.keys.PrevField):
+			switchFocusElement(model)
+			return model, nil
+		}
+	}
+
+	switch model.focusedElement {
+	case focusListElement:
+		model.releaseCommitList, cmd = model.releaseCommitList.Update(msg)
+	case focusViewportElement:
+		model.releaseViewport, cmd = model.releaseViewport.Update(msg)
+	}
+
+	return model, cmd
+}
 
 func updateEditingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -566,6 +600,16 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.keys = listKeys()
 				ResetAndActiveFilterOnList(&model.commitTypeList)
 				return model, nil
+			case key.Matches(msg, model.keys.ReleaseCommit):
+				model.WritingStatusBar.Content = "Select the commits to create a release"
+				model.state = stateReleaseChoosingCommits
+				model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
+				model.releaseCommitList.Select(0)
+				model.focusedElement = focusListElement
+				if item, ok := model.releaseCommitList.Items()[0].(WorkspaceCommitItem); ok {
+					model.commitLivePreview = item.Preview
+				}
+				model.keys = releaseKeys()
 			case key.Matches(msg, model.keys.EditIaCommit):
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
