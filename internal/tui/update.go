@@ -310,6 +310,13 @@ func switchFocusElement(model *Model) {
 func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	switch model.focusedElement {
+	case focusListElement:
+		model.releaseCommitList, cmd = model.releaseCommitList.Update(msg)
+	case focusViewportElement:
+		model.releaseViewport, cmd = model.releaseViewport.Update(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -324,13 +331,6 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			switchFocusElement(model)
 			return model, nil
 		}
-	}
-
-	switch model.focusedElement {
-	case focusListElement:
-		model.releaseCommitList, cmd = model.releaseCommitList.Update(msg)
-	case focusViewportElement:
-		model.releaseViewport, cmd = model.releaseViewport.Update(msg)
 	}
 
 	return model, cmd
@@ -606,7 +606,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
 				model.releaseCommitList.Select(0)
 				model.focusedElement = focusListElement
-				if item, ok := model.releaseCommitList.Items()[0].(WorkspaceCommitItem); ok {
+				if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
 					model.commitLivePreview = item.Preview
 				}
 				model.keys = releaseKeys()
