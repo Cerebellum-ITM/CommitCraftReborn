@@ -129,16 +129,17 @@ func NewReleaseCommitList(pwd string, theme *styles.Theme) list.Model {
 		}
 		if len(metaFields) > 1 {
 			commit.Subject = metaFields[1]
+			preview.WriteString(fmt.Sprintf("## %s\n", commit.Subject))
 		}
 		if len(metaFields) > 2 {
 			commit.Body = metaFields[2]
-			preview.WriteString(commit.Body)
+			preview.WriteString(fmt.Sprintf("%s\n", commit.Body))
 		}
 		if len(metaFields) > 3 {
 			commit.Date = metaFields[3]
 		}
 		commit.Diff = diffStr
-		preview.WriteString(commit.Diff)
+		preview.WriteString(fmt.Sprintf("```\n%s```", commit.Diff))
 		commit.Preview = preview.String()
 		preview.Reset()
 
