@@ -5,29 +5,39 @@ import "github.com/charmbracelet/bubbles/v2/key"
 // KeyMap defines a set of keybindings.
 // It implements the help.KeyMap interface.
 type KeyMap struct {
-	Up              key.Binding
-	Down            key.Binding
-	Left            key.Binding
-	Right           key.Binding
-	Enter           key.Binding
-	Delete          key.Binding
-	Quit            key.Binding
-	GlobalQuit      key.Binding
-	Toggle          key.Binding
-	Help            key.Binding
-	Esc             key.Binding
-	Filter          key.Binding
-	Logs            key.Binding
-	AddCommit       key.Binding
-	NextField       key.Binding
-	PrevField       key.Binding
-	CreateIaCommit  key.Binding
-	EditIaCommit    key.Binding
-	Edit            key.Binding
+	// Navigation
+	Up        key.Binding
+	Down      key.Binding
+	Left      key.Binding
+	Right     key.Binding
+	PgUp      key.Binding
+	PgDown    key.Binding
+	NextField key.Binding
+	PrevField key.Binding
+
+	// General
+	Enter          key.Binding
+	Delete         key.Binding
+	Quit           key.Binding
+	GlobalQuit     key.Binding
+	Toggle         key.Binding
+	Help           key.Binding
+	Esc            key.Binding
+	Filter         key.Binding
+	Logs           key.Binding
+	AddCommit      key.Binding
+	CreateIaCommit key.Binding
+	Edit           key.Binding
+	EditIaCommit   key.Binding
+	ReleaseCommit  key.Binding
+
+	// TextArea
+	delteLine       key.Binding
 	deleteForward   key.Binding
 	deleteBackwards key.Binding
-	delteLine       key.Binding
-	ReleaseCommit   key.Binding
+
+	// Templates
+	CreateLocalTomlConfig key.Binding
 }
 
 func writingMessageKeys() KeyMap {
@@ -135,6 +145,10 @@ func mainListKeys() KeyMap {
 		ReleaseCommit: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "Create a release")),
 		Filter:        key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		CreateLocalTomlConfig: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("ctrl+c", "Create local config template file"),
+		),
 		AddCommit: key.NewBinding(
 			key.WithKeys("n", "tab"),
 			key.WithHelp("Tab/n", "Create a new commit"),
@@ -165,6 +179,24 @@ func releaseKeys() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "Switch Focus ←"),
 		),
+	}
+}
+
+func viewPortKeys() KeyMap {
+	return KeyMap{
+		PgUp:   key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "page up")),
+		PgDown: key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "page down")),
+		NextField: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "Switch Focus →"),
+		),
+		PrevField: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "Switch Focus ←"),
+		),
+		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q/ctrl+x", "quit")),
+		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 	}
 }
 
@@ -220,17 +252,17 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	if k.Esc.Enabled() {
 		b = append(b, k.Esc)
 	}
+	if k.PgUp.Enabled() {
+		b = append(b, k.PgUp)
+	}
+	if k.PgDown.Enabled() {
+		b = append(b, k.PgDown)
+	}
 	if k.Filter.Enabled() {
 		b = append(b, k.Filter)
 	}
-	if k.Quit.Enabled() {
-		b = append(b, k.Quit)
-	}
 	if k.Delete.Enabled() {
 		b = append(b, k.Delete)
-	}
-	if k.GlobalQuit.Enabled() {
-		b = append(b, k.GlobalQuit)
 	}
 	if k.Logs.Enabled() {
 		b = append(b, k.Logs)
@@ -238,11 +270,11 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	if k.NextField.Enabled() {
 		b = append(b, k.NextField)
 	}
-	if k.PrevField.Enabled() {
-		b = append(b, k.PrevField)
-	}
 	if k.Help.Enabled() {
 		b = append(b, k.Help)
+	}
+	if k.GlobalQuit.Enabled() {
+		b = append(b, k.GlobalQuit)
 	}
 	return b
 }
@@ -314,6 +346,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.Edit.Enabled() {
 		b = append(b, k.Edit)
+	}
+	if k.CreateLocalTomlConfig.Enabled() {
+		b = append(b, k.CreateLocalTomlConfig)
 	}
 	return [][]key.Binding{b}
 }

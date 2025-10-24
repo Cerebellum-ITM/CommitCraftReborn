@@ -55,6 +55,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
 		return model, nil
+
 	case IaCommitBuilderResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 
@@ -78,6 +79,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
+		case key.Matches(msg, model.keys.Help):
+			model.help.ShowAll = !model.help.ShowAll
+			return model, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: model.width, Height: model.height}
+			}
 		}
 	}
 
@@ -498,8 +504,6 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, model.keys.Esc):
 			return model.cancelProcess(stateChoosingType)
-		case key.Matches(msg, model.keys.Help):
-			model.help.ShowAll = !model.help.ShowAll
 		case key.Matches(msg, model.keys.Toggle):
 			model.fileListFilter = !model.fileListFilter
 			model.currentUpdateFileListFn = ChooseUpdateFileListFunction(model.fileListFilter)
@@ -573,11 +577,6 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 		}
 		switch {
-		case key.Matches(msg, model.keys.Help):
-			model.help.ShowAll = !model.help.ShowAll
-			return model, func() tea.Msg {
-				return tea.WindowSizeMsg{Width: model.width, Height: model.height}
-			}
 		case key.Matches(msg, model.keys.Esc):
 			model.keys = mainListKeys()
 			return model.cancelProcess(stateChoosingCommit)
@@ -659,13 +658,6 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 				}
 				return model, tea.Quit
-
-			case key.Matches(msg, model.keys.Help):
-				model.help.ShowAll = !model.help.ShowAll
-				return model, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: model.width, Height: model.height}
-				}
-
 			}
 		}
 	}
