@@ -145,7 +145,7 @@ func (model *Model) msgEditFooterView(state string) string {
 }
 
 func (model *Model) releaseHeaderView(state string) string {
-	title := "Write the modifications"
+	title := "Commit list | Select at least one commit"
 	return model.buildStyledBorder(
 		state,
 		title,
@@ -156,7 +156,34 @@ func (model *Model) releaseHeaderView(state string) string {
 }
 
 func (model *Model) releaseFooterView(state string) string {
-	info := fmt.Sprintf("%3.f%%", model.iaViewport.ScrollPercent()*100)
+	commitSymbol := model.Theme.AppSymbols().Commit
+	info := fmt.Sprintf("%s %d %s",
+		commitSymbol,
+		len(model.selectedCommitList),
+		"Selected Commits",
+	)
+	return model.buildStyledBorder(
+		state,
+		info,
+		FooterStyle,
+		model.width/2,
+		AlignFooter,
+	)
+}
+
+func (model *Model) releaseLivePreviewHeaderView(state string) string {
+	title := "Commit content"
+	return model.buildStyledBorder(
+		state,
+		title,
+		HeaderStyle,
+		model.width/2,
+		AlignHeader,
+	)
+}
+
+func (model *Model) releaseLivePreviewFooterView(state string) string {
+	info := fmt.Sprintf("%3.f%%", model.releaseViewport.ScrollPercent()*100)
 	return model.buildStyledBorder(
 		state,
 		info,
@@ -358,11 +385,11 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 	const glamourGutter = 3
 	var (
-		header         string
-		footer         string
-		headerViewport string
-		footerViewport string
-		viewportStyle  lipgloss.Style
+		releaseCommitListHeader string
+		releaseCommitListFooter string
+		headerViewport          string
+		footerViewport          string
+		viewportStyle           lipgloss.Style
 	)
 
 	statusBarContent := model.WritingStatusBar.Render()
@@ -374,25 +401,24 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 	switch model.focusedElement {
 	case focusViewportElement:
 		viewportStyle = viewportStyle.BorderForeground(model.Theme.BorderFocus)
-		header = model.releaseHeaderView("blur")
-		footer = model.releaseFooterView("blur")
-		headerViewport = model.releaseHeaderView("focus")
-		footerViewport = model.releaseFooterView("focus")
+		releaseCommitListHeader = model.releaseHeaderView("blur")
+		releaseCommitListFooter = model.releaseFooterView("blur")
+		headerViewport = model.releaseLivePreviewHeaderView("focus")
+		footerViewport = model.releaseLivePreviewFooterView("focus")
 
 	case focusListElement:
 		viewportStyle = viewportStyle.BorderForeground(model.Theme.FocusableElement)
-		header = model.releaseHeaderView("focus")
-		footer = model.releaseFooterView("focus")
-		headerViewport = model.releaseHeaderView("blur")
-		footerViewport = model.releaseFooterView("blur")
-
+		releaseCommitListHeader = model.releaseHeaderView("focus")
+		releaseCommitListFooter = model.releaseFooterView("focus")
+		headerViewport = model.releaseLivePreviewHeaderView("blur")
+		footerViewport = model.releaseLivePreviewFooterView("blur")
 	}
 
-	iaHeaderH := lipgloss.Height(header)
-	iaFooterH := lipgloss.Height(footer)
+	HeaderH := lipgloss.Height(releaseCommitListHeader)
+	FooterH := lipgloss.Height(releaseCommitListFooter)
 
 	model.releaseViewport.Style = viewportStyle
-	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - iaFooterH - iaHeaderH - 2
+	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - FooterH - HeaderH - 2
 	model.releaseCommitList.SetWidth(model.width / 2)
 	model.releaseCommitList.SetHeight(totalAvailableContentHeight)
 	model.releaseViewport.SetWidth(model.width / 2)
@@ -407,13 +433,20 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 
 	glamourContentStr, _ := renderer.Render(model.commitLivePreview)
 	model.releaseViewport.SetContent(glamourContentStr)
+	listFocusLine := lipgloss.NewStyle().Height(totalAvailableContentHeight).Render("┃")
+
+	listCompositeView := lipgloss.JoinHorizontal(
+		lipgloss.Center,
+		listFocusLine,
+		model.releaseCommitList.View(),
+	)
 
 	leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
-		header,
+		releaseCommitListHeader,
 		VerticalSpace,
-		model.releaseCommitList.View(),
+		listCompositeView,
 		VerticalSpace,
-		footer,
+		releaseCommitListFooter,
 	)
 
 	rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,

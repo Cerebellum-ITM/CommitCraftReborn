@@ -152,6 +152,11 @@ func releaseKeys() KeyMap {
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		AddCommit: key.NewBinding(
+			key.WithKeys("ctrl+a"),
+			key.WithHelp("Ctrl+a", "Add the commit"),
+		),
+
 		NextField: key.NewBinding(
 			key.WithKeys("tab"),
 			key.WithHelp("tab", "Switch Focus →"),

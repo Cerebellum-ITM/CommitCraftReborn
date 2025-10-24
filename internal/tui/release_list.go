@@ -14,12 +14,13 @@ import (
 )
 
 type WorkspaceCommitItem struct {
-	Hash    string
-	Date    string
-	Subject string
-	Body    string
-	Preview string
-	Diff    string
+	Selected bool
+	Hash     string
+	Date     string
+	Subject  string
+	Body     string
+	Preview  string
+	Diff     string
 }
 
 func (wsi WorkspaceCommitItem) FilterValue() string {
@@ -33,6 +34,7 @@ type ReleaseListDelegate struct {
 	indicatorStyle lipgloss.Style
 	textStyle      lipgloss.Style
 	dateStyle      lipgloss.Style
+	selectedStyle  lipgloss.Style
 }
 
 func NewReleaseListDelegate(theme *styles.Theme) list.ItemDelegate {
@@ -45,6 +47,7 @@ func NewReleaseListDelegate(theme *styles.Theme) list.ItemDelegate {
 		hashStyle:      baseState,
 		textStyle:      baseState,
 		dateStyle:      baseState,
+		selectedStyle:  base.Foreground(theme.FgBase),
 		indicatorStyle: theme.AppStyles().IndicatorStyle,
 	}
 }
@@ -56,12 +59,21 @@ func (d ReleaseListDelegate) Render(w io.Writer, m list.Model, index int, listIt
 	}
 
 	var indicator string
+	var selected string
 	var hashStyle lipgloss.Style
 	var textStyle lipgloss.Style
 	var dateStyle lipgloss.Style
+	// var selectedStyle lipgloss.Style
+
+	if item.Selected {
+		selected = d.Theme.AppSymbols().Commit
+	} else {
+		selected = " "
+	}
 
 	if index == m.Index() {
 		indicator = d.indicatorStyle.Render("❯")
+		// selectedStyle = d.selectedStyle.Foreground(d.Theme.Yellow)
 		hashStyle = d.hashStyle.Foreground(d.Theme.Accent)
 		textStyle = d.textStyle.Foreground(d.Theme.FgBase)
 		dateStyle = d.dateStyle.Foreground(d.Theme.Yellow)
@@ -71,15 +83,18 @@ func (d ReleaseListDelegate) Render(w io.Writer, m list.Model, index int, listIt
 		hashStyle = d.hashStyle
 		textStyle = d.textStyle
 		dateStyle = d.dateStyle
+		// selectedStyle = d.selectedStyle
 	}
 
 	hashLength := 11
-	maxWith := max(0, m.Width()-hashLength-lipgloss.Width(item.Date))
+	maxWith := max(0, m.Width()-hashLength-lipgloss.Width(item.Date)-lipgloss.Width(selected))
 	hashString := hashStyle.Render(TruncateString(item.Hash, hashLength))
 	subjetString := textStyle.Render(TruncateString(item.Subject, maxWith))
 	dateString := dateStyle.Render(item.Date)
+	selectedString := d.selectedStyle.Render(selected)
 	line := fmt.Sprintf(
-		"%s %s %s %s",
+		"%s %s %s %s %s",
+		selectedString,
 		indicator,
 		hashString,
 		dateString,

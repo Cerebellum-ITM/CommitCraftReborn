@@ -1,11 +1,21 @@
 package styles
 
-import (
-	// "github.com/charmbracelet/lipgloss/v2"
-	"github.com/charmbracelet/x/exp/charmtone"
-)
+import "github.com/charmbracelet/x/exp/charmtone"
 
-func NewCharmtoneTheme() *Theme {
+func NerdFontSymbols() *Symbols {
+	return &Symbols{
+		Commit: "󰜘",
+	}
+}
+
+func DefaultSymbols() *Symbols {
+	return &Symbols{
+		Commit: "X",
+	}
+}
+
+
+func NewCharmtoneTheme(useNerdFont bool) *Theme {
 	t := &Theme{
 		Name:   "charmtone",
 		IsDark: true,
@@ -46,6 +56,10 @@ func NewCharmtoneTheme() *Theme {
 		Green:  charmtone.Guac,
 		Black:  charmtone.Pepper,
 	}
-
+	if useNerdFont {
+		t.symbols = NerdFontSymbols()
+	} else {
+		t.symbols = DefaultSymbols()
+	}
 	return t
 }

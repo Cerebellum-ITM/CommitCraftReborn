@@ -47,7 +47,12 @@ type Theme struct {
 	Green  color.Color
 	Black  color.Color
 
-	styles *Styles
+	styles  *Styles
+	symbols *Symbols
+}
+
+type Symbols struct {
+	Commit string
 }
 
 type Styles struct {
@@ -55,6 +60,13 @@ type Styles struct {
 	IndicatorStyle lipgloss.Style
 	Help           help.Styles
 	TextArea       textarea.Styles
+}
+
+func (t *Theme) AppSymbols() *Symbols {
+	if t.symbols == nil {
+		t.symbols = DefaultSymbols()
+	}
+	return t.symbols
 }
 
 func (t *Theme) AppStyles() *Styles {

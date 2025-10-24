@@ -68,6 +68,7 @@ type Model struct {
 	mainList                list.Model
 	releaseCommitList       list.Model
 	releaseViewport         viewport.Model
+	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string
 	commitTypeList          list.Model
 	fileList                list.Model
@@ -109,7 +110,7 @@ func NewModel(
 	var initialKeys KeyMap
 	var statusBarInitialMessage string
 	var WritingStatusBar statusbar.StatusBar
-	theme := styles.NewCharmtoneTheme()
+	theme := styles.NewCharmtoneTheme(config.TUI.UseNerdFonts)
 
 	apiKeyInput := textinput.New()
 	gitStatusData, err := GetAllGitStatusData()

@@ -320,6 +320,14 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.AddCommit):
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				item.Selected = true
+				index := model.releaseCommitList.Index()
+				model.selectedCommitList = append(model.selectedCommitList, item)
+				cmd = model.releaseCommitList.SetItem(index, item)
+			}
+			return model, cmd
 		case key.Matches(msg, model.keys.Up, model.keys.Down):
 			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
 				model.commitLivePreview = item.Preview
