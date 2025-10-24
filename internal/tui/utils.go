@@ -352,7 +352,7 @@ func GetNerdFontIcon(filename string, isDir bool) string {
 	case ".json":
 		return "󰘦"
 	case ".yml", ".yaml":
-		return "  yaml"
+		return ""
 	case ".xml":
 		return "󰗀"
 	case ".toml":
