@@ -54,7 +54,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
-		return model, nil
+		cmd := model.WritingStatusBar.ShowMessageForDuration("Record deleted from the db", statusbar.LevelSuccess, 2*time.Second)
+		return model, cmd
 
 	case IaCommitBuilderResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
