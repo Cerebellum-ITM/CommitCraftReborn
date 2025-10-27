@@ -187,9 +187,18 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
 	model.state = stateChoosingCommit
 	model.keys = mainListKeys()
-	model.WritingStatusBar.Level = statusbar.LevelSuccess
-	model.WritingStatusBar.Content = "Record created in the db successfully"
-	return model, nil
+	model.WritingStatusBar.Content = fmt.Sprintf(
+		"choose, create, or edit a commit ::: %s",
+		model.Theme.AppStyles().
+			Base.Foreground(model.Theme.Tertiary).
+			SetString(model.mainList.Title),
+	)
+	cmd := model.WritingStatusBar.ShowMessageForDuration(
+		"Record created in the db successfully",
+		statusbar.LevelSuccess,
+		2*time.Second,
+	)
+	return model, cmd
 }
 
 func createAndSendIaMessage(
@@ -440,13 +449,14 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			if model.commitTranslate != "" {
-				createCommit(model)
+				_, cmd := createCommit(model)
 				model.useDbCommmit = false
+				return model, cmd
 			} else {
 				model.WritingStatusBar.Content = "You need to first make a request to the AI to continue!!"
 				model.WritingStatusBar.Level = statusbar.LevelError
+				return model, nil
 			}
-			return model, nil
 
 		case key.Matches(msg, model.keys.CreateIaCommit):
 			model.WritingStatusBar.Level = statusbar.LevelWarning
