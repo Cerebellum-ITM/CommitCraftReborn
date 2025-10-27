@@ -1,6 +1,8 @@
 package config
 
-import "commit_craft_reborn/internal/commit"
+import (
+	"commit_craft_reborn/internal/commit"
+)
 
 type PromptsConfig struct {
 	SummaryPromptFile        string `toml:"summary_prompt_file"`
@@ -24,11 +26,19 @@ type TUIConfig struct {
 	IsAPIKeySet  bool   `toml:"-"`
 }
 
+type ReleaseConfig struct {
+	Version          string `toml:"version"`
+	GhToken          string `toml:"GH_TOKEN"`
+	Repository       string `toml:"repository"`
+	BinaryAssetsPath string `toml:"binary_assets_path"`
+}
+
 type Config struct {
-	CommitTypes  CommitTypesConfig  `toml:"commit_types"`
-	CommitFormat CommitFormatConfig `toml:"commit_format"`
-	TUI          TUIConfig          `toml:"tui"`
-	Prompts      PromptsConfig      `toml:"prompts"`
+	CommitTypes   CommitTypesConfig  `toml:"commit_types"`
+	CommitFormat  CommitFormatConfig `toml:"commit_format"`
+	TUI           TUIConfig          `toml:"tui,omitempty"`
+	Prompts       PromptsConfig      `toml:"prompts,omitempty"`
+	ReleaseConfig ReleaseConfig      `toml:"release_config,omitempty"`
 }
 
 type CommitFormatConfig struct {
@@ -68,8 +78,8 @@ func NewDefaultConfig() Config {
 			CommitBuilderPromptModel: "llama-3.1-8b-instant",
 			OutputFormatPromptFile:   "prompts/output_format.prompt",
 			OutputFormatPromptModel:  "llama-3.1-8b-instant",
-			OnlyTranslatePromptFile:   "prompts/only_translate.prompt",
-			OnlyTranslatePromptModel:  "llama-3.1-8b-instant",
+			OnlyTranslatePromptFile:  "prompts/only_translate.prompt",
+			OnlyTranslatePromptModel: "llama-3.1-8b-instant",
 		},
 	}
 }
@@ -89,4 +99,37 @@ func GetDefaultConfigWithTypes() Config {
 	cfg.CommitTypes.Behavior = "replace"
 
 	return cfg
+}
+
+func GetDefaultLocalConfig() Config {
+	cfg := NewDefautlLocalConfig()
+	defaultCommits := commit.GetDefaultLocalCommitExamplesTypes()
+	cfg.CommitTypes.Types = make([]CustomCommitType, len(defaultCommits))
+	for i, dc := range defaultCommits {
+		cfg.CommitTypes.Types[i] = CustomCommitType{
+			Tag:         dc.Tag,
+			Description: dc.Description,
+			Color:       dc.Color,
+		}
+	}
+	return cfg
+}
+
+func NewDefautlLocalConfig() Config {
+	return Config{
+		CommitFormat: CommitFormatConfig{
+			TypeFormat: "[%s]",
+		},
+
+		CommitTypes: CommitTypesConfig{
+			Behavior: "append",
+			Types:    []CustomCommitType{},
+		},
+		ReleaseConfig: ReleaseConfig{
+			Version:    "v0.2.5",
+			GhToken:    "ghp_123456789dummytoken",
+			Repository: "user/repo_path",
+			BinaryAssetsPath: "bin/",
+		},
+	}
 }

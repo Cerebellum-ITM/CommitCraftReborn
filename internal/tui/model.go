@@ -52,6 +52,7 @@ const (
 	stateEditMessage
 	stateConfirming
 	stateReleaseChoosingCommits
+	stateReleaseBuildingText
 	stateDone
 )
 

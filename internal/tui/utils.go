@@ -1,14 +1,18 @@
 package tui
 
 import (
-	"commit_craft_reborn/internal/logger"
-	"commit_craft_reborn/internal/storage"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"commit_craft_reborn/internal/config"
+	"commit_craft_reborn/internal/logger"
+	"commit_craft_reborn/internal/storage"
+
+	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/bubbles/v2/list"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -39,6 +43,30 @@ func ResetAndActiveFilterOnList(l *list.Model) {
 		l.SetFilterText("")
 		l.SetFilterState(list.FilterState(Filtering))
 	}
+}
+
+func CreateLocalConfigTomlTmpl() error {
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	configPath := filepath.Join(workDir, ".commitcraft.toml")
+	if _, err := os.Stat(configPath); err == nil {
+		return nil
+	}
+
+	cfg := config.GetDefaultLocalConfig()
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+		return fmt.Errorf("failed to encode config to TOML: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
 
 func GetAllGitStatusData() (GitStatusData, error) {

@@ -302,8 +302,10 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 func switchFocusElement(model *Model) {
 	switch model.focusedElement {
 	case focusListElement:
+		model.keys = viewPortKeys()
 		model.focusedElement = focusViewportElement
 	case focusViewportElement:
+		model.keys = releaseKeys()
 		model.focusedElement = focusListElement
 	case focusMsgInput:
 		model.focusedElement = focusAIResponse
@@ -326,6 +328,9 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.Enter):
+			model.state = stateReleaseBuildingText
+			return model, nil
 		case key.Matches(msg, model.keys.AddCommit):
 			item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem)
 			if !ok {
@@ -649,11 +654,13 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 			case key.Matches(msg, model.keys.Delete):
 				return model, func() tea.Msg { return openPopupMsg{} }
+			case key.Matches(msg, model.keys.CreateLocalTomlConfig):
+				CreateLocalConfigTomlTmpl()
+				return model, nil
 			case key.Matches(msg, model.keys.Enter):
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
 					commit := commitItem.commit
-					// model.log.Info("selecting commit", "commitMessage", commit.Type, commit.Scope, commit.MessageEN)
 					formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
 					model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 				}
