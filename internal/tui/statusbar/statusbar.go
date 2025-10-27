@@ -2,6 +2,7 @@ package statusbar
 
 import (
 	"strings"
+	"time"
 
 	"commit_craft_reborn/internal/tui/styles"
 
@@ -10,13 +11,16 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+type clearStatusMsg struct{}
+
 type StatusBar struct {
-	Content     string
-	theme       *styles.Theme
-	Level       LogLevel
-	spinner     spinner.Model
-	showSpinner bool
-	AppWith     int
+	AppWith        int
+	showSpinner    bool
+	Content        string
+	TmpStringChest string
+	Level          LogLevel
+	theme          *styles.Theme
+	spinner        spinner.Model
 }
 
 func New(content string, level LogLevel, with int, theme *styles.Theme) StatusBar {
@@ -43,11 +47,32 @@ func (sb *StatusBar) StopSpinner() tea.Cmd {
 	return nil
 }
 
+func (sb *StatusBar) ShowMessageForDuration(
+	message string,
+	level LogLevel,
+	duration time.Duration,
+) tea.Cmd {
+	sb.Level = level
+	sb.TmpStringChest = sb.Content
+	sb.Content = message
+	return tea.Tick(duration, func(t time.Time) tea.Msg {
+		return clearStatusMsg{}
+	})
+}
+
 func (sb *StatusBar) Update(msg tea.Msg) (StatusBar, tea.Cmd) {
 	var cmd tea.Cmd
+
+	if _, ok := msg.(clearStatusMsg); ok {
+		sb.Content = sb.TmpStringChest
+		sb.Level = LevelInfo
+		return *sb, nil
+	}
+
 	if sb.showSpinner {
 		sb.spinner, cmd = sb.spinner.Update(msg)
 	}
+
 	return *sb, cmd
 }
 

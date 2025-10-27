@@ -656,7 +656,8 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return model, func() tea.Msg { return openPopupMsg{} }
 			case key.Matches(msg, model.keys.CreateLocalTomlConfig):
 				CreateLocalConfigTomlTmpl()
-				return model, nil
+				cmd := model.WritingStatusBar.ShowMessageForDuration("Configuration file created!", statusbar.LevelSuccess, 2*time.Second)
+				return model, cmd
 			case key.Matches(msg, model.keys.Enter):
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
