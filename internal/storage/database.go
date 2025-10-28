@@ -59,6 +59,22 @@ func createTables(db *sql.DB) error {
 		return err
 	}
 
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS releases (
+            id INTEGER PRIMARY KEY,
+			title TEXT NOT NULL,
+			body TEXT NOT NULL,
+            branch TEXT NOT NULL,
+			commit_list TEXT NOT NULL,
+            version TEXT NOT NULL,
+            workspace TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+    `)
+	if err != nil {
+		return err
+	}
+
 	_, err = db.Exec(`ALTER TABLE commits ADD COLUMN diff_code TEXT NOT NULL DEFAULT '';`)
 	if err != nil {
 		// If the error is "duplicate column name", we safely ignore it.

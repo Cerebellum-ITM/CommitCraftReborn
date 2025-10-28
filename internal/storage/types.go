@@ -13,3 +13,15 @@ type Commit struct {
 	Diff_code string
 	CreatedAt time.Time
 }
+
+// representation of a release in the database
+type Release struct {
+	ID          int
+	Title       string
+	Body        string
+	Branch      string
+	CommitList string
+	Version     string
+	Workspace   string
+	CreatedAt   time.Time
+}
