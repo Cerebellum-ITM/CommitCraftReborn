@@ -33,9 +33,17 @@ const (
 // We use iota to create an "enum" for our application states.
 type (
 	appState      int
-	openPopupMsg  struct{}
-	closePopupMsg struct{}
-	deleteItemMsg struct {
+	openListPopup struct {
+		items         []string
+		width, height int
+	}
+	releaseAction struct {
+		action string
+	}
+	closeListPopup struct{}
+	openPopupMsg   struct{}
+	closePopupMsg  struct{}
+	deleteItemMsg  struct {
 		ID int
 	}
 )

@@ -43,9 +43,20 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES)
 			return model, nil
 		}
+	case openListPopup:
+		model.popup = NewListPopup(msg.items, msg.width, msg.height, listKeys(), model.Theme)
+		return model, nil
 
-	case closePopupMsg:
+	case closePopupMsg, closeListPopup:
 		model.popup = nil
+		return model, nil
+	case releaseAction:
+		switch msg.action {
+		case "Create item in CommitCraft":
+			return model, nil
+		case "Create release in Github":
+			return model, nil
+		}
 		return model, nil
 
 	case deleteItemMsg:
@@ -401,7 +412,8 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.Enter):
-			return model, nil
+			menu := []string{"Create item in CommitCraft", "Create release in Github"}
+			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
 		case key.Matches(msg, model.keys.NextField):
 			switchFocusElement(model)
 			model.state = stateReleaseChoosingCommits

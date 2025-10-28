@@ -592,12 +592,24 @@ func (model *Model) View() string {
 	canvas := lipgloss.NewCanvas(mainLayer)
 
 	if model.popup != nil {
-		popupModel, ok := model.popup.(DeleteConfirmPopupModel)
+		var ok bool
+		var popupView string
+
+		switch popupModel := model.popup.(type) {
+		case DeleteConfirmPopupModel:
+			ok = true
+			popupView = popupModel.View()
+		case listPopupModel:
+			ok = true
+			popupView = popupModel.View()
+		default:
+			ok = false
+		}
+
 		if !ok {
 			return "Error: The popup is not of the expected type."
 		}
 
-		popupView := popupModel.View()
 		startX, startY := calculatePopupPosition(model.width, model.height, popupView)
 		popupLayer := lipgloss.NewLayer(popupView).X(startX).Y(startY)
 		canvas = lipgloss.NewCanvas(mainLayer, popupLayer)
