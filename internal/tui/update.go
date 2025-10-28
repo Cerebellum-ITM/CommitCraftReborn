@@ -20,6 +20,10 @@ type IaCommitBuilderResultMsg struct {
 	Err error
 }
 
+type IaResleaseBuilderResultMsg struct {
+	Err error
+}
+
 // Main Update Function
 func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Make sure the model is passed as a pointer.
@@ -71,6 +75,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.state = stateWritingMessage
 		return model, tea.Batch(cmds...)
 
+	case IaResleaseBuilderResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+
+		if msg.Err != nil {
+			model.err = msg.Err
+			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else {
+			model.WritingStatusBar.Content = "AI release message ready!"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+		}
+		return model, tea.Batch(cmds...)
+
 	case tea.KeyMsg:
 		if model.popup != nil {
 			var popupCmd tea.Cmd
@@ -107,6 +124,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateEditingMessage(msg, model)
 	case stateReleaseChoosingCommits:
 		subModel, subCmd = updateReleaseChoosingCommits(msg, model)
+	case stateReleaseBuildingText:
+		subModel, subCmd = updateReleaseBuildingText(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)
@@ -114,7 +133,6 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // HELPERS
-
 func saveAPIKeyToEnv(key string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -309,14 +327,60 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 	}
 }
 
+func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
+	return func() tea.Msg {
+		err := iaReleaseBuilder(model)
+		return IaResleaseBuilderResultMsg{Err: err}
+	}
+}
+
+func iaReleaseBuilder(model *Model) error {
+	var input strings.Builder
+	delimiter := "--- COMMIT SEPARATOR ---"
+	for _, item := range model.selectedCommitList {
+		commitContent := fmt.Sprintf(
+			"%s\n%s\n%s\n%s\n",
+			delimiter,
+			item.Subject,
+			item.Body,
+			delimiter,
+		)
+		input.WriteString(commitContent)
+	}
+	promptConfig := model.globalConfig.Prompts
+	model.log.Debug("release ia Input", "input", input)
+
+	iaResponse, err := createAndSendIaMessage(
+		promptConfig.ReleasePrompt,
+		input.String(),
+		promptConfig.ReleasePromptModel,
+		model,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"An error occurred while trying to generate the release output.\n%s",
+			err,
+		)
+	}
+	model.commitLivePreview = iaResponse
+	model.releaseText = iaResponse
+	return nil
+}
+
 func switchFocusElement(model *Model) {
 	switch model.focusedElement {
 	case focusListElement:
 		model.keys = viewPortKeys()
 		model.focusedElement = focusViewportElement
+		if model.state == stateReleaseChoosingCommits {
+			model.keys.NextViewPort.SetEnabled(true)
+		}
 	case focusViewportElement:
 		model.keys = releaseKeys()
 		model.focusedElement = focusListElement
+		if model.state == stateReleaseChoosingCommits {
+			model.keys.NextViewPort.SetEnabled(false)
+		}
 	case focusMsgInput:
 		model.focusedElement = focusAIResponse
 	case focusAIResponse:
@@ -325,6 +389,33 @@ func switchFocusElement(model *Model) {
 }
 
 // UPDATE functions
+func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch model.focusedElement {
+	case focusViewportElement:
+		model.releaseViewport, cmd = model.releaseViewport.Update(msg)
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Enter):
+			return model, nil
+		case key.Matches(msg, model.keys.NextField):
+			switchFocusElement(model)
+			model.state = stateReleaseChoosingCommits
+			return model, nil
+		case key.Matches(msg, model.keys.PrevField):
+			switchFocusElement(model)
+			model.state = stateReleaseChoosingCommits
+			return model, nil
+		}
+	}
+
+	return model, cmd
+}
+
 func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -338,9 +429,24 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.NextViewPort):
+			if model.releaseViewState.releaseCreated {
+				model.state = stateReleaseBuildingText
+				model.focusedElement = focusViewportElement
+				model.WritingStatusBar.Content = "Release creation"
+				model.WritingStatusBar.Level = statusbar.LevelInfo
+				model.commitLivePreview = model.releaseText
+			}
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			model.state = stateReleaseBuildingText
-			return model, nil
+			model.focusedElement = focusViewportElement
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+			spinnerCmd := model.WritingStatusBar.StartSpinner()
+			iaBuilderCmd := callIaReleaseBuilderCmd(model)
+			model.releaseViewState.releaseCreated = true
+			return model, tea.Batch(spinnerCmd, iaBuilderCmd)
 		case key.Matches(msg, model.keys.AddCommit):
 			item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem)
 			if !ok {

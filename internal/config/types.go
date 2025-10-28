@@ -18,6 +18,9 @@ type PromptsConfig struct {
 	OnlyTranslatePromptFile  string `toml:"only_translate_prompt_file"`
 	OnlyTranslatePromptModel string `toml:"only_translate_prompt_model"`
 	OnlyTranslatePrompt      string `toml:"-"`
+	ReleasePromptFIle        string `toml:"release_prompt_file"`
+	ReleasePromptModel       string `toml:"release_prompt_model"`
+	ReleasePrompt            string `toml:"-"`
 }
 
 type TUIConfig struct {
@@ -126,9 +129,9 @@ func NewDefautlLocalConfig() Config {
 			Types:    []CustomCommitType{},
 		},
 		ReleaseConfig: ReleaseConfig{
-			Version:    "v0.2.5",
-			GhToken:    "ghp_123456789dummytoken",
-			Repository: "user/repo_path",
+			Version:          "v0.2.5",
+			GhToken:          "ghp_123456789dummytoken",
+			Repository:       "user/repo_path",
 			BinaryAssetsPath: "bin/",
 		},
 	}

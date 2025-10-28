@@ -42,6 +42,11 @@ type (
 
 var scopeFilePickerPwd string
 
+type releaseViewState struct {
+	selecting      bool
+	releaseCreated bool
+}
+
 const (
 	stateChoosingType appState = iota
 	stateSettingAPIKey
@@ -69,6 +74,9 @@ type Model struct {
 	mainList                list.Model
 	releaseCommitList       list.Model
 	releaseViewport         viewport.Model
+	releaseEditText         *textarea.Model
+	releaseViewState        *releaseViewState
+	releaseText             string
 	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string
 	commitTypeList          list.Model
@@ -211,6 +219,7 @@ func NewModel(
 		state:                   initalState,
 		mainList:                workspaceCommitsList,
 		releaseViewport:         releaseViewport,
+		releaseViewState:        &releaseViewState{selecting: false, releaseCreated: false},
 		commitTypeList:          commitTypesList,
 		iaViewport:              vp,
 		focusedElement:          focusMsgInput,

@@ -15,6 +15,9 @@ type KeyMap struct {
 	NextField key.Binding
 	PrevField key.Binding
 
+	// Release Workflow
+	NextViewPort key.Binding
+
 	// General
 	Enter          key.Binding
 	Delete         key.Binding
@@ -179,6 +182,11 @@ func releaseKeys() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "Switch Focus ←"),
 		),
+		NextViewPort: key.NewBinding(
+			key.WithKeys("ctrl+q"),
+			key.WithHelp("ctrl+q", "Togle ia response / preview"),
+			key.WithDisabled(),
+		),
 	}
 }
 
@@ -194,8 +202,13 @@ func viewPortKeys() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "Switch Focus ←"),
 		),
-		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q/ctrl+x", "quit")),
-		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		Quit: key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		Help: key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		NextViewPort: key.NewBinding(
+			key.WithKeys("ctrl+q"),
+			key.WithHelp("ctrl+q", "Togle ia response / preview"),
+			key.WithDisabled(),
+		),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 	}
 }
@@ -313,6 +326,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.Toggle.Enabled() {
 		b = append(b, k.Toggle)
+	}
+	if k.NextViewPort.Enabled() {
+		b = append(b, k.NextViewPort)
 	}
 	if k.Help.Enabled() {
 		b = append(b, k.Help)

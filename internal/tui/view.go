@@ -172,7 +172,16 @@ func (model *Model) releaseFooterView(state string) string {
 }
 
 func (model *Model) releaseLivePreviewHeaderView(state string) string {
-	title := "Commit content"
+	var title string
+	switch model.state {
+	case stateReleaseChoosingCommits:
+		title = "Commit content"
+		if model.releaseViewState.releaseCreated {
+			title = title + " - Use the shortcut keys to switch between the response and the commit preview."
+		}
+	case stateReleaseBuildingText:
+		title = "AI model response"
+	}
 	return model.buildStyledBorder(
 		state,
 		title,
@@ -389,6 +398,7 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 		releaseCommitListFooter string
 		headerViewport          string
 		footerViewport          string
+		glamourContentStr       string
 		viewportStyle           lipgloss.Style
 	)
 
@@ -431,7 +441,7 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 		glamour.WithWordWrap(glamourRenderWidth),
 	)
 
-	glamourContentStr, _ := renderer.Render(model.commitLivePreview)
+	glamourContentStr, _ = renderer.Render(model.commitLivePreview)
 	model.releaseViewport.SetContent(glamourContentStr)
 	listFocusLine := lipgloss.NewStyle().Height(totalAvailableContentHeight).Render("┃")
 
@@ -569,7 +579,7 @@ func (model *Model) View() string {
 		mainContent = model.buildWritingMessageView(appStyle)
 	case stateEditMessage:
 		mainContent = model.buildEditingMessageView(appStyle)
-	case stateReleaseChoosingCommits:
+	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
 	}
 

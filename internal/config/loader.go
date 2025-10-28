@@ -2,12 +2,13 @@ package config
 
 import (
 	"bytes"
-	"commit_craft_reborn/internal/commit"
 	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"commit_craft_reborn/internal/commit"
 
 	"github.com/BurntSushi/toml"
 	"github.com/joho/godotenv"
@@ -32,6 +33,9 @@ var defaultOutputFormatPrompt string
 
 //go:embed prompts/only_translate.prompt.tmpl
 var defaultOnlyTranslateFormatPrompt string
+
+//go:embed prompts/release.prompt.tmpl
+var defaultReleaseFormatPrompt string
 
 func PopulateCommitTypeColors(cfg *Config, commitTypes []commit.CommitType) {
 	if cfg.CommitFormat.CommitTypeColors == nil {
@@ -61,13 +65,15 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 			defaultPromptContent = defaultOutputFormatPrompt
 		case "only_translate":
 			defaultPromptContent = defaultOnlyTranslateFormatPrompt
+		case "release":
+			defaultPromptContent = defaultReleaseFormatPrompt
 		}
 		parentDir := filepath.Dir(fullPath)
-		if err := os.MkdirAll(parentDir, 0755); err != nil {
+		if err := os.MkdirAll(parentDir, 0o755); err != nil {
 			return "", fmt.Errorf("could not create prompts directory at %s: %w", parentDir, err)
 		}
 
-		if err := os.WriteFile(fullPath, []byte(defaultPromptContent), 0644); err != nil {
+		if err := os.WriteFile(fullPath, []byte(defaultPromptContent), 0o644); err != nil {
 			return "", fmt.Errorf("could not write default prompt file to %s: %w", fullPath, err)
 		}
 
@@ -114,10 +120,19 @@ func loadIaPrompts(
 		return err
 	}
 
+	releasePrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.ReleasePromptFIle,
+	)
+	if err != nil {
+		return err
+	}
+
 	globalConfig.Prompts.SummaryPrompt = summaryPrompt
 	globalConfig.Prompts.CommitBuilderPrompt = commitBuilderPrompt
 	globalConfig.Prompts.OutputFormatPrompt = outputFormatPrompt
 	globalConfig.Prompts.OnlyTranslatePrompt = onlyTranslatePrompt
+	globalConfig.Prompts.ReleasePrompt = releasePrompt
 	return nil
 }
 
@@ -175,7 +190,7 @@ func LoadConfigs() (globalCfg, localCfg Config, err error) {
 
 func ensureGlobalConfigExists(dirPath, filePath string) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
+		if err := os.MkdirAll(dirPath, 0o755); err != nil {
 			return fmt.Errorf("could not create global config directory at %s: %w", dirPath, err)
 		}
 	}
@@ -192,7 +207,7 @@ func ensureGlobalConfigExists(dirPath, filePath string) error {
 		header := "# CommitCraft Global Configuration\n# This file was auto-generated. You can customize it.\n\n"
 		content := append([]byte(header), buf.Bytes()...)
 
-		if err := os.WriteFile(filePath, content, 0644); err != nil {
+		if err := os.WriteFile(filePath, content, 0o644); err != nil {
 			return fmt.Errorf("could not write default global config file to %s: %w", filePath, err)
 		}
 	}
