@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui"
-	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea/v2"
 )
@@ -22,8 +23,8 @@ func main() {
 	}
 
 	finalCommitTypes := config.ResolveCommitTypes(globalCfg, localCfg)
-    config.PopulateCommitTypeColors(&globalCfg, finalCommitTypes)
-
+	config.PopulateCommitTypeColors(&globalCfg, finalCommitTypes)
+	config.ResolveReleaseConfig(&globalCfg, localCfg)
 
 	pwd, err := os.Getwd()
 	if err != nil {

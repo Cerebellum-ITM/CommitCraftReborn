@@ -255,3 +255,9 @@ func ResolveCommitTypes(
 
 	return finalTypes
 }
+
+func ResolveReleaseConfig(
+	globalCfg *Config, localCfg Config,
+) {
+	globalCfg.ReleaseConfig = localCfg.ReleaseConfig
+}

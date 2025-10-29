@@ -69,6 +69,25 @@ func CreateLocalConfigTomlTmpl() error {
 	return nil
 }
 
+func GetCurrentGitBranch() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("%w\nStderr: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return "", fmt.Errorf("Error executing git command: %v", err)
+	}
+
+	branch := strings.TrimSpace(stdout.String())
+	return branch, nil
+}
+
 func GetAllGitStatusData() (GitStatusData, error) {
 	var data GitStatusData
 	data.FileStatus = make(map[string]string)

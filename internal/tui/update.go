@@ -51,9 +51,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.popup = nil
 		return model, nil
 	case releaseAction:
+		model.popup = nil
+
 		switch msg.action {
 		case "Create item in CommitCraft":
-			return model, nil
+			_, cmd := createRelease(model)
+			return model, cmd
 		case "Create release in Github":
 			return model, nil
 		}
@@ -222,6 +225,50 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 			Base.Foreground(model.Theme.Tertiary).
 			SetString(model.mainList.Title),
 	)
+	cmd := model.WritingStatusBar.ShowMessageForDuration(
+		"Record created in the db successfully",
+		statusbar.LevelSuccess,
+		2*time.Second,
+	)
+	return model, cmd
+}
+
+func createRelease(model *Model) (tea.Model, tea.Cmd) {
+	var commitList strings.Builder
+
+	parts := strings.SplitN(model.releaseText, "\n", 2)
+	branch, err := GetCurrentGitBranch()
+	if err != nil {
+		model.log.Error("Error creating the release", "error", err)
+		model.err = err
+		return model, tea.Quit
+	}
+
+	for _, item := range model.selectedCommitList {
+		commitList.WriteString(item.Hash)
+		commitList.WriteString(",")
+	}
+
+	newRelease := storage.Release{
+		ID:         0,
+		Title:      strings.TrimSpace(parts[0]),
+		Body:       strings.TrimSpace(parts[1]),
+		Branch:     branch,
+		Version:    model.globalConfig.ReleaseConfig.Version,
+		CommitList: commitList.String(),
+		Workspace:  model.pwd,
+		CreatedAt:  time.Now(),
+	}
+
+	err = model.db.CreateRelease(newRelease)
+	if err != nil {
+		model.log.Error("Error creating the release", "error", err)
+		model.err = err
+		return model, tea.Quit
+	}
+
+	model.state = stateChoosingCommit
+	model.keys = mainListKeys()
 	cmd := model.WritingStatusBar.ShowMessageForDuration(
 		"Record created in the db successfully",
 		statusbar.LevelSuccess,
