@@ -16,12 +16,13 @@ type Commit struct {
 
 // representation of a release in the database
 type Release struct {
-	ID          int
-	Title       string
-	Body        string
-	Branch      string
+	ID         int
+	Type       string
+	Title      string
+	Body       string
+	Branch     string
 	CommitList string
-	Version     string
-	Workspace   string
-	CreatedAt   time.Time
+	Version    string
+	Workspace  string
+	CreatedAt  time.Time
 }

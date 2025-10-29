@@ -40,7 +40,7 @@ func (db *DB) CreateCommit(c Commit) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
-		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, created_at) VALUES (?, ?, ?, ?, ?, ?,?)",
+		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		c.Type,
 		c.Scope,
 		c.MessageES,
@@ -56,7 +56,8 @@ func (db *DB) CreateRelease(c Release) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
-		"INSERT INTO releases (title, body,  branch, commit_list, version, workspace, created_at) VALUES (?, ?, ?, ?, ?, ?,?)",
+		"INSERT INTO releases (type, title, body,  branch, commit_list, version, workspace, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		c.Type,
 		c.Title,
 		c.Body,
 		c.Branch,
@@ -70,7 +71,7 @@ func (db *DB) CreateRelease(c Release) error {
 
 func (db *DB) GetReleases(pwd string) ([]Release, error) {
 	rows, err := db.Query(
-		"SELECT id, title, body, branch, commit_list, version, workspace, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC",
+		"SELECT id, type, title, body, branch, commit_list, version, workspace, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC",
 		pwd,
 	)
 	if err != nil {
@@ -82,7 +83,7 @@ func (db *DB) GetReleases(pwd string) ([]Release, error) {
 	for rows.Next() {
 		var r Release
 		var createdAt string
-		if err := rows.Scan(&r.ID, &r.Title, &r.Body, &r.Branch, &r.CommitList, &r.Version, &r.Workspace, &createdAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Type, &r.Title, &r.Body, &r.Branch, &r.CommitList, &r.Version, &r.Workspace, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan Release row")
 		}
 

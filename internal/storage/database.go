@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,13 @@ import (
 // DB is a wrapper for the sql.DB connection pool.
 type DB struct {
 	*sql.DB
+}
+
+type columnAlteration struct {
+	tableName    string
+	columnName   string
+	columnType   string
+	defaultValue string
 }
 
 // InitDB connects to the database and returns a DB instance.
@@ -40,6 +48,48 @@ func InitDB() (*DB, error) {
 	}
 
 	return &DB{sqlDB}, nil
+}
+
+func applySchemaMigrations(db *sql.DB) error {
+	alterations := []columnAlteration{
+		{
+			tableName:    "commits",
+			columnName:   "diff_code",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+		{
+			tableName:    "releases",
+			columnName:   "type",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+	}
+
+	for _, alt := range alterations {
+		query := fmt.Sprintf(
+			"ALTER TABLE %s ADD COLUMN %s %s NOT NULL DEFAULT %s;",
+			alt.tableName,
+			alt.columnName,
+			alt.columnType,
+			alt.defaultValue,
+		)
+
+		_, err := db.Exec(query)
+		if err != nil {
+			if strings.Contains(err.Error(), "duplicate column name") {
+				continue
+			}
+			return fmt.Errorf(
+				"failed to add column %s to table %s: %w",
+				alt.columnName,
+				alt.tableName,
+				err,
+			)
+		}
+	}
+
+	return nil
 }
 
 // createTables ensures the necessary tables exist in the database.
@@ -75,7 +125,7 @@ func createTables(db *sql.DB) error {
 		return err
 	}
 
-	_, err = db.Exec(`ALTER TABLE commits ADD COLUMN diff_code TEXT NOT NULL DEFAULT '';`)
+	err = applySchemaMigrations(db)
 	if err != nil {
 		// If the error is "duplicate column name", we safely ignore it.
 		// For any other error, we return it.
