@@ -6,14 +6,15 @@ import "github.com/charmbracelet/bubbles/v2/key"
 // It implements the help.KeyMap interface.
 type KeyMap struct {
 	// Navigation
-	Up        key.Binding
-	Down      key.Binding
-	Left      key.Binding
-	Right     key.Binding
-	PgUp      key.Binding
-	PgDown    key.Binding
-	NextField key.Binding
-	PrevField key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	Left       key.Binding
+	Right      key.Binding
+	PgUp       key.Binding
+	PgDown     key.Binding
+	NextField  key.Binding
+	PrevField  key.Binding
+	SwitchMode key.Binding
 
 	// Release Workflow
 	NextViewPort key.Binding
@@ -156,6 +157,10 @@ func mainListKeys() KeyMap {
 			key.WithKeys("n", "tab"),
 			key.WithHelp("Tab/n", "Create a new commit"),
 		),
+		SwitchMode: key.NewBinding(
+			key.WithKeys("ctrl+s"),
+			key.WithHelp("ctrl+s", "Switch Mode"),
+		),
 	}
 }
 
@@ -170,6 +175,10 @@ func releaseMainListKeys() KeyMap {
 		Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		EditIaCommit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Edit commit")),
 		Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+		SwitchMode: key.NewBinding(
+			key.WithKeys("ctrl+s"),
+			key.WithHelp("ctrl+s", "Switch Mode"),
+		),
 	}
 }
 
@@ -376,6 +385,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.Edit.Enabled() {
 		b = append(b, k.Edit)
+	}
+	if k.SwitchMode.Enabled() {
+		b = append(b, k.SwitchMode)
 	}
 	if k.CreateLocalTomlConfig.Enabled() {
 		b = append(b, k.CreateLocalTomlConfig)

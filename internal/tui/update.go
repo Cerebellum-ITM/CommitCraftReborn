@@ -490,6 +490,22 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
 		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: releaseDb} }
+		case key.Matches(msg, model.keys.SwitchMode):
+			model.state = stateChoosingCommit
+			model.keys = mainListKeys()
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"choose, create, or edit a commit ::: %s",
+				model.Theme.AppStyles().
+					Base.Foreground(model.Theme.Tertiary).
+					SetString(model.mainList.Title),
+			)
+			cmd = model.WritingStatusBar.ShowMessageForDuration(
+				"Change app mode: Commit",
+				statusbar.LevelWarning,
+				2*time.Second,
+			)
+			return model, cmd
+
 		}
 	}
 
@@ -901,6 +917,21 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 				}
 				return model, tea.Quit
+			case key.Matches(msg, model.keys.SwitchMode):
+				model.state = stateReleaseMainMenu
+				model.keys = releaseMainListKeys()
+				model.WritingStatusBar.Content = fmt.Sprintf(
+					"choose, create, or edit a release ::: %s",
+					model.Theme.AppStyles().
+						Base.Foreground(model.Theme.Tertiary).
+						SetString(model.mainList.Title),
+				)
+				cmd = model.WritingStatusBar.ShowMessageForDuration(
+					"Change app mode: Release",
+					statusbar.LevelWarning,
+					2*time.Second,
+				)
+				return model, cmd
 			}
 		}
 	}
