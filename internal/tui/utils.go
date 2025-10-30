@@ -210,17 +210,39 @@ func calculatePopupPosition(modelWidth, modelHeight int, popupView string) (star
 	return startX, startY
 }
 
-func UpdateCommitList(pwd string, db *storage.DB, log *logger.Logger, l *list.Model) error {
-	workspaceCommits, err := db.GetCommits(pwd)
-	if err != nil {
-		log.Error("Error al recargar commits", "error", err)
-		return err
+func UpdateCommitList(
+	pwd string,
+	db *storage.DB,
+	log *logger.Logger,
+	l *list.Model,
+	action CommitCraftTables,
+) error {
+	var items []list.Item
+
+	switch action {
+	case commitDb:
+		workspaceCommits, err := db.GetCommits(pwd)
+		if err != nil {
+			log.Error("Error reloading the list of commits", "error", err)
+			return err
+		}
+
+		items = make([]list.Item, len(workspaceCommits))
+		for i, c := range workspaceCommits {
+			items[i] = HistoryCommitItem{commit: c}
+		}
+	case releaseDb:
+		workspaceReleases, err := db.GetReleases(pwd)
+		if err != nil {
+			log.Error("Error reloading the list of releases", "error", err)
+			return err
+		}
+		items = make([]list.Item, len(workspaceReleases))
+		for i, r := range workspaceReleases {
+			items[i] = HistoryReleaseItem{release: r}
+		}
 	}
 
-	items := make([]list.Item, len(workspaceCommits))
-	for i, c := range workspaceCommits {
-		items[i] = HistoryCommitItem{commit: c}
-	}
 	l.SetItems(items)
 
 	return nil

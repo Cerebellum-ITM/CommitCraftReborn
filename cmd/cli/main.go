@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -15,6 +16,12 @@ import (
 func main() {
 	log := logger.New()
 	log.Info("Starting Commit Crafter application...")
+	startInReleaseMode := flag.Bool(
+		"r",
+		false,
+		"Start the application in release choosing release mode",
+	)
+	flag.Parse()
 
 	globalCfg, localCfg, err := config.LoadConfigs()
 	if err != nil {
@@ -39,7 +46,12 @@ func main() {
 	defer db.Close()
 	log.Debug("Database initialized successfully.")
 
-	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes, pwd)
+	appMode := tui.CommitMode
+	if *startInReleaseMode {
+		appMode = tui.ReleaseMode
+	}
+
+	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes, pwd, appMode)
 	if err != nil {
 		log.Fatal("Error creating the TUI model", "error", err)
 	}

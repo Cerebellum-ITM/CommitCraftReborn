@@ -557,6 +557,14 @@ func (model *Model) View() string {
 			VerticalSpace,
 			uiElements,
 		)
+	case stateReleaseMainMenu:
+		model.releaseMainList.SetSize(availableWidthForMainContent/2, availableHeightForMainContent)
+		uiElements := model.releaseMainList.View()
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			statusBarContent,
+			VerticalSpace,
+			uiElements,
+		)
 	case stateChoosingType:
 		model.commitTypeList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
 		uiElements := model.commitTypeList.View()

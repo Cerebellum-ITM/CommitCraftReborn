@@ -159,6 +159,20 @@ func mainListKeys() KeyMap {
 	}
 }
 
+func releaseMainListKeys() KeyMap {
+	return KeyMap{
+		Up:           key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:         key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Enter:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Delete:       key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
+		Quit:         key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		GlobalQuit:   key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+		Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+		EditIaCommit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Edit commit")),
+		Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+	}
+}
+
 func releaseKeys() KeyMap {
 	return KeyMap{
 		Up:         key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "up")),

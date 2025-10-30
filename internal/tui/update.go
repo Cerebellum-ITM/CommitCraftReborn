@@ -38,11 +38,21 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.apiKeyInput.SetWidth(model.width)
 		model.WritingStatusBar.AppWith = model.width
 	case openPopupMsg:
-		selectedItem := model.mainList.SelectedItem()
-		if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-			model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES)
-			return model, nil
+		switch msg.Type {
+		case Confirmation:
+			switch msg.Db {
+			case commitDb:
+				selectedItem := model.mainList.SelectedItem()
+				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
+					model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES, commitDb)
+				}
+			case releaseDb:
+				if seletedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
+					model.popup = NewPopup(model.width, model.height, seletedItem.release.ID, seletedItem.release.Title, releaseDb)
+				}
+			}
 		}
+		return model, nil
 	case openListPopup:
 		model.popup = NewListPopup(msg.items, msg.width, msg.height, listKeys(), model.Theme)
 		return model, nil
@@ -63,15 +73,27 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, nil
 
 	case deleteItemMsg:
-		model.popup = nil
+		var list *list.Model
+		switch msg.Db {
+		case commitDb:
+			err := model.db.DeleteCommit(msg.ID)
+			list = &model.mainList
+			if err != nil {
+				model.err = err
+				return model, nil
+			}
 
-		err := model.db.DeleteCommit(msg.ID)
-		if err != nil {
-			model.err = err
-			return model, nil
+		case releaseDb:
+			err := model.db.DeleteRelease(msg.ID)
+			list = &model.releaseMainList
+			if err != nil {
+				model.err = err
+				return model, nil
+			}
 		}
 
-		UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
+		model.popup = nil
+		UpdateCommitList(model.pwd, model.db, model.log, list, msg.Db)
 		cmd := model.WritingStatusBar.ShowMessageForDuration("Record deleted from the db", statusbar.LevelSuccess, 2*time.Second)
 		return model, cmd
 
@@ -140,6 +162,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateReleaseChoosingCommits(msg, model)
 	case stateReleaseBuildingText:
 		subModel, subCmd = updateReleaseBuildingText(msg, model)
+	case stateReleaseMainMenu:
+		subModel, subCmd = updateReleaseMainMenu(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)
@@ -190,6 +214,14 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.commitScope = ""
 		model.keys = fileListKeys()
 		model.msgInput.Blur()
+	case stateReleaseMainMenu:
+		model.keys = releaseMainListKeys()
+		statusBarMessage = fmt.Sprintf(
+			"choose, create, or edit a release ::: %s",
+			model.Theme.AppStyles().
+				Base.Foreground(model.Theme.Tertiary).
+				SetString(model.mainList.Title),
+		)
 	}
 	model.state = state
 	model.WritingStatusBar.Content = statusBarMessage
@@ -216,7 +248,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		return model, tea.Quit
 	}
 
-	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList)
+	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList, commitDb)
 	model.state = stateChoosingCommit
 	model.keys = mainListKeys()
 	model.WritingStatusBar.Content = fmt.Sprintf(
@@ -234,7 +266,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 }
 
 func createRelease(model *Model) (tea.Model, tea.Cmd) {
-	var commitList strings.Builder
+	var commitList []string
 
 	parts := strings.SplitN(model.releaseText, "\n", 2)
 	branch, err := GetCurrentGitBranch()
@@ -245,17 +277,17 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	for _, item := range model.selectedCommitList {
-		commitList.WriteString(item.Hash)
-		commitList.WriteString(",")
+		commitList = append(commitList, item.Hash)
 	}
 
 	newRelease := storage.Release{
 		ID:         0,
+		Type:       "", // FIXME
 		Title:      strings.TrimSpace(parts[0]),
 		Body:       strings.TrimSpace(parts[1]),
 		Branch:     branch,
 		Version:    model.globalConfig.ReleaseConfig.Version,
-		CommitList: commitList.String(),
+		CommitList: strings.Join(commitList, ","),
 		Workspace:  model.pwd,
 		CreatedAt:  time.Now(),
 	}
@@ -267,7 +299,7 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 		return model, tea.Quit
 	}
 
-	model.state = stateChoosingCommit
+	model.state = stateReleaseMainMenu
 	model.keys = mainListKeys()
 	cmd := model.WritingStatusBar.ShowMessageForDuration(
 		"Record created in the db successfully",
@@ -447,6 +479,24 @@ func switchFocusElement(model *Model) {
 }
 
 // UPDATE functions
+func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Enter):
+			menu := []string{"Create item in CommitCraft", "Create release in Github"}
+			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
+		case key.Matches(msg, model.keys.Delete):
+			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: releaseDb} }
+		}
+	}
+
+	model.releaseMainList, cmd = model.releaseMainList.Update(msg)
+	return model, cmd
+}
+
 func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -643,7 +693,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	var nextState appState
+
 	model.apiKeyInput, cmd = model.apiKeyInput.Update(msg)
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -658,7 +711,13 @@ func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.globalConfig.TUI.GroqAPIKey = apiKey
 				model.globalConfig.TUI.IsAPIKeySet = true
 
-				return model.cancelProcess(stateChoosingCommit)
+				switch model.AppMode {
+				case ReleaseMode:
+					nextState = stateReleaseMainMenu
+				case CommitMode:
+					nextState = stateChoosingCommit
+				}
+				return model.cancelProcess(nextState)
 			}
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
@@ -829,7 +888,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return model, nil
 
 			case key.Matches(msg, model.keys.Delete):
-				return model, func() tea.Msg { return openPopupMsg{} }
+				return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: commitDb} }
 			case key.Matches(msg, model.keys.CreateLocalTomlConfig):
 				CreateLocalConfigTomlTmpl()
 				cmd := model.WritingStatusBar.ShowMessageForDuration("Configuration file created!", statusbar.LevelSuccess, 2*time.Second)

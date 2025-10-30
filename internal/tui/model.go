@@ -33,6 +33,8 @@ const (
 // We use iota to create an "enum" for our application states.
 type (
 	appState      int
+	appMode       int
+	popupType     int
 	openListPopup struct {
 		items         []string
 		width, height int
@@ -40,12 +42,31 @@ type (
 	releaseAction struct {
 		action string
 	}
-	closeListPopup struct{}
-	openPopupMsg   struct{}
-	closePopupMsg  struct{}
-	deleteItemMsg  struct {
-		ID int
+	CommitCraftTables int
+	closeListPopup    struct{}
+	openPopupMsg      struct {
+		Type popupType
+		Db   CommitCraftTables
 	}
+	closePopupMsg struct{}
+	deleteItemMsg struct {
+		ID int
+		Db CommitCraftTables
+	}
+)
+
+const (
+	Confirmation popupType = iota
+)
+
+const (
+	CommitMode appMode = iota
+	ReleaseMode
+)
+
+const (
+	commitDb CommitCraftTables = iota
+	releaseDb
 )
 
 var scopeFilePickerPwd string
@@ -66,11 +87,13 @@ const (
 	stateConfirming
 	stateReleaseChoosingCommits
 	stateReleaseBuildingText
+	stateReleaseMainMenu
 	stateDone
 )
 
 // model is the main struct that holds the entire application state.
 type Model struct {
+	AppMode                 appMode
 	Theme                   *styles.Theme
 	pwd                     string
 	log                     *logger.Logger
@@ -85,6 +108,7 @@ type Model struct {
 	releaseEditText         *textarea.Model
 	releaseViewState        *releaseViewState
 	releaseText             string
+	releaseMainList         list.Model
 	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string
 	commitTypeList          list.Model
@@ -122,14 +146,16 @@ func NewModel(
 	config config.Config,
 	finalCommitTypes []commit.CommitType,
 	pwd string,
+	appMode appMode,
 ) (*Model, error) {
 	var initalState appState
 	var initialKeys KeyMap
 	var statusBarInitialMessage string
 	var WritingStatusBar statusbar.StatusBar
-	theme := styles.NewCharmtoneTheme(config.TUI.UseNerdFonts)
 
 	apiKeyInput := textinput.New()
+	theme := styles.NewCharmtoneTheme(config.TUI.UseNerdFonts)
+
 	gitStatusData, err := GetAllGitStatusData()
 	if err != nil {
 		log.Error("Failed to initialize git Status Data", "error", err)
@@ -149,6 +175,13 @@ func NewModel(
 		log.Error("Failed to load recent scopes from database", "error", err)
 		return nil, err
 	}
+
+	workspaceReleses, err := database.GetReleases(pwd)
+	if err != nil {
+		log.Error("Failed to load recent releases from database", "error", err)
+		return nil, err
+	}
+	releaseList := NewHistoryReleaseList(workspaceReleses, pwd, config, theme)
 
 	fileList, err := NewFileList(pwd, config.TUI.UseNerdFonts, gitStatusData)
 	if err != nil {
@@ -194,12 +227,24 @@ func NewModel(
 			theme.AppStyles().Base.Foreground(theme.Tertiary).SetString(workspaceCommitsList.Title),
 		)
 
+		if appMode == ReleaseMode {
+			initalState = stateReleaseMainMenu
+			initialKeys = releaseMainListKeys()
+			statusBarInitialMessage = fmt.Sprintf(
+				"choose, create, or edit a release ::: %s",
+				theme.AppStyles().
+					Base.Foreground(theme.Tertiary).
+					SetString(workspaceCommitsList.Title),
+			)
+		}
+
 		WritingStatusBar = statusbar.New(
 			statusBarInitialMessage,
 			statusbar.LevelInfo,
 			50,
 			theme,
 		)
+
 	} else {
 		initalState = stateSettingAPIKey
 		apiKeyInput.Placeholder = "gsk_..."
@@ -220,12 +265,14 @@ func NewModel(
 	// --- End of Initializations ---
 
 	m := &Model{
+		AppMode:                 appMode,
 		log:                     log,
 		pwd:                     pwd,
 		db:                      database,
 		apiKeyInput:             apiKeyInput,
 		state:                   initalState,
 		mainList:                workspaceCommitsList,
+		releaseMainList:         releaseList,
 		releaseViewport:         releaseViewport,
 		releaseViewState:        &releaseViewState{selecting: false, releaseCreated: false},
 		commitTypeList:          commitTypesList,

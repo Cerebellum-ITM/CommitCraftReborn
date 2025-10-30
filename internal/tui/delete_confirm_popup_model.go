@@ -9,18 +9,20 @@ import (
 )
 
 type DeleteConfirmPopupModel struct {
-	commitId, width, height int
-	commitMessage           string
-	keys                    KeyMap
+	Id, width, height int
+	Message           string
+	keys              KeyMap
+	db                CommitCraftTables
 }
 
-func NewPopup(width, height, commitId int, commitMessage string) DeleteConfirmPopupModel {
+func NewPopup(width, height, Id int, Message string, db CommitCraftTables) DeleteConfirmPopupModel {
 	return DeleteConfirmPopupModel{
-		commitId:      commitId,
-		commitMessage: commitMessage,
-		width:         width,
-		height:        height,
-		keys:          listKeys(),
+		Id:      Id,
+		Message: Message,
+		width:   width,
+		height:  height,
+		keys:    listKeys(),
+		db:      db,
 	}
 }
 
@@ -41,7 +43,7 @@ func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return closePopupMsg{} }
 		case key.Matches(msg, m.keys.Enter):
 			return m, func() tea.Msg {
-				return deleteItemMsg{ID: m.commitId}
+				return deleteItemMsg{ID: m.Id, Db: m.db}
 			}
 		}
 	}
@@ -51,8 +53,8 @@ func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m DeleteConfirmPopupModel) View() string {
 	popupMessage := fmt.Sprintf(
 		"Are you sure you want to delete the commit with the Id=%d?\n(%s)\nPress 'esc' to cancel or 'enter' to delete.",
-		m.commitId,
-		m.commitMessage,
+		m.Id,
+		m.Message,
 	)
 	contentWidth := (m.width / 2) - 4
 	contentWidth = max(contentWidth, 20)
