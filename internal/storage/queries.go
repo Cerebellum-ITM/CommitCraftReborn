@@ -102,3 +102,8 @@ func (db *DB) DeleteCommit(id int) error {
 	_, err := db.Exec("DELETE FROM commits WHERE id = ?", id)
 	return errors.Wrap(err, "failed to delete commit")
 }
+
+func (db *DB) DeleteRelease(id int) error {
+	_, err := db.Exec("DELETE FROM releases WHERE id = ?", id)
+	return errors.Wrap(err, "failed to delete release")
+}
