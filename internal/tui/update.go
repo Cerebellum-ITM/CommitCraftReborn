@@ -14,6 +14,8 @@ import (
 	"github.com/charmbracelet/bubbles/v2/key"
 	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
+
+	"golang.design/x/clipboard"
 )
 
 type IaCommitBuilderResultMsg struct {
@@ -67,7 +69,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "Create":
 			_, cmd := createRelease(model)
 			return model, cmd
-
+		case "Print in console":
+			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
+				formattedReleaseType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, selectedItem.release.Type)
+				model.FinalMessage = fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
+			}
+			return model, tea.Quit
+		case "Copy to clipboard":
+			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
+				formattedReleaseType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, selectedItem.release.Type)
+				finalMessage := fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
+				clipboard.Write(clipboard.FmtText, []byte(finalMessage))
+			}
+			return model, tea.Quit
 		case "Release Commit":
 			model.releaseType = "REL"
 			branch, err := GetCurrentGitBranch()
@@ -520,7 +534,7 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.keys = releaseKeys()
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
-			menu := []string{"Create item in CommitCraft", "Create release in Github"}
+			menu := []string{"Print in console", "Copy to clipboard"}
 			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
 		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: releaseDb} }
