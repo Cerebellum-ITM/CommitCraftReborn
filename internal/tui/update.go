@@ -64,13 +64,41 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.popup = nil
 
 		switch msg.action {
-		case "Create item in CommitCraft":
+		case "Create":
 			_, cmd := createRelease(model)
 			return model, cmd
+
+		case "Release Commit":
+			model.releaseType = "REL"
+			branch, err := GetCurrentGitBranch()
+			if err != nil {
+				model.log.Error("Error getting the current branch", "error", err)
+				model.err = err
+				return model, tea.Quit
+			}
+			model.releaseBranch = branch
+			return model, func() tea.Msg { return releaseAction{action: "Create"} }
+		case "Merge Commit":
+			model.releaseType = "MERGE"
+			branches, err := GetGitBranches()
+			if err != nil {
+				model.log.Error("Error getting the current branch", "error", err)
+				model.err = err
+				return model, tea.Quit
+			}
+			return model, func() tea.Msg {
+				return openListPopup{items: branches, width: model.width / 2, height: model.height / 2}
+			}
+		case "Create item in CommitCraft":
+			menu := []string{"Merge Commit", "Release Commit"}
+			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
 		case "Create release in Github":
 			return model, nil
+		default:
+			// NOTE: Any selected branch leads to this action
+			model.releaseBranch = msg.action
+			return model, func() tea.Msg { return releaseAction{action: "Create"} }
 		}
-		return model, nil
 
 	case deleteItemMsg:
 		var list *list.Model
@@ -269,12 +297,6 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	var commitList []string
 
 	parts := strings.SplitN(model.releaseText, "\n", 2)
-	branch, err := GetCurrentGitBranch()
-	if err != nil {
-		model.log.Error("Error creating the release", "error", err)
-		model.err = err
-		return model, tea.Quit
-	}
 
 	for _, item := range model.selectedCommitList {
 		commitList = append(commitList, item.Hash)
@@ -282,23 +304,24 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 
 	newRelease := storage.Release{
 		ID:         0,
-		Type:       "", // FIXME
+		Type:       model.releaseType,
 		Title:      strings.TrimSpace(parts[0]),
 		Body:       strings.TrimSpace(parts[1]),
-		Branch:     branch,
+		Branch:     model.releaseBranch,
 		Version:    model.globalConfig.ReleaseConfig.Version,
 		CommitList: strings.Join(commitList, ","),
 		Workspace:  model.pwd,
 		CreatedAt:  time.Now(),
 	}
 
-	err = model.db.CreateRelease(newRelease)
+	err := model.db.CreateRelease(newRelease)
 	if err != nil {
 		model.log.Error("Error creating the release", "error", err)
 		model.err = err
 		return model, tea.Quit
 	}
 
+	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb)
 	model.state = stateReleaseMainMenu
 	model.keys = mainListKeys()
 	cmd := model.WritingStatusBar.ShowMessageForDuration(

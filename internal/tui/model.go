@@ -108,6 +108,8 @@ type Model struct {
 	releaseEditText         *textarea.Model
 	releaseViewState        *releaseViewState
 	releaseText             string
+	releaseType             string
+	releaseBranch           string
 	releaseMainList         list.Model
 	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string

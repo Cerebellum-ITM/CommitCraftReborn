@@ -88,6 +88,38 @@ func GetCurrentGitBranch() (string, error) {
 	return branch, nil
 }
 
+func GetGitBranches() ([]string, error) {
+	cmd := exec.Command("git", "branch", "--list")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		if stderr.Len() > 0 {
+			return nil, fmt.Errorf("%w\nStderr: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return nil, fmt.Errorf("Error executing git command: %v", err)
+	}
+
+	outputLines := strings.Split(stdout.String(), "\n")
+
+	var branches []string
+	for _, line := range outputLines {
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "" {
+			continue // Skip empty lines
+		}
+
+		// Remove the "*" prefix if it's the current branch
+		trimmedLine = strings.TrimPrefix(trimmedLine, "* ")
+		branches = append(branches, trimmedLine)
+	}
+
+	return branches, nil
+}
+
 func GetAllGitStatusData() (GitStatusData, error) {
 	var data GitStatusData
 	data.FileStatus = make(map[string]string)
