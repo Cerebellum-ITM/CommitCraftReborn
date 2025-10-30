@@ -485,12 +485,24 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.ReleaseCommit):
+			model.WritingStatusBar.Content = "Select the commits to create a release"
+			model.state = stateReleaseChoosingCommits
+			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
+			model.releaseCommitList.Select(0)
+			model.focusedElement = focusListElement
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.commitLivePreview = item.Preview
+			}
+			model.keys = releaseKeys()
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			menu := []string{"Create item in CommitCraft", "Create release in Github"}
 			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
 		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: releaseDb} }
 		case key.Matches(msg, model.keys.SwitchMode):
+			model.AppMode = CommitMode
 			model.state = stateChoosingCommit
 			model.keys = mainListKeys()
 			model.WritingStatusBar.Content = fmt.Sprintf(
@@ -603,6 +615,16 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			return model, nil
 		case key.Matches(msg, model.keys.PrevField):
 			switchFocusElement(model)
+			return model, nil
+		case key.Matches(msg, model.keys.Esc):
+			switch model.AppMode {
+			case CommitMode:
+				model.state = stateChoosingCommit
+				model.keys = mainListKeys()
+			case ReleaseMode:
+				model.state = stateReleaseMainMenu
+				model.keys = releaseMainListKeys()
+			}
 			return model, nil
 		}
 	}
@@ -887,6 +909,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.commitLivePreview = item.Preview
 				}
 				model.keys = releaseKeys()
+				return model, nil
 			case key.Matches(msg, model.keys.EditIaCommit):
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
@@ -918,6 +941,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				}
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.SwitchMode):
+				model.AppMode = ReleaseMode
 				model.state = stateReleaseMainMenu
 				model.keys = releaseMainListKeys()
 				model.WritingStatusBar.Content = fmt.Sprintf(

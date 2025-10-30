@@ -166,6 +166,10 @@ func mainListKeys() KeyMap {
 
 func releaseMainListKeys() KeyMap {
 	return KeyMap{
+		ReleaseCommit: key.NewBinding(
+			key.WithKeys("r", "tab"),
+			key.WithHelp("r/tab", "Create a release"),
+		),
 		Up:           key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:         key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
 		Enter:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
