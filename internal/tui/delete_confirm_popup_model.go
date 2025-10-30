@@ -2,28 +2,52 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 
 	"github.com/charmbracelet/bubbles/v2/key"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+var DefaultPopupColor color.Color = lipgloss.Color("63")
+
+type PopupOption func(*DeleteConfirmPopupModel)
+
 type DeleteConfirmPopupModel struct {
 	Id, width, height int
 	Message           string
 	keys              KeyMap
 	db                CommitCraftTables
+	color             color.Color
 }
 
-func NewPopup(width, height, Id int, Message string, db CommitCraftTables) DeleteConfirmPopupModel {
-	return DeleteConfirmPopupModel{
+func WithColor(c color.Color) PopupOption {
+	return func(p *DeleteConfirmPopupModel) {
+		p.color = c
+	}
+}
+
+func NewPopup(
+	width, height, Id int,
+	Message string,
+	db CommitCraftTables,
+	opts ...PopupOption,
+) DeleteConfirmPopupModel {
+	popup := DeleteConfirmPopupModel{
 		Id:      Id,
 		Message: Message,
 		width:   width,
 		height:  height,
 		keys:    listKeys(),
 		db:      db,
+		color:   DefaultPopupColor,
 	}
+
+	for _, opt := range opts {
+		opt(&popup)
+	}
+
+	return popup
 }
 
 func (m DeleteConfirmPopupModel) Init() tea.Cmd {
@@ -52,7 +76,7 @@ func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m DeleteConfirmPopupModel) View() string {
 	popupMessage := fmt.Sprintf(
-		"Are you sure you want to delete the commit with the Id=%d?\n(%s)\nPress 'esc' to cancel or 'enter' to delete.",
+		"Are you sure you want to delete the Item with the Id=%d?\n(%s)\nPress 'esc' to cancel or 'enter' to delete.",
 		m.Id,
 		m.Message,
 	)
@@ -65,7 +89,7 @@ func (m DeleteConfirmPopupModel) View() string {
 		Align(lipgloss.Center).
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("63")).
+		BorderForeground(m.color).
 		Render(renderedContent)
 
 	return popupBox

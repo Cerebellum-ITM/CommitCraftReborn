@@ -46,11 +46,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case commitDb:
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-					model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES, commitDb)
+					model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES, commitDb, WithColor(model.Theme.Warning))
 				}
 			case releaseDb:
 				if seletedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
-					model.popup = NewPopup(model.width, model.height, seletedItem.release.ID, seletedItem.release.Title, releaseDb)
+					model.popup = NewPopup(model.width, model.height, seletedItem.release.ID, seletedItem.release.Title, releaseDb, WithColor(model.Theme.Warning))
 				}
 			}
 		}
