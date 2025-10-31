@@ -20,12 +20,13 @@ type item struct {
 }
 
 type listPopupModel struct {
-	title         string
-	width, height int
-	selector      list.Model
-	keys          KeyMap
-	theme         *styles.Theme
-	color         color.Color
+	title           string
+	width, height   int
+	selector        list.Model
+	selectorOptions []itemsOptions
+	keys            KeyMap
+	theme           *styles.Theme
+	color           color.Color
 }
 
 func (i item) Title() string       { return i.title }
@@ -37,18 +38,20 @@ type itemDelegate struct {
 	Theme          *styles.Theme
 	indicatorStyle lipgloss.Style
 	textStyle      lipgloss.Style
+	options        []itemsOptions
 }
 
 func (d itemDelegate) Height() int                             { return 1 }
 func (d itemDelegate) Spacing() int                            { return 0 }
 func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
-func NewListPopupDelegate(theme *styles.Theme) list.ItemDelegate {
+func NewListPopupDelegate(theme *styles.Theme, options []itemsOptions) list.ItemDelegate {
 	base := theme.AppStyles().Base
 	baseFg := theme.FgMuted
 	baseState := base.Foreground(baseFg)
 
 	return itemDelegate{
+		options:        options,
 		Theme:          theme,
 		textStyle:      baseState,
 		indicatorStyle: theme.AppStyles().IndicatorStyle,
@@ -56,17 +59,38 @@ func NewListPopupDelegate(theme *styles.Theme) list.ItemDelegate {
 }
 
 func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	var icon string = " "
+	var customColor color.Color = nil
+	var customIcon string
+
 	item, ok := listItem.(item)
 	if !ok {
 		return
 	}
 
+	if d.options != nil {
+		for _, option := range d.options {
+			if option.index == index {
+				customIcon = option.icon
+				customColor = option.color
+			}
+		}
+	}
+
 	var indicator string
 	var textStyle lipgloss.Style
+
+	if customIcon != "" {
+		icon = customIcon
+	}
 
 	if index == m.Index() {
 		indicator = d.indicatorStyle.Render("❯")
 		textStyle = d.textStyle.Foreground(d.Theme.FgBase)
+		if customColor != nil {
+			textStyle = textStyle.Foreground(customColor)
+		}
+
 	} else {
 		indicator = " "
 		textStyle = d.textStyle
@@ -75,8 +99,9 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	itemString := textStyle.Render(item.title)
 
 	line := fmt.Sprintf(
-		"%s %s",
+		"%s %s %s",
 		indicator,
+		icon,
 		itemString,
 	)
 	fmt.Fprint(w, line)
@@ -102,6 +127,7 @@ func ListWithTitle(t string) PopupListOption {
 
 func NewListPopup(
 	items []string,
+	itemsOptions []itemsOptions,
 	width, height int,
 	keys KeyMap,
 	theme *styles.Theme,
@@ -112,7 +138,7 @@ func NewListPopup(
 		listItems[i] = item{title: element}
 	}
 
-	list := list.New(listItems, NewListPopupDelegate(theme), width, height)
+	list := list.New(listItems, NewListPopupDelegate(theme, itemsOptions), width, height)
 	list.SetHeight(height)
 	list.SetWidth(width)
 	list.SetShowPagination(false)

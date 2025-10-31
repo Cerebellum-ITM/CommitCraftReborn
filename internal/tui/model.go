@@ -287,10 +287,12 @@ func NewModel(
 
 	help := help.New()
 	help.Styles = theme.AppStyles().Help
+	toolInfo := CheckTools(*theme)
 	// --- End of Initializations ---
 
 	m := &Model{
 		AppMode:                 appMode,
+		ToolsInfo:               toolInfo,
 		log:                     log,
 		pwd:                     pwd,
 		db:                      database,

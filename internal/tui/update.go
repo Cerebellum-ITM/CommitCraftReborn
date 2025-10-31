@@ -63,7 +63,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.color != nil {
 			opts = append(opts, ListWithColor(msg.color))
 		}
-		model.popup = NewListPopup(msg.items, msg.width, msg.height, listKeys(), model.Theme, opts...)
+		model.log.Debug(fmt.Sprintf("%v", msg.itemsOptions))
+		model.popup = NewListPopup(msg.items, msg.itemsOptions, msg.width, msg.height, listKeys(), model.Theme, opts...)
 		return model, nil
 	case closePopupMsg, closeListPopup:
 		model.popup = nil
@@ -83,19 +84,25 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		case "Copy to clipboard":
 			var finalMessage string
-
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
 				formattedReleaseType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, selectedItem.release.Type)
 				finalMessage = fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
 			}
-			return model, tea.Sequence(
-				tea.SetClipboard(finalMessage),
-				func() tea.Msg {
-					_ = clipboard.WriteAll(finalMessage)
-					return nil
-				},
-				tea.Quit,
-			)
+			if model.ToolsInfo.xclip.available {
+				return model, tea.Sequence(
+					tea.SetClipboard(finalMessage),
+					func() tea.Msg {
+						_ = clipboard.WriteAll(finalMessage)
+						return nil
+					},
+					tea.Quit,
+				)
+			} else {
+				err := fmt.Errorf("%s is not available in the system", model.ToolsInfo.xclip.name)
+				model.log.Error("%s is not available in the system!!")
+				model.err = err
+				return model, tea.Quit
+			}
 		case "Release Commit":
 			model.releaseType = "REL"
 			branch, err := GetCurrentGitBranch()
@@ -549,9 +556,12 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.keys = releaseKeys()
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
+			var menuOptions []itemsOptions
 			menu := []string{"Print in console", "Copy to clipboard"}
+			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().Console})
+			menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.ToolsInfo.xclip.textColor, icon: model.ToolsInfo.xclip.icon})
 			return model, func() tea.Msg {
-				return openListPopup{items: menu, width: model.width / 2, height: model.height / 2, color: model.Theme.Success}
+				return openListPopup{items: menu, itemsOptions: menuOptions, width: model.width / 2, height: model.height / 2, color: model.Theme.Success}
 			}
 		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: releaseDb} }
