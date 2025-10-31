@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/v2/list"
 	tea "github.com/charmbracelet/bubbletea/v2"
 
-	"golang.design/x/clipboard"
+	"github.com/atotto/clipboard"
 )
 
 type IaCommitBuilderResultMsg struct {
@@ -82,12 +82,20 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return model, tea.Quit
 		case "Copy to clipboard":
+			var finalMessage string
+
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
 				formattedReleaseType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, selectedItem.release.Type)
-				finalMessage := fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
-				clipboard.Write(clipboard.FmtText, []byte(finalMessage))
+				finalMessage = fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
 			}
-			return model, tea.Quit
+			return model, tea.Sequence(
+				tea.SetClipboard(finalMessage),
+				func() tea.Msg {
+					_ = clipboard.WriteAll(finalMessage)
+					return nil
+				},
+				tea.Quit,
+			)
 		case "Release Commit":
 			model.releaseType = "REL"
 			branch, err := GetCurrentGitBranch()
