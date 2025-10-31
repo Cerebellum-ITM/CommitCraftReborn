@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 
 	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/config"
@@ -36,6 +37,8 @@ type (
 	appMode       int
 	popupType     int
 	openListPopup struct {
+		title         string
+		color         color.Color
 		items         []string
 		width, height int
 	}

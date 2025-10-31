@@ -56,9 +56,15 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return model, nil
 	case openListPopup:
-		model.popup = NewListPopup(msg.items, msg.width, msg.height, listKeys(), model.Theme)
+		var opts []PopupListOption
+		if msg.title != "" {
+			opts = append(opts, ListWithTitle(msg.title))
+		}
+		if msg.color != nil {
+			opts = append(opts, ListWithColor(msg.color))
+		}
+		model.popup = NewListPopup(msg.items, msg.width, msg.height, listKeys(), model.Theme, opts...)
 		return model, nil
-
 	case closePopupMsg, closeListPopup:
 		model.popup = nil
 		return model, nil
@@ -101,7 +107,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return model, tea.Quit
 			}
 			return model, func() tea.Msg {
-				return openListPopup{items: branches, width: model.width / 2, height: model.height / 2}
+				return openListPopup{items: branches, width: model.width / 2, height: model.height / 2, title: "Select a branch"}
 			}
 		case "Create item in CommitCraft":
 			menu := []string{"Merge Commit", "Release Commit"}
@@ -535,7 +541,9 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			menu := []string{"Print in console", "Copy to clipboard"}
-			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
+			return model, func() tea.Msg {
+				return openListPopup{items: menu, width: model.width / 2, height: model.height / 2, color: model.Theme.Success}
+			}
 		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: releaseDb} }
 		case key.Matches(msg, model.keys.SwitchMode):

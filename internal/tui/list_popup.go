@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 	"io"
 
 	"commit_craft_reborn/internal/tui/styles"
@@ -12,15 +13,19 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
+var defaultListPopTitle string = "Select an action"
+
 type item struct {
 	title, desc string
 }
 
 type listPopupModel struct {
+	title         string
 	width, height int
 	selector      list.Model
 	keys          KeyMap
 	theme         *styles.Theme
+	color         color.Color
 }
 
 func (i item) Title() string       { return i.title }
@@ -81,11 +86,26 @@ func (m listPopupModel) Init() tea.Cmd {
 	return nil
 }
 
+type PopupListOption func(*listPopupModel)
+
+func ListWithColor(c color.Color) PopupListOption {
+	return func(p *listPopupModel) {
+		p.color = c
+	}
+}
+
+func ListWithTitle(t string) PopupListOption {
+	return func(p *listPopupModel) {
+		p.selector.Title = t
+	}
+}
+
 func NewListPopup(
 	items []string,
 	width, height int,
 	keys KeyMap,
 	theme *styles.Theme,
+	opts ...PopupListOption,
 ) listPopupModel {
 	listItems := make([]list.Item, len(items))
 	for i, element := range items {
@@ -96,16 +116,24 @@ func NewListPopup(
 	list.SetHeight(height)
 	list.SetWidth(width)
 	list.SetShowPagination(false)
-	list.Title = "Select an action"
+	list.Title = defaultListPopTitle
 	list.SetShowStatusBar(false)
+	list.Help.Styles = theme.AppStyles().Help
 
-	return listPopupModel{
+	popList := listPopupModel{
 		width:    width,
 		height:   height,
 		selector: list,
 		theme:    theme,
 		keys:     keys,
+		color:    theme.Primary,
 	}
+
+	for _, opt := range opts {
+		opt(&popList)
+	}
+
+	return popList
 }
 
 func (m listPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -144,7 +172,7 @@ func (m listPopupModel) View() string {
 		Align(lipgloss.Center).
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(m.theme.Primary).
+		BorderForeground(m.color).
 		Render(m.selector.View())
 
 	return popupBox
