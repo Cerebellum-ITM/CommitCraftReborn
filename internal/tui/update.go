@@ -472,8 +472,9 @@ func iaReleaseBuilder(model *Model) error {
 	delimiter := "--- COMMIT SEPARATOR ---"
 	for _, item := range model.selectedCommitList {
 		commitContent := fmt.Sprintf(
-			"%s\n%s\n%s\n%s\n",
+			"%s\nCommit.Date:%s\nCommit.Title:%s\ncommit.body:%s\n%s\n",
 			delimiter,
+			item.Date,
 			item.Subject,
 			item.Body,
 			delimiter,
