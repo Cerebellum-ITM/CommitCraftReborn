@@ -52,7 +52,12 @@ type Theme struct {
 }
 
 type Symbols struct {
-	Commit string
+	Commit           string
+	Console          string
+	GhEnable         string
+	GhMissing        string
+	ClipboardEnable  string
+	ClipboardMissing string
 }
 
 type Styles struct {

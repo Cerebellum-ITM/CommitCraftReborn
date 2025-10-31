@@ -4,16 +4,25 @@ import "github.com/charmbracelet/x/exp/charmtone"
 
 func NerdFontSymbols() *Symbols {
 	return &Symbols{
-		Commit: "󰜘",
+		Commit:           "󰜘",
+		Console:          "󰆍",
+		GhEnable:         "",
+		GhMissing:        "",
+		ClipboardEnable:  "󱄗",
+		ClipboardMissing: "󱘛",
 	}
 }
 
 func DefaultSymbols() *Symbols {
 	return &Symbols{
-		Commit: "X",
+		Commit:           "X",
+		Console:          "🖊",
+		ClipboardEnable:  "📋",
+		ClipboardMissing: "X",
+		GhEnable:         "💻",
+		GhMissing:        "X",
 	}
 }
-
 
 func NewCharmtoneTheme(useNerdFont bool) *Theme {
 	t := &Theme{
