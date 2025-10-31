@@ -22,7 +22,25 @@ import (
 	"github.com/charmbracelet/lipgloss/v2"
 )
 
-type focusableElement int
+type (
+	focusableElement int
+	itemsOptions     struct {
+		index int
+		color color.Color
+		icon  string
+	}
+	ToolInfo struct {
+		name      string
+		available bool
+		textColor color.Color
+		icon      string
+	}
+)
+
+type Tools struct {
+	xclip ToolInfo
+	gh    ToolInfo
+}
 
 const (
 	focusMsgInput   focusableElement = iota // 0
@@ -40,6 +58,7 @@ type (
 		title         string
 		color         color.Color
 		items         []string
+		itemsOptions  []itemsOptions
 		width, height int
 	}
 	releaseAction struct {
@@ -101,6 +120,7 @@ type Model struct {
 	pwd                     string
 	log                     *logger.Logger
 	db                      *storage.DB
+	ToolsInfo               Tools
 	finalCommitTypes        []commit.CommitType
 	state                   appState
 	err                     error

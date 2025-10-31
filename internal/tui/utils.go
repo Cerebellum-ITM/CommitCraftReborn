@@ -3,14 +3,17 @@ package tui
 import (
 	"bytes"
 	"fmt"
+	"image/color"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/styles"
 
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/bubbles/v2/list"
@@ -36,6 +39,54 @@ type UpdateFileListFunc func(pwd string, l *list.Model, gitData GitStatusData) e
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
+func CheckTools(theme styles.Theme) Tools {
+	tools := Tools{}
+	var icon string
+	var textColor color.Color
+
+	osType := runtime.GOOS
+	clipCommand := "xclip"
+	if osType == "darwin" {
+		clipCommand = "pbcopy"
+	}
+	_, err := exec.LookPath(clipCommand)
+	toolAvailable := err == nil
+
+	if toolAvailable {
+		icon = theme.AppSymbols().ClipboardEnable
+		textColor = theme.Accent
+	} else {
+		icon = theme.AppSymbols().ClipboardMissing
+		textColor = theme.Purple
+	}
+
+	tools.xclip = ToolInfo{
+		name:      clipCommand,
+		available: toolAvailable,
+		icon:      icon,
+		textColor: textColor,
+	}
+
+	_, err = exec.LookPath("gh")
+	toolAvailable = err == nil
+
+	if toolAvailable {
+		icon = theme.AppSymbols().GhEnable
+		textColor = theme.Success
+	} else {
+		icon = theme.AppSymbols().GhMissing
+		textColor = theme.Purple
+	}
+
+	tools.gh = ToolInfo{
+		name:      clipCommand,
+		available: toolAvailable,
+		icon:      icon,
+		textColor: textColor,
+	}
+
+	return tools
+}
 
 func ResetAndActiveFilterOnList(l *list.Model) {
 	if l != nil {
