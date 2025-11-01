@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -39,6 +40,81 @@ type UpdateFileListFunc func(pwd string, l *list.Model, gitData GitStatusData) e
 // ---------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------
+func ExtractJSONError(errText string) string {
+	var defaultError string = "There was a problem with the AI request"
+
+	re := regexp.MustCompile(`{.*"message".*}`)
+	match := re.FindString(
+		errText,
+	)
+	if match != "" {
+		return match
+	}
+
+	return defaultError
+}
+
+func UploadReleaseToGithub(
+	selectedItem HistoryReleaseItem,
+	pwd string,
+	config *config.Config,
+	logger *logger.Logger,
+	tools Tools,
+) error {
+	if !tools.gh.available {
+		return fmt.Errorf("The Github CLI is not available on the system")
+	}
+
+	var files []string
+	assetPath := fmt.Sprintf("%s/%s", pwd, config.ReleaseConfig.BinaryAssetsPath)
+	err := filepath.Walk(assetPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	filesStr := strings.Join(files, " ")
+	token := config.ReleaseConfig.GhToken
+	tag := config.ReleaseConfig.Version
+	repository := config.ReleaseConfig.Repository
+	createCommand := fmt.Sprintf(
+		"echo \"%s\" | gh auth login --with-token && gh release create '%s' --repo '%s' --title '%s' --notes '%s' %s",
+		token,
+		tag,
+		repository,
+		fmt.Sprintf("Release %s: %s", tag, selectedItem.release.Title),
+		selectedItem.release.Body,
+		filesStr,
+	)
+
+	logger.Debug(createCommand)
+	cmd := exec.Command("sh", "-c", createCommand)
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+
+	err = cmd.Run()
+	if err != nil {
+		logger.Debug(err.Error())
+		return fmt.Errorf(
+			"error running command: %s, stdout: %s, stderr: %s, err: %w",
+			createCommand,
+			outb.String(),
+			errb.String(),
+			err,
+		)
+	}
+
+	return nil
+}
+
 func CheckTools(theme styles.Theme) Tools {
 	tools := Tools{}
 	var icon string

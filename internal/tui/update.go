@@ -18,6 +18,10 @@ import (
 	"github.com/atotto/clipboard"
 )
 
+type releaseUpdloadResultMsg struct {
+	Err error
+}
+
 type IaCommitBuilderResultMsg struct {
 	Err error
 }
@@ -103,6 +107,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				model.err = err
 				return model, tea.Quit
 			}
+		case "Create release in repository":
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+			spinnerCmd := model.WritingStatusBar.StartSpinner()
+			model.releaseViewState.releaseCreated = true
+			return model, tea.Batch(spinnerCmd, execUploadRelease(model)) // FIXME: Use the selected commit instead of the last one
 		case "Release Commit":
 			model.releaseType = "REL"
 			branch, err := GetCurrentGitBranch()
@@ -128,7 +138,20 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			menu := []string{"Merge Commit", "Release Commit"}
 			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
 		case "Create release in Github":
-			return model, nil
+			model.releaseType = "REL"
+			branch, err := GetCurrentGitBranch()
+			if err != nil {
+				model.log.Error("Error getting the current branch", "error", err)
+				model.err = err
+				return model, tea.Quit
+			}
+			model.releaseBranch = branch
+			createRelease(model)
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+			spinnerCmd := model.WritingStatusBar.StartSpinner()
+			model.releaseViewState.releaseCreated = true
+			return model, tea.Batch(spinnerCmd, execUploadRelease(model))
 		default:
 			// NOTE: Any selected branch leads to this action
 			model.releaseBranch = msg.action
@@ -186,7 +209,17 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
 		return model, tea.Batch(cmds...)
-
+	case releaseUpdloadResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		if msg.Err != nil {
+			model.err = msg.Err
+			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else {
+			model.WritingStatusBar.Content = "The release was successfully uploaded to Github"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+		}
+		return model, tea.Batch(cmds...)
 	case tea.KeyMsg:
 		if model.popup != nil {
 			var popupCmd tea.Cmd
@@ -475,6 +508,23 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 	}
 }
 
+func execUploadRelease(model *Model) tea.Cmd {
+	release, err := model.db.GetLatestRelease(model.pwd)
+	if err != nil {
+		return func() tea.Msg { return releaseUpdloadResultMsg{Err: err} }
+	}
+	return func() tea.Msg {
+		err := UploadReleaseToGithub(
+			HistoryReleaseItem{release: release},
+			model.pwd,
+			&model.globalConfig,
+			model.log,
+			model.ToolsInfo,
+		)
+		return releaseUpdloadResultMsg{Err: err}
+	}
+}
+
 func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
 	return func() tea.Msg {
 		err := iaReleaseBuilder(model)
@@ -506,9 +556,12 @@ func iaReleaseBuilder(model *Model) error {
 		model,
 	)
 	if err != nil {
+		model.log.Error(
+			fmt.Sprintf("An error occurred while trying to generate the release output.\n%s", err),
+		)
 		return fmt.Errorf(
 			"An error occurred while trying to generate the release output.\n%s",
-			err,
+			ExtractJSONError(err.Error()),
 		)
 	}
 	model.commitLivePreview = iaResponse
@@ -557,7 +610,7 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			var menuOptions []itemsOptions
-			menu := []string{"Print in console", "Copy to clipboard"}
+			menu := []string{"Print in console", "Copy to clipboard", "Create release in repository"}
 			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().Console})
 			menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.ToolsInfo.xclip.textColor, icon: model.ToolsInfo.xclip.icon})
 			return model, func() tea.Msg {

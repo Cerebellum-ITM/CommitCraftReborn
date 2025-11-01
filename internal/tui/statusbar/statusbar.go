@@ -102,7 +102,7 @@ func (sb StatusBar) Render() string {
 	version := sb.theme.AppStyles().Base.
 		Background(sb.theme.Black).
 		Foreground(sb.theme.White).
-		Padding(0, 1).SetString("v0.2.5")
+		Padding(0, 1).SetString("v0.3.0")
 
 	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
 	fillContent := sb.theme.AppStyles().Base

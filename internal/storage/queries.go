@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/pkg/errors"
@@ -67,6 +68,41 @@ func (db *DB) CreateRelease(c Release) error {
 		createdAt,
 	)
 	return errors.Wrap(err, "failed to insert commit")
+}
+
+func (db *DB) GetLatestRelease(pwd string) (Release, error) {
+	row := db.QueryRow(
+		"SELECT id, type, title, body, branch, commit_list, version, workspace, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC LIMIT 1",
+		pwd,
+	)
+
+	r := Release{}
+	var createdAt string
+	err := row.Scan(
+		&r.ID,
+		&r.Type,
+		&r.Title,
+		&r.Body,
+		&r.Branch,
+		&r.CommitList,
+		&r.Version,
+		&r.Workspace,
+		&createdAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return r, nil // No releases found for this workspace
+		}
+		return r, errors.Wrap(err, "failed to scan Release row")
+	}
+
+	t, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return r, errors.Wrap(err, "failed to parse created_at: "+createdAt)
+	}
+	r.CreatedAt = t.Local() // Convert to local time for display
+
+	return r, nil
 }
 
 func (db *DB) GetReleases(pwd string) ([]Release, error) {
