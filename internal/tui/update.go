@@ -108,11 +108,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return model, tea.Quit
 			}
 		case "Create release in repository":
-			model.WritingStatusBar.Level = statusbar.LevelWarning
-			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
-			spinnerCmd := model.WritingStatusBar.StartSpinner()
-			model.releaseViewState.releaseCreated = true
-			return model, tea.Batch(spinnerCmd, execUploadRelease(model)) // FIXME: Use the selected commit instead of the last one
+			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+				spinnerCmd := model.WritingStatusBar.StartSpinner()
+				model.releaseViewState.releaseCreated = true
+				return model, tea.Batch(spinnerCmd, execUploadRelease(selectedItem, model))
+			}
+			return model, nil
 		case "Release Commit":
 			model.releaseType = "REL"
 			branch, err := GetCurrentGitBranch()
@@ -151,7 +154,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
 			model.releaseViewState.releaseCreated = true
-			return model, tea.Batch(spinnerCmd, execUploadRelease(model))
+			release, err := model.db.GetLatestRelease(model.pwd)
+			if err != nil {
+				model.err = err
+				return model, tea.Quit
+			}
+			return model, tea.Batch(spinnerCmd, execUploadRelease(HistoryReleaseItem{release: release}, model))
 		default:
 			// NOTE: Any selected branch leads to this action
 			model.releaseBranch = msg.action
@@ -508,14 +516,10 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 	}
 }
 
-func execUploadRelease(model *Model) tea.Cmd {
-	release, err := model.db.GetLatestRelease(model.pwd)
-	if err != nil {
-		return func() tea.Msg { return releaseUpdloadResultMsg{Err: err} }
-	}
+func execUploadRelease(releaseItem HistoryReleaseItem, model *Model) tea.Cmd {
 	return func() tea.Msg {
 		err := UploadReleaseToGithub(
-			HistoryReleaseItem{release: release},
+			releaseItem,
 			model.pwd,
 			&model.globalConfig,
 			model.log,
