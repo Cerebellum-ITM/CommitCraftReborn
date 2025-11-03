@@ -56,6 +56,7 @@ type Symbols struct {
 	Console          string
 	GhEnable         string
 	GhMissing        string
+	CommitCraft      string
 	ClipboardEnable  string
 	ClipboardMissing string
 }

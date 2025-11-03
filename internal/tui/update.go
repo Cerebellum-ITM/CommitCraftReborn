@@ -659,8 +659,13 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.Enter):
+			var menuOptions []itemsOptions
 			menu := []string{"Create item in CommitCraft", "Create release in Github"}
-			return model, func() tea.Msg { return openListPopup{items: menu, width: model.width / 2, height: model.height / 2} }
+			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().CommitCraft})
+			menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.ToolsInfo.gh.textColor, icon: model.ToolsInfo.gh.icon})
+			return model, func() tea.Msg {
+				return openListPopup{items: menu, width: model.width / 2, height: model.height / 2, itemsOptions: menuOptions}
+			}
 		case key.Matches(msg, model.keys.NextField):
 			switchFocusElement(model)
 			model.state = stateReleaseChoosingCommits
