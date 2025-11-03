@@ -617,6 +617,7 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			menu := []string{"Print in console", "Copy to clipboard", "Create release in repository"}
 			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().Console})
 			menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.ToolsInfo.xclip.textColor, icon: model.ToolsInfo.xclip.icon})
+			menuOptions = append(menuOptions, itemsOptions{index: 2, color: model.ToolsInfo.gh.textColor, icon: model.ToolsInfo.gh.icon})
 			return model, func() tea.Msg {
 				return openListPopup{items: menu, itemsOptions: menuOptions, width: model.width / 2, height: model.height / 2, color: model.Theme.Success}
 			}
