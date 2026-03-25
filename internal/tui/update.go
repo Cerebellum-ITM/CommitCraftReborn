@@ -83,7 +83,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "Print in console":
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
 				formattedReleaseType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, selectedItem.release.Type)
-				model.FinalMessage = fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
+				model.FinalMessage = fmt.Sprintf("%s %s: %s\n\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
 			}
 			return model, tea.Quit
 		case "Copy to clipboard":
