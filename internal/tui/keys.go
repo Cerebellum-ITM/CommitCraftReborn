@@ -36,6 +36,7 @@ type KeyMap struct {
 	ReleaseCommit  key.Binding
 
 	// TextArea
+	insertLine      key.Binding
 	delteLine       key.Binding
 	deleteForward   key.Binding
 	deleteBackwards key.Binding
@@ -65,6 +66,10 @@ func writingMessageKeys() KeyMap {
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "Accept AI suggestion"),
+		),
+		insertLine: key.NewBinding(
+			key.WithKeys("alt+tab", "insert"),
+			key.WithHelp("alt+tab or insert", "add new line"),
 		),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
@@ -98,6 +103,10 @@ func editingMessageKeys() KeyMap {
 		deleteBackwards: key.NewBinding(
 			key.WithKeys("ctrl+z"),
 			key.WithHelp("ctrl+z", "deletes backwards from the cursor"),
+		),
+		insertLine: key.NewBinding(
+			key.WithKeys("alt+tab", "insert"),
+			key.WithHelp("alt+tab or insert", "add new line"),
 		),
 		delteLine: key.NewBinding(
 			key.WithKeys("ctrl+d"),
@@ -289,6 +298,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.Edit.Enabled() {
 		b = append(b, k.Edit)
+	}
+	if k.insertLine.Enabled() {
+		b = append(b, k.insertLine)
 	}
 	if k.Enter.Enabled() {
 		b = append(b, k.Enter)

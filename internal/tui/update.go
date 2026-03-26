@@ -764,6 +764,7 @@ func updateEditingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		model.log.Debug(msg.String())
 		switch {
 		case key.Matches(msg, model.keys.NextField):
 			switchFocusElement(model)

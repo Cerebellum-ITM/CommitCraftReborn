@@ -218,7 +218,7 @@ func NewModel(
 	msgInput := textarea.New()
 	msgInput.SetStyles(theme.AppStyles().TextArea)
 	msgInput.Prompt = "┃ "
-	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
+	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
 	msgInput.Placeholder = "A short description of the changes..."
 	//
 	msgEdit := textarea.New()
@@ -226,7 +226,7 @@ func NewModel(
 	msgEdit.Prompt = "┃ "
 	msgEdit.KeyMap.DeleteAfterCursor = key.NewBinding(key.WithKeys("ctrl+c"))
 	msgEdit.KeyMap.DeleteBeforeCursor = key.NewBinding(key.WithKeys("ctrl+z"))
-	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("shift+enter"))
+	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
 	msgEdit.Placeholder = "A short description of the changes..."
 
 	vp := viewport.New()
