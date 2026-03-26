@@ -81,20 +81,21 @@ func UploadReleaseToGithub(
 	}
 
 	filesStr := strings.Join(files, " ")
+	logger.Debug(filesStr)
 	token := config.ReleaseConfig.GhToken
 	tag := config.ReleaseConfig.Version
 	repository := config.ReleaseConfig.Repository
+	title := fmt.Sprintf("Release %s: %s", tag, selectedItem.release.Title)
+	body := selectedItem.release.Body
 	createCommand := fmt.Sprintf(
-		"echo \"%s\" | gh auth login --with-token && gh release create '%s' --repo '%s' --title '%s' --notes '%s' %s",
+		"export GH_TOKEN=\"%s\" && gh release create \"%s\" --repo \"%s\" --title \"%s\" --notes \"%s\" %s",
 		token,
 		tag,
 		repository,
-		fmt.Sprintf("Release %s: %s", tag, selectedItem.release.Title),
-		selectedItem.release.Body,
+		title,
+		body,
 		filesStr,
 	)
-
-	logger.Debug(createCommand)
 	cmd := exec.Command("sh", "-c", createCommand)
 	var outb, errb bytes.Buffer
 	cmd.Stdout = &outb
@@ -102,10 +103,11 @@ func UploadReleaseToGithub(
 
 	err = cmd.Run()
 	if err != nil {
+		logger.Debug(createCommand)
 		logger.Debug(err.Error())
+		logger.Debug(errb.String())
 		return fmt.Errorf(
-			"error running command: %s, stdout: %s, stderr: %s, err: %w",
-			createCommand,
+			"error running command: stdout: %s, stderr: %s, err: %w",
 			outb.String(),
 			errb.String(),
 			err,

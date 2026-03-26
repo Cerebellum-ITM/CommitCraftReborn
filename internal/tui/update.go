@@ -110,7 +110,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "Create release in repository":
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
 				model.WritingStatusBar.Level = statusbar.LevelWarning
-				model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+				model.WritingStatusBar.Content = "Creating a release on GitHub"
 				spinnerCmd := model.WritingStatusBar.StartSpinner()
 				model.releaseViewState.releaseCreated = true
 				return model, tea.Batch(spinnerCmd, execUploadRelease(selectedItem, model))
@@ -151,7 +151,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.releaseBranch = branch
 			createRelease(model)
 			model.WritingStatusBar.Level = statusbar.LevelWarning
-			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
+			model.WritingStatusBar.Content = "Creating a release on GitHub"
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
 			model.releaseViewState.releaseCreated = true
 			release, err := model.db.GetLatestRelease(model.pwd)
