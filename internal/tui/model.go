@@ -164,6 +164,7 @@ type Model struct {
 	popup                   tea.Model
 	width, height           int
 	globalConfig            config.Config
+	Version                 string
 }
 
 // NewModel is the constructor for our model.
@@ -174,6 +175,7 @@ func NewModel(
 	finalCommitTypes []commit.CommitType,
 	pwd string,
 	appMode appMode,
+	version string,
 ) (*Model, error) {
 	var initalState appState
 	var initialKeys KeyMap
@@ -270,6 +272,7 @@ func NewModel(
 			statusbar.LevelInfo,
 			50,
 			theme,
+			version,
 		)
 
 	} else {
@@ -284,6 +287,7 @@ func NewModel(
 			statusbar.LevelFatal,
 			50,
 			theme,
+			version,
 		)
 	}
 
@@ -322,6 +326,7 @@ func NewModel(
 		globalConfig:            config,
 		Theme:                   theme,
 		useDbCommmit:            false,
+		Version:                 version,
 	}
 	return m, nil
 }
