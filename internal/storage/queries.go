@@ -7,11 +7,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-// GetCommits retrieves all commits from the database.
-func (db *DB) GetCommits(pwd string) ([]Commit, error) {
+// GetCommits retrieves commits from the database based on a status.
+func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	rows, err := db.Query(
-		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, created_at FROM commits WHERE workspace = ? ORDER BY created_at DESC",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
 		pwd,
+		status,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to query commits")
@@ -22,7 +23,7 @@ func (db *DB) GetCommits(pwd string) ([]Commit, error) {
 	for rows.Next() {
 		var c Commit
 		var createdAt string
-		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &c.MessageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &createdAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &c.MessageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
 
@@ -41,13 +42,14 @@ func (db *DB) CreateCommit(c Commit) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
-		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		c.Type,
 		c.Scope,
 		c.MessageES,
 		c.MessageEN,
 		c.Workspace,
 		c.Diff_code,
+		"completed",
 		createdAt,
 	)
 	return errors.Wrap(err, "failed to insert commit")
@@ -143,3 +145,61 @@ func (db *DB) DeleteRelease(id int) error {
 	_, err := db.Exec("DELETE FROM releases WHERE id = ?", id)
 	return errors.Wrap(err, "failed to delete release")
 }
+
+// SaveDraft saves a commit as a draft. It will insert a new record if the ID is 0,
+// otherwise it will update the existing record.
+func (db *DB) SaveDraft(c *Commit) error {
+	// If ID is 0, it's a new draft, so we INSERT.
+	if c.ID == 0 {
+		createdAt := time.Now().UTC().Format(time.RFC3339)
+		c.Status = "draft"
+
+		res, err := db.Exec(
+			"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			c.Type,
+			c.Scope,
+			c.MessageES,
+			c.MessageEN,
+			c.Workspace,
+			c.Diff_code,
+			c.Status,
+			createdAt,
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert new draft commit")
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return errors.Wrap(err, "failed to retrieve last insert ID for draft")
+		}
+		c.ID = int(id)
+		return nil
+	}
+
+	// If ID is not 0, it's an existing draft, so we UPDATE.
+	_, err := db.Exec(
+		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ? WHERE id = ?",
+		c.Type,
+		c.Scope,
+		c.MessageES,
+		c.MessageEN,
+		c.Diff_code,
+		c.ID,
+	)
+	return errors.Wrap(err, "failed to update draft commit")
+}
+
+// FinalizeCommit updates a commit to set its status to 'completed' and saves final data.
+func (db *DB) FinalizeCommit(c Commit) error {
+	_, err := db.Exec(
+		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ?, status = 'completed' WHERE id = ?",
+		c.Type,
+		c.Scope,
+		c.MessageES,
+		c.MessageEN,
+		c.Diff_code,
+		c.ID,
+	)
+	return errors.Wrap(err, "failed to finalize commit")
+}
+

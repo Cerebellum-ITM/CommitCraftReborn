@@ -157,6 +157,8 @@ type Model struct {
 	diffCode                string
 	useDbCommmit            bool
 	FinalMessage            string
+	currentCommit           storage.Commit
+	draftMode               bool
 	keys                    KeyMap
 	help                    help.Model
 	popup                   tea.Model
@@ -188,7 +190,7 @@ func NewModel(
 	}
 
 	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
-	workspaceCommits, err := database.GetCommits(pwd)
+	workspaceCommits, err := database.GetCommits(pwd, "completed")
 	workspaceCommitsList := NewHistoryCommitList(
 		workspaceCommits,
 		pwd,

@@ -382,7 +382,7 @@ func UpdateCommitList(
 
 	switch action {
 	case commitDb:
-		workspaceCommits, err := db.GetCommits(pwd)
+		workspaceCommits, err := db.GetCommits(pwd, "completed")
 		if err != nil {
 			log.Error("Error reloading the list of commits", "error", err)
 			return err

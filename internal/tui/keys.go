@@ -31,9 +31,11 @@ type KeyMap struct {
 	Logs           key.Binding
 	AddCommit      key.Binding
 	CreateIaCommit key.Binding
+	SaveDraft      key.Binding
 	Edit           key.Binding
 	EditIaCommit   key.Binding
 	ReleaseCommit  key.Binding
+	ToggleDrafts   key.Binding
 
 	// TextArea
 	insertLine      key.Binding
@@ -47,6 +49,10 @@ type KeyMap struct {
 
 func writingMessageKeys() KeyMap {
 	return KeyMap{
+		SaveDraft: key.NewBinding(
+			key.WithKeys("ctrl+s"),
+			key.WithHelp("ctrl+s", "Save draft"),
+		),
 		NextField: key.NewBinding(
 			key.WithKeys("tab"),
 			key.WithHelp("tab", "Switch Focus →"),
@@ -165,6 +171,10 @@ func mainListKeys() KeyMap {
 		AddCommit: key.NewBinding(
 			key.WithKeys("n", "tab"),
 			key.WithHelp("Tab/n", "Create a new commit"),
+		),
+		ToggleDrafts: key.NewBinding(
+			key.WithKeys("ctrl+d"),
+			key.WithHelp("ctrl+d", "Toggle drafts view"),
 		),
 		SwitchMode: key.NewBinding(
 			key.WithKeys("ctrl+s"),

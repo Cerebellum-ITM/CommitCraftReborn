@@ -194,6 +194,14 @@ Then, simply run `gc` in your terminal.
     *   **Quit:** At any point, you can press **`Ctrl+C`** to exit the application.
 4.  **Commit Created:** CommitCraft will execute `git commit` with the generated message.
 
+### Working with Drafts
+
+CommitCraft allows you to save your work-in-progress commits as drafts so you can continue later.
+
+- **Saving a Draft:** While in the commit message editor, press **`Ctrl+S`** at any time to save the current state as a draft.
+- **Viewing Drafts:** In the main commit history list, press **`Ctrl+D`**. This will toggle the view to show only your saved drafts.
+- **Loading a Draft:** While in the draft view, select a draft and press **`Enter`**. This will load its content back into the editor, allowing you to continue right where you left off.
+
 ## 🤝 Contributing
 
 Contributions are welcome! If you're interested in improving CommitCraft, please open an issue or submit a Pull Request.

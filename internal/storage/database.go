@@ -64,6 +64,12 @@ func applySchemaMigrations(db *sql.DB) error {
 			columnType:   "TEXT",
 			defaultValue: "''",
 		},
+		{
+			tableName:    "commits",
+			columnName:   "status",
+			columnType:   "TEXT",
+			defaultValue: "'completed'",
+		},
 	}
 
 	for _, alt := range alterations {

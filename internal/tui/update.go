@@ -334,20 +334,23 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 }
 
 func createCommit(model *Model) (tea.Model, tea.Cmd) {
-	newCommit := storage.Commit{
-		ID:        0,
-		Type:      model.commitType,
-		Scope:     model.commitScope,
-		MessageES: model.commitMsg,
-		MessageEN: model.commitTranslate,
-		Workspace: model.pwd,
-		Diff_code: model.diffCode,
-		CreatedAt: time.Now(),
+	model.currentCommit.Type = model.commitType
+	model.currentCommit.Scope = model.commitScope
+	model.currentCommit.MessageES = model.commitMsg
+	model.currentCommit.MessageEN = model.commitTranslate
+	model.currentCommit.Workspace = model.pwd
+	model.currentCommit.Diff_code = model.diffCode
+	model.currentCommit.CreatedAt = time.Now()
+
+	var err error
+	if model.currentCommit.ID != 0 {
+		err = model.db.FinalizeCommit(model.currentCommit)
+	} else {
+		err = model.db.CreateCommit(model.currentCommit)
 	}
 
-	err := model.db.CreateCommit(newCommit)
 	if err != nil {
-		model.log.Error("Error saving commit from stateChoosingType", "error", err)
+		model.log.Error("Error saving commit", "error", err)
 		model.err = err
 		return model, tea.Quit
 	}
@@ -819,8 +822,18 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.PrevField):
 			switchFocusElement(model)
 			return model, nil
-		case key.Matches(msg, model.keys.Esc):
-			return model.cancelProcess(stateChoosingScope)
+		case key.Matches(msg, model.keys.SaveDraft):
+			model.currentCommit.MessageES = model.msgInput.Value()
+			model.currentCommit.MessageEN = model.commitTranslate
+			model.currentCommit.Type = model.commitType
+			model.currentCommit.Scope = model.commitScope
+			model.currentCommit.Workspace = model.pwd
+			if err := model.db.SaveDraft(&model.currentCommit); err != nil {
+				model.err = err
+				return model, nil
+			}
+			cmd := model.WritingStatusBar.ShowMessageForDuration("Draft saved!", statusbar.LevelSuccess, 2*time.Second)
+			return model, cmd
 		case key.Matches(msg, model.keys.Edit):
 			model.WritingStatusBar.Content = "You are making modifications to the AI's response"
 			model.WritingStatusBar.Level = statusbar.LevelWarning
@@ -828,6 +841,8 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.keys = editingMessageKeys()
 			model.msgEdit.SetValue(model.commitTranslate)
 			return model, nil
+		case key.Matches(msg, model.keys.Esc):
+			return model.cancelProcess(stateChoosingScope)
 		case key.Matches(msg, model.keys.Enter):
 			if model.commitTranslate != "" {
 				_, cmd := createCommit(model)
@@ -1022,6 +1037,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, model.keys.Quit):
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.AddCommit):
+				model.currentCommit = storage.Commit{} // Reset current commit for new one
 				model.WritingStatusBar.Content = "Select a prefix for the commit"
 				model.state = stateChoosingType
 				model.keys = listKeys()
@@ -1061,13 +1077,30 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				cmd := model.WritingStatusBar.ShowMessageForDuration("Configuration file created!", statusbar.LevelSuccess, 2*time.Second)
 				return model, cmd
 			case key.Matches(msg, model.keys.Enter):
-				selectedItem := model.mainList.SelectedItem()
-				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-					commit := commitItem.commit
+				selectedItem, ok := model.mainList.SelectedItem().(HistoryCommitItem)
+				if !ok {
+					return model, nil // Should not happen
+				}
+
+				commit := selectedItem.commit
+				if commit.Status == "draft" {
+					// Load draft into editor
+					model.currentCommit = commit
+					model.state = stateWritingMessage
+					model.msgInput.SetValue(commit.MessageES)
+					model.iaViewport.SetContent(commit.MessageEN)
+					model.commitType = commit.Type
+					model.commitScope = commit.Scope
+					model.keys = writingMessageKeys()
+					model.WritingStatusBar.Content = "Continuing with draft..."
+					return model, nil
+				} else {
+					// Original logic for completed commits
 					formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
 					model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+					return model, tea.Quit
 				}
-				return model, tea.Quit
+
 			case key.Matches(msg, model.keys.SwitchMode):
 				model.AppMode = ReleaseMode
 				model.state = stateReleaseMainMenu
@@ -1083,6 +1116,32 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					statusbar.LevelWarning,
 					2*time.Second,
 				)
+				return model, cmd
+
+			case key.Matches(msg, model.keys.ToggleDrafts):
+				model.draftMode = !model.draftMode
+				status := "completed"
+				msg := "Showing completed commits"
+				if model.draftMode {
+					status = "draft"
+					msg = "Showing drafts"
+				}
+				commits, err := model.db.GetCommits(model.pwd, status)
+				if err != nil {
+					model.err = err
+					return model, nil
+				}
+				items := make([]list.Item, len(commits))
+				for i, c := range commits {
+					items[i] = HistoryCommitItem{commit: c}
+				}
+				model.mainList.SetItems(items)
+				// Ensure the viewport is updated
+				if len(items) > 0 {
+					model.mainList.Select(0)
+				}
+				model.mainList.Title = msg
+				cmd := model.WritingStatusBar.ShowMessageForDuration(msg, statusbar.LevelSuccess, 2*time.Second)
 				return model, cmd
 			}
 		}
