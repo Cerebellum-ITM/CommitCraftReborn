@@ -3,10 +3,10 @@ package styles
 import (
 	"image/color"
 
-	"github.com/charmbracelet/bubbles/v2/help"
-	"github.com/charmbracelet/bubbles/v2/textarea"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type Theme struct {
@@ -86,18 +86,19 @@ func (t *Theme) buildStyles() *Styles {
 	base := lipgloss.NewStyle().
 		Foreground(t.FgBase)
 	indicator := base.Foreground(t.Indicators)
+	helpStyles := help.DefaultStyles(t.IsDark)
+	helpStyles.ShortKey = base.Foreground(t.Accent)
+	helpStyles.ShortDesc = base.Foreground(t.FgMuted)
+	helpStyles.ShortSeparator = base.Foreground(t.White)
+	helpStyles.FullKey = base.Foreground(t.Accent)
+	helpStyles.FullDesc = base.Foreground(t.FgMuted)
+	helpStyles.FullSeparator = base.Foreground(t.White)
+	helpStyles.Ellipsis = base.Foreground(t.FgSubtle)
+
 	return &Styles{
 		Base:           base,
 		IndicatorStyle: indicator,
-		Help: help.Styles{
-			ShortKey:       base.Foreground(t.Accent),
-			ShortDesc:      base.Foreground(t.FgMuted),
-			ShortSeparator: base.Foreground(t.White),
-			FullKey:        base.Foreground(t.Accent),
-			FullDesc:       base.Foreground(t.FgMuted),
-			FullSeparator:  base.Foreground(t.White),
-			Ellipsis:       base.Foreground(t.FgSubtle),
-		},
+		Help:           helpStyles,
 		TextArea: textarea.Styles{
 			Focused: textarea.StyleState{
 				Base:             base.Foreground(t.BorderFocus),

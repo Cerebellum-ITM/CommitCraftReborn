@@ -6,9 +6,9 @@ import (
 
 	"commit_craft_reborn/internal/commit"
 
-	"github.com/charmbracelet/bubbles/v2/key"
-	"github.com/charmbracelet/bubbles/v2/list"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
+	"charm.land/lipgloss/v2"
 )
 
 type CommitTypeDelegate struct {

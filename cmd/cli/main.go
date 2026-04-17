@@ -10,7 +10,7 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui"
 
-	tea "github.com/charmbracelet/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 )
 
 func main() {

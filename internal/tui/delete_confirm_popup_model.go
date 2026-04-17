@@ -7,10 +7,10 @@ import (
 
 	"commit_craft_reborn/internal/tui/styles"
 
-	"github.com/charmbracelet/bubbles/v2/help"
-	"github.com/charmbracelet/bubbles/v2/key"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 var DefaultPopupColor color.Color = lipgloss.Color("63")
@@ -94,7 +94,7 @@ func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m DeleteConfirmPopupModel) View() string {
+func (m DeleteConfirmPopupModel) View() tea.View {
 	contentWidth := (m.width / 2) - 4
 	contentWidth = max(contentWidth, 20)
 	body := m.theme.AppStyles().Base.Render("Are you sure you want to delete the Item with the Id=")
@@ -122,5 +122,5 @@ func (m DeleteConfirmPopupModel) View() string {
 		BorderForeground(m.color).
 		Render(renderedContent)
 
-	return popupBox
+	return tea.NewView(popupBox)
 }

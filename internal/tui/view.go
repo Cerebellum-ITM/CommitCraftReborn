@@ -6,9 +6,10 @@ import (
 	"image/color"
 	"strings"
 
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/glamour/styles"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	"charm.land/glamour/v2/styles"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -481,7 +482,7 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 }
 
 // View renders the UI based on the current state of the model.
-func (model *Model) View() string {
+func (model *Model) View() tea.View {
 	var mainContent string
 
 	appStyle := lipgloss.NewStyle().
@@ -490,7 +491,7 @@ func (model *Model) View() string {
 		Height(model.height)
 
 	if model.err != nil {
-		return "Error: " + model.err.Error()
+		return tea.NewView("Error: " + model.err.Error())
 	}
 	statusBarContent := model.WritingStatusBar.Render()
 	helpView := lipgloss.NewStyle().Padding(0, 2).SetString(model.help.View(model.keys)).String()
@@ -596,32 +597,37 @@ func (model *Model) View() string {
 		VerticalSpace,
 		helpView,
 	)
-	mainLayer := lipgloss.NewLayer(mainView)
-	canvas := lipgloss.NewCanvas(mainLayer)
 
-	if model.popup != nil {
-		var ok bool
-		var popupView string
-
-		switch popupModel := model.popup.(type) {
-		case DeleteConfirmPopupModel:
-			ok = true
-			popupView = popupModel.View()
-		case listPopupModel:
-			ok = true
-			popupView = popupModel.View()
-		default:
-			ok = false
-		}
-
-		if !ok {
-			return "Error: The popup is not of the expected type."
-		}
-
-		startX, startY := calculatePopupPosition(model.width, model.height, popupView)
-		popupLayer := lipgloss.NewLayer(popupView).X(startX).Y(startY)
-		canvas = lipgloss.NewCanvas(mainLayer, popupLayer)
-		return canvas.Render()
+	if model.popup == nil {
+		finalView := tea.NewView(mainView)
+		finalView.AltScreen = true
+		return finalView
 	}
-	return canvas.Render()
+
+	var ok bool
+	var popupView tea.View
+
+	switch popupModel := model.popup.(type) {
+	case DeleteConfirmPopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case listPopupModel:
+		ok = true
+		popupView = popupModel.View()
+	default:
+		ok = false
+	}
+
+	if !ok {
+		return tea.NewView("Error: The popup is not of the expected type.")
+	}
+
+	startX, startY := calculatePopupPosition(model.width, model.height, popupView.Content)
+	mainLayer := lipgloss.NewLayer(mainView)
+	popupLayer := lipgloss.NewLayer(popupView.Content).X(startX).Y(startY).Z(1)
+	comp := lipgloss.NewCompositor(mainLayer, popupLayer)
+	finalRender := comp.Render()
+	finalView := tea.NewView(finalRender)
+	finalView.AltScreen = true
+	return finalView
 }

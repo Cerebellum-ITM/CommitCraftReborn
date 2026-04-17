@@ -17,8 +17,8 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 
 	"github.com/BurntSushi/toml"
-	"github.com/charmbracelet/bubbles/v2/list"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/list"
+	"charm.land/lipgloss/v2"
 )
 
 type FilterState int

@@ -11,15 +11,15 @@ import (
 	"commit_craft_reborn/internal/tui/statusbar"
 	"commit_craft_reborn/internal/tui/styles"
 
-	"github.com/charmbracelet/bubbles/v2/help"
-	"github.com/charmbracelet/bubbles/v2/key"
-	"github.com/charmbracelet/bubbles/v2/list"
-	"github.com/charmbracelet/bubbles/v2/spinner"
-	"github.com/charmbracelet/bubbles/v2/textarea"
-	"github.com/charmbracelet/bubbles/v2/textinput"
-	"github.com/charmbracelet/bubbles/v2/viewport"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type (
@@ -141,8 +141,8 @@ type Model struct {
 	fileListFilter          bool
 	currentUpdateFileListFn UpdateFileListFunc
 	gitStatusData           GitStatusData
-	msgInput                *textarea.Model
-	msgEdit                 *textarea.Model
+	msgInput                textarea.Model
+	msgEdit                 textarea.Model
 	spinner                 spinner.Model
 	iaViewport              viewport.Model
 	focusedElement          focusableElement
@@ -328,5 +328,5 @@ func NewModel(
 
 // Init is the first command that runs when the program starts.
 func (model *Model) Init() tea.Cmd {
-	return tea.EnterAltScreen
+	return nil
 }

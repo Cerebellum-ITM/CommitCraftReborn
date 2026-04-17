@@ -6,9 +6,9 @@ import (
 
 	"commit_craft_reborn/internal/tui/styles"
 
-	"github.com/charmbracelet/bubbles/v2/spinner"
-	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type clearStatusMsg struct{}
@@ -102,7 +102,7 @@ func (sb StatusBar) Render() string {
 	version := sb.theme.AppStyles().Base.
 		Background(sb.theme.Black).
 		Foreground(sb.theme.White).
-		Padding(0, 1).SetString("v0.3.4")
+		Padding(0, 1).SetString("v0.4.0")
 
 	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
 	fillContent := sb.theme.AppStyles().Base

@@ -1,15 +1,16 @@
 package logger
 
 import (
-	"commit_craft_reborn/internal/config"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
+	"commit_craft_reborn/internal/config"
+
+	"charm.land/lipgloss/v2"
+	"charm.land/log/v2"
 )
 
 // Logger holds two separate loggers: one for the console and one for the file.
@@ -22,10 +23,10 @@ func New() *Logger {
 	// --- File Logger Setup ---
 	home, _ := os.UserHomeDir()
 	logDir := filepath.Join(home, config.GlobalConfigDir)
-	_ = os.MkdirAll(logDir, 0755)
+	_ = os.MkdirAll(logDir, 0o755)
 	logFilePath := filepath.Join(logDir, "commit-crafter.log")
 
-	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
 
 	var fileLogger *slog.Logger
 	if err != nil {
