@@ -335,6 +335,10 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 }
 
 func createCommit(model *Model) (tea.Model, tea.Cmd) {
+	if v := model.commitsKeysInput.Value(); v != "" {
+		model.keyPoints = append(model.keyPoints, v)
+		model.commitsKeysInput.Reset()
+	}
 	model.currentCommit.Type = model.commitType
 	model.currentCommit.Scope = model.commitScope
 	model.currentCommit.KeyPoints = model.keyPoints
@@ -824,6 +828,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.SaveDraft):
+			if v := model.commitsKeysInput.Value(); v != "" {
+				model.keyPoints = append(model.keyPoints, v)
+				model.commitsKeysInput.Reset()
+			}
 			model.currentCommit.KeyPoints = model.keyPoints
 			model.currentCommit.MessageEN = model.commitTranslate
 			model.currentCommit.Type = model.commitType
@@ -861,6 +869,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, model.keys.CreateIaCommit):
+			if v := model.commitsKeysInput.Value(); v != "" {
+				model.keyPoints = append(model.keyPoints, v)
+				model.commitsKeysInput.Reset()
+			}
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
