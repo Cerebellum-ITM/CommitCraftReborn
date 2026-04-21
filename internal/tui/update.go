@@ -50,7 +50,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case commitDb:
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
-					model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, commitItem.commit.MessageES, commitDb, WithColor(model.Theme.Warning), WithTheme(model.Theme))
+					model.popup = NewPopup(model.width, model.height, commitItem.commit.ID, strings.Join(commitItem.commit.KeyPoints, " · "), commitDb, WithColor(model.Theme.Warning), WithTheme(model.Theme))
 				}
 			case releaseDb:
 				if seletedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
@@ -307,6 +307,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.commitType = ""
 		model.commitTranslate = ""
 		model.commitScope = ""
+		model.keyPoints = nil
 		model.keys = mainListKeys()
 	case stateChoosingType:
 		statusBarMessage = "Select a prefix for the commit"
@@ -336,7 +337,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	model.currentCommit.Type = model.commitType
 	model.currentCommit.Scope = model.commitScope
-	model.currentCommit.MessageES = model.commitMsg
+	model.currentCommit.KeyPoints = model.keyPoints
 	model.currentCommit.MessageEN = model.commitTranslate
 	model.currentCommit.Workspace = model.pwd
 	model.currentCommit.Diff_code = model.diffCode
@@ -823,7 +824,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.SaveDraft):
-			model.currentCommit.MessageES = "" // TODO implementation of keypoints in db
+			model.currentCommit.KeyPoints = model.keyPoints
 			model.currentCommit.MessageEN = model.commitTranslate
 			model.currentCommit.Type = model.commitType
 			model.currentCommit.Scope = model.commitScope
@@ -1044,7 +1045,8 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, model.keys.Quit):
 				return model, tea.Quit
 			case key.Matches(msg, model.keys.AddCommit):
-				model.currentCommit = storage.Commit{} // Reset current commit for new one
+				model.currentCommit = storage.Commit{}
+				model.keyPoints = nil
 				model.WritingStatusBar.Content = "Select a prefix for the commit"
 				model.state = stateChoosingType
 				model.keys = listKeys()
@@ -1068,10 +1070,10 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.commitScope = commit.Scope
 					model.commitType = commit.Type
 					model.diffCode = commit.Diff_code
-					model.commitMsg = commit.MessageES
+					model.commitMsg = strings.Join(commit.KeyPoints, "\n")
 					model.commitTranslate = commit.MessageEN
 					model.useDbCommmit = true
-					// model.msgInput.SetValue(commit.MessageES)  TODO Implement the system to save keypoints in SQL so they can be restored when editing a commit.
+					model.keyPoints = commit.KeyPoints
 					model.state = stateWritingMessage
 					model.keys = writingMessageKeys()
 				}
@@ -1093,8 +1095,9 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				if commit.Status == "draft" {
 					// Load draft into editor
 					model.currentCommit = commit
+					model.commitMsg = strings.Join(commit.KeyPoints, "\n")
+					model.keyPoints = commit.KeyPoints
 					model.state = stateWritingMessage
-					// model.msgInput.SetValue(commit.MessageES) TODO Implement the system to save keypoints in SQL so they can be restored when drafting a commit
 					model.iaViewport.SetContent(commit.MessageEN)
 					model.commitType = commit.Type
 					model.commitScope = commit.Scope

@@ -2,10 +2,22 @@ package storage
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 )
+
+func joinKeyPoints(kp []string) string {
+	return strings.Join(kp, "\n")
+}
+
+func splitKeyPoints(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, "\n")
+}
 
 // GetCommits retrieves commits from the database based on a status.
 func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
@@ -22,10 +34,11 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	var commits []Commit
 	for rows.Next() {
 		var c Commit
-		var createdAt string
-		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &c.MessageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &createdAt); err != nil {
+		var createdAt, messageES string
+		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
+		c.KeyPoints = splitKeyPoints(messageES)
 
 		t, err := time.Parse(time.RFC3339, createdAt)
 		if err != nil {
@@ -45,7 +58,7 @@ func (db *DB) CreateCommit(c Commit) error {
 		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		c.Type,
 		c.Scope,
-		c.MessageES,
+		joinKeyPoints(c.KeyPoints),
 		c.MessageEN,
 		c.Workspace,
 		c.Diff_code,
@@ -158,7 +171,7 @@ func (db *DB) SaveDraft(c *Commit) error {
 			"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 			c.Type,
 			c.Scope,
-			c.MessageES,
+			joinKeyPoints(c.KeyPoints),
 			c.MessageEN,
 			c.Workspace,
 			c.Diff_code,
@@ -181,7 +194,7 @@ func (db *DB) SaveDraft(c *Commit) error {
 		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ? WHERE id = ?",
 		c.Type,
 		c.Scope,
-		c.MessageES,
+		joinKeyPoints(c.KeyPoints),
 		c.MessageEN,
 		c.Diff_code,
 		c.ID,
@@ -195,7 +208,7 @@ func (db *DB) FinalizeCommit(c Commit) error {
 		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ?, status = 'completed' WHERE id = ?",
 		c.Type,
 		c.Scope,
-		c.MessageES,
+		joinKeyPoints(c.KeyPoints),
 		c.MessageEN,
 		c.Diff_code,
 		c.ID,

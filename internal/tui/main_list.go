@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"strings"
 	"time"
 
 	"commit_craft_reborn/internal/config"
@@ -28,7 +29,7 @@ func (hci HistoryCommitItem) Description() string {
 }
 
 func (hci HistoryCommitItem) FilterValue() string {
-	return hci.commit.MessageEN + " " + hci.commit.MessageES + " " +
+	return hci.commit.MessageEN + " " + strings.Join(hci.commit.KeyPoints, " ") + " " +
 		hci.commit.Type + " " + hci.commit.Scope
 }
 
@@ -100,7 +101,7 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 
 	dateStr := commit.CreatedAt.Format("2006-01-02 15:04")
 	idStr := fmt.Sprintf("ID: %d", commit.ID)
-	originalMsg := commit.MessageES
+	originalMsg := strings.Join(commit.KeyPoints, " · ")
 	translatedMsg := commit.MessageEN
 	formattedCommitType := fmt.Sprintf(d.commitFormat, commit.Type)
 	finalStr := fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)

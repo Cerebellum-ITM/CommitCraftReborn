@@ -7,7 +7,7 @@ type Commit struct {
 	ID        int
 	Type      string
 	Scope     string
-	MessageES string
+	KeyPoints []string
 	MessageEN string
 	Workspace string
 	Diff_code string
