@@ -113,7 +113,7 @@ func (model *Model) userInputHeaderView(state string) string {
 }
 
 func (model *Model) userInputFooterView(state string) string {
-	info := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgInput.Value()))
+	info := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.commitsKeysInput.Value()))
 	return model.buildStyledBorder(
 		state,
 		info,
@@ -210,6 +210,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		userInputViewHeaderContent string
 		iaViewFooterContent        string
 		userInputiewFooterContent  string
+		formattedLines             []string
 	)
 
 	const glamourGutter = 3
@@ -217,7 +218,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	currentIaViewportStyle := model.iaViewport.Style
 	switch model.focusedElement {
 	case focusMsgInput:
-		model.msgInput.Focus()
+		model.commitsKeysInput.Focus()
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(
 			model.Theme.FocusableElement,
 		)
@@ -228,7 +229,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		userInputViewHeaderContent = model.userInputHeaderView("focus")
 		userInputiewFooterContent = model.userInputFooterView("focus")
 	case focusAIResponse:
-		model.msgInput.Blur()
+		model.commitsKeysInput.Blur()
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
 
 		iaViewHeaderContent = model.iaHeaderView("focus")
@@ -251,9 +252,12 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 
 	iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
 	userInputVContenHeight := totalAvailableContentHeight - userInputViewVerticalMarginHeight
-	model.msgInput.SetWidth(model.width / 2)
+	model.commitsKeysInput.SetWidth(model.width / 2)
 	model.iaViewport.SetWidth(model.width / 2)
-	model.msgInput.SetHeight(userInputVContenHeight - 2)
+	model.commitsKeysViewport.SetWidth(model.width / 2)
+	model.commitsKeysViewport.SetHeight(
+		userInputVContenHeight - lipgloss.Height(model.commitsKeysInput.View()) - 2,
+	)
 	model.iaViewport.SetHeight(iaViewportContentHeight)
 
 	model.iaViewport.Style = currentIaViewportStyle
@@ -272,10 +276,21 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	glamourContentStr, _ := renderer.Render(glamourContent)
 	translatedView := glamourContentStr
 	model.iaViewport.SetContent(translatedView)
+
+	for i, point := range model.keyPoints {
+		formattedLine := fmt.Sprintf("%d. %s", i+1, point)
+		formattedLines = append(formattedLines, formattedLine)
+	}
+	keyPointsOutput := strings.Join(formattedLines, "\n")
+	glamourContentStrCommitsKeys, _ := renderer.Render(keyPointsOutput)
+	model.commitsKeysViewport.SetContent(glamourContentStrCommitsKeys)
+
 	leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
 		userInputViewHeaderContent,
 		VerticalSpace,
-		model.msgInput.View(),
+		model.commitsKeysInput.View(),
+		model.commitsKeysViewport.View(),
+		// model.msgInput.View(),
 		VerticalSpace,
 		userInputiewFooterContent,
 	)

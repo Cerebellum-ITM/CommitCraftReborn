@@ -30,6 +30,7 @@ type KeyMap struct {
 	Filter         key.Binding
 	Logs           key.Binding
 	AddCommit      key.Binding
+	AddCommitKey   key.Binding
 	CreateIaCommit key.Binding
 	SaveDraft      key.Binding
 	Edit           key.Binding
@@ -69,6 +70,11 @@ func writingMessageKeys() KeyMap {
 			key.WithKeys("ctrl+e"),
 			key.WithHelp("ctrl+e", "Edit Ia Respone"),
 		),
+		AddCommitKey: key.NewBinding(
+			key.WithKeys("ctrl+a"),
+			key.WithHelp("ctrl+a", "Add key point"),
+		),
+
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "Accept AI suggestion"),
@@ -303,6 +309,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	if k.AddCommit.Enabled() {
 		b = append(b, k.AddCommit)
 	}
+	if k.AddCommitKey.Enabled() {
+		b = append(b, k.AddCommitKey)
+	}
 	if k.CreateIaCommit.Enabled() {
 		b = append(b, k.CreateIaCommit)
 	}
@@ -367,6 +376,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.Right.Enabled() {
 		b = append(b, k.Right)
+	}
+	if k.AddCommitKey.Enabled() {
+		b = append(b, k.AddCommitKey)
 	}
 	if k.EditIaCommit.Enabled() {
 		b = append(b, k.EditIaCommit)

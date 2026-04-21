@@ -317,7 +317,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		statusBarMessage = "choose a file or folder for your commit"
 		model.commitScope = ""
 		model.keys = fileListKeys()
-		model.msgInput.Blur()
+		model.commitsKeysInput.Blur()
 	case stateReleaseMainMenu:
 		model.keys = releaseMainListKeys()
 		statusBarMessage = fmt.Sprintf(
@@ -823,7 +823,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			switchFocusElement(model)
 			return model, nil
 		case key.Matches(msg, model.keys.SaveDraft):
-			model.currentCommit.MessageES = model.msgInput.Value()
+			model.currentCommit.MessageES = "" // TODO implementation of keypoints in db
 			model.currentCommit.MessageEN = model.commitTranslate
 			model.currentCommit.Type = model.commitType
 			model.currentCommit.Scope = model.commitScope
@@ -834,6 +834,11 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			cmd := model.WritingStatusBar.ShowMessageForDuration("Draft saved!", statusbar.LevelSuccess, 2*time.Second)
 			return model, cmd
+		case key.Matches(msg, model.keys.AddCommitKey):
+			model.keyPoints = append(model.keyPoints, model.commitsKeysInput.Value())
+			model.commitsKeysInput.Reset()
+			model.commitsKeysInput.Focus()
+			return model, nil
 		case key.Matches(msg, model.keys.Edit):
 			model.WritingStatusBar.Content = "You are making modifications to the AI's response"
 			model.WritingStatusBar.Level = statusbar.LevelWarning
@@ -858,14 +863,15 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
-			userInput := model.msgInput.Value()
+			userInput := strings.Join(model.keyPoints, "\n")
 			iaBuilderCmd := callIaCommitBuilderCmd(userInput, model)
 			return model, tea.Batch(spinnerCmd, iaBuilderCmd)
 		}
 	}
 	switch model.focusedElement {
 	case focusMsgInput:
-		model.msgInput, cmd = model.msgInput.Update(msg)
+		// model.msgInput, cmd = model.msgInput.Update(msg)
+		model.commitsKeysInput, cmd = model.commitsKeysInput.Update(msg)
 	case focusAIResponse:
 		model.iaViewport, cmd = model.iaViewport.Update(msg)
 	}
@@ -972,7 +978,8 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.state = stateWritingMessage
 				model.focusedElement = focusMsgInput
 				model.keys = writingMessageKeys()
-				model.msgInput.Focus()
+				// model.msgInput.Focus()
+				model.commitsKeysInput.Focus()
 				return model, nil
 			}
 			return model, nil
@@ -1064,7 +1071,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.commitMsg = commit.MessageES
 					model.commitTranslate = commit.MessageEN
 					model.useDbCommmit = true
-					model.msgInput.SetValue(commit.MessageES)
+					// model.msgInput.SetValue(commit.MessageES)  TODO Implement the system to save keypoints in SQL so they can be restored when editing a commit.
 					model.state = stateWritingMessage
 					model.keys = writingMessageKeys()
 				}
@@ -1087,7 +1094,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					// Load draft into editor
 					model.currentCommit = commit
 					model.state = stateWritingMessage
-					model.msgInput.SetValue(commit.MessageES)
+					// model.msgInput.SetValue(commit.MessageES) TODO Implement the system to save keypoints in SQL so they can be restored when drafting a commit
 					model.iaViewport.SetContent(commit.MessageEN)
 					model.commitType = commit.Type
 					model.commitScope = commit.Scope

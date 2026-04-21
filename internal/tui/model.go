@@ -125,8 +125,11 @@ type Model struct {
 	state                   appState
 	err                     error
 	apiKeyInput             textinput.Model
+	keyPoints               []string
+	commitsKeysInput        textinput.Model
 	mainList                list.Model
 	releaseCommitList       list.Model
+	commitsKeysViewport     viewport.Model
 	releaseViewport         viewport.Model
 	releaseEditText         *textarea.Model
 	releaseViewState        *releaseViewState
@@ -141,7 +144,6 @@ type Model struct {
 	fileListFilter          bool
 	currentUpdateFileListFn UpdateFileListFunc
 	gitStatusData           GitStatusData
-	msgInput                textarea.Model
 	msgEdit                 textarea.Model
 	spinner                 spinner.Model
 	iaViewport              viewport.Model
@@ -183,6 +185,7 @@ func NewModel(
 	var WritingStatusBar statusbar.StatusBar
 
 	apiKeyInput := textinput.New()
+	commitsKeysInput := textinput.New()
 	theme := styles.NewCharmtoneTheme(config.TUI.UseNerdFonts)
 
 	gitStatusData, err := GetAllGitStatusData()
@@ -219,12 +222,6 @@ func NewModel(
 	}
 
 	// --- Component Initializations ---
-	msgInput := textarea.New()
-	msgInput.SetStyles(theme.AppStyles().TextArea)
-	msgInput.Prompt = "┃ "
-	msgInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
-	msgInput.Placeholder = "A short description of the changes..."
-	//
 	msgEdit := textarea.New()
 	msgEdit.SetStyles(theme.AppStyles().TextArea)
 	msgEdit.Prompt = "┃ "
@@ -232,6 +229,12 @@ func NewModel(
 	msgEdit.KeyMap.DeleteBeforeCursor = key.NewBinding(key.WithKeys("ctrl+z"))
 	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
 	msgEdit.Placeholder = "A short description of the changes..."
+
+	ckiVp := viewport.New()
+	ckiVp.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.Border{Left: "┃"}).
+		BorderForeground(lipgloss.BrightWhite).
+		PaddingRight(2)
 
 	vp := viewport.New()
 	vp.Style = lipgloss.NewStyle().
@@ -316,7 +319,8 @@ func NewModel(
 		currentUpdateFileListFn: ChooseUpdateFileListFunction(false),
 		gitStatusData:           gitStatusData,
 		WritingStatusBar:        WritingStatusBar,
-		msgInput:                msgInput,
+		keyPoints:               []string{},
+		commitsKeysInput:        commitsKeysInput,
 		msgEdit:                 msgEdit,
 		spinner:                 spinner,
 		keys:                    initialKeys,
@@ -325,6 +329,7 @@ func NewModel(
 		logViewport:             viewport.New(),
 		globalConfig:            config,
 		Theme:                   theme,
+		commitsKeysViewport:     ckiVp,
 		useDbCommmit:            false,
 		Version:                 version,
 	}
