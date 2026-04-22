@@ -566,9 +566,8 @@ func iaCallCommitTitleGenerator(model *Model, commitBody string) (string, error)
 	return strings.TrimSpace(result), nil
 }
 
-func assembleCommitMessage(model *Model, titleText, commitBody string) string {
-	formattedTag := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, model.commitType)
-	return fmt.Sprintf("%s %s: %s\n\n%s", formattedTag, model.commitScope, titleText, commitBody)
+func assembleCommitMessage(titleText, commitBody string) string {
+	return fmt.Sprintf("%s\n\n%s", titleText, commitBody)
 }
 
 func ia_commit_builder(model *Model) error {
@@ -590,7 +589,7 @@ func ia_commit_builder(model *Model) error {
 	}
 
 	model.iaTitleRawOutput = titleText
-	model.commitTranslate = assembleCommitMessage(model, titleText, commitBody)
+	model.commitTranslate = assembleCommitMessage(titleText, commitBody)
 	model.log.Debug("Final commit message", "commitTranslate", model.commitTranslate)
 	return nil
 }
@@ -622,7 +621,7 @@ func callIaCommitBuilderStage2Cmd(model *Model) tea.Cmd {
 			return IaCommitRawResultMsg{Err: err}
 		}
 		model.iaTitleRawOutput = titleText
-		model.commitTranslate = assembleCommitMessage(model, titleText, commitBody)
+		model.commitTranslate = assembleCommitMessage(titleText, commitBody)
 		return IaCommitRawResultMsg{Err: nil}
 	}
 }
@@ -634,7 +633,7 @@ func callIaOutputFormatCmd(model *Model) tea.Cmd {
 			return IaOutputFormatResultMsg{Err: err}
 		}
 		model.iaTitleRawOutput = titleText
-		model.commitTranslate = assembleCommitMessage(model, titleText, model.iaCommitRawOutput)
+		model.commitTranslate = assembleCommitMessage(titleText, model.iaCommitRawOutput)
 		return IaOutputFormatResultMsg{Err: nil}
 	}
 }
