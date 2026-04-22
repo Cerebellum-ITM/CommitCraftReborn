@@ -5,22 +5,22 @@ import (
 )
 
 type PromptsConfig struct {
-	SummaryPromptFile        string `toml:"summary_prompt_file"`
-	SummaryPromptModel       string `toml:"summary_prompt_model"`
-	SummaryPromptMaxDiffsize int    `toml:"summary_prompt_max_diff_size"`
-	SummaryPrompt            string `toml:"-"`
-	CommitBuilderPromptFile  string `toml:"commit_builder_prompt_file"`
-	CommitBuilderPromptModel string `toml:"commit_builder_prompt_model"`
-	CommitBuilderPrompt      string `toml:"-"`
-	OutputFormatPromptFile   string `toml:"outformat_prompt_file"`
-	OutputFormatPromptModel  string `toml:"outformat_prompt_model"`
-	OutputFormatPrompt       string `toml:"-"`
-	OnlyTranslatePromptFile  string `toml:"only_translate_prompt_file"`
-	OnlyTranslatePromptModel string `toml:"only_translate_prompt_model"`
-	OnlyTranslatePrompt      string `toml:"-"`
-	ReleasePromptFIle        string `toml:"release_prompt_file"`
-	ReleasePromptModel       string `toml:"release_prompt_model"`
-	ReleasePrompt            string `toml:"-"`
+	ChangeAnalyzerPromptFile        string `toml:"change_analyzer_prompt_file"`
+	ChangeAnalyzerPromptModel       string `toml:"change_analyzer_prompt_model"`
+	ChangeAnalyzerMaxDiffSize       int    `toml:"change_analyzer_max_diff_size"`
+	ChangeAnalyzerPrompt            string `toml:"-"`
+	CommitBodyGeneratorPromptFile   string `toml:"commit_body_generator_prompt_file"`
+	CommitBodyGeneratorPromptModel  string `toml:"commit_body_generator_prompt_model"`
+	CommitBodyGeneratorPrompt       string `toml:"-"`
+	CommitTitleGeneratorPromptFile  string `toml:"commit_title_generator_prompt_file"`
+	CommitTitleGeneratorPromptModel string `toml:"commit_title_generator_prompt_model"`
+	CommitTitleGeneratorPrompt      string `toml:"-"`
+	OnlyTranslatePromptFile         string `toml:"only_translate_prompt_file"`
+	OnlyTranslatePromptModel        string `toml:"only_translate_prompt_model"`
+	OnlyTranslatePrompt             string `toml:"-"`
+	ReleasePromptFIle               string `toml:"release_prompt_file"`
+	ReleasePromptModel              string `toml:"release_prompt_model"`
+	ReleasePrompt                   string `toml:"-"`
 }
 
 type TUIConfig struct {
@@ -74,15 +74,15 @@ func NewDefaultConfig() Config {
 			UseNerdFonts: true,
 		},
 		Prompts: PromptsConfig{
-			SummaryPromptFile:        "prompts/summary.prompt",
-			SummaryPromptModel:       "meta-llama/llama-4-scout-17b-16e-instruct",
-			SummaryPromptMaxDiffsize: 80000,
-			CommitBuilderPromptFile:  "prompts/commit_builder.prompt",
-			CommitBuilderPromptModel: "llama-3.1-8b-instant",
-			OutputFormatPromptFile:   "prompts/output_format.prompt",
-			OutputFormatPromptModel:  "llama-3.1-8b-instant",
-			OnlyTranslatePromptFile:  "prompts/only_translate.prompt",
-			OnlyTranslatePromptModel: "llama-3.1-8b-instant",
+			ChangeAnalyzerPromptFile:        "prompts/change_analyzer.prompt",
+			ChangeAnalyzerPromptModel:       "meta-llama/llama-4-scout-17b-16e-instruct",
+			ChangeAnalyzerMaxDiffSize:       80000,
+			CommitBodyGeneratorPromptFile:   "prompts/commit_body_generator.prompt",
+			CommitBodyGeneratorPromptModel:  "llama-3.1-8b-instant",
+			CommitTitleGeneratorPromptFile:  "prompts/commit_title_generator.prompt",
+			CommitTitleGeneratorPromptModel: "llama-3.1-8b-instant",
+			OnlyTranslatePromptFile:         "prompts/only_translate.prompt",
+			OnlyTranslatePromptModel:        "llama-3.1-8b-instant",
 		},
 	}
 }

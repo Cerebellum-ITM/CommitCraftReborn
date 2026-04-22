@@ -284,6 +284,19 @@ func GetAllGitStatusData() (GitStatusData, error) {
 	return data, nil
 }
 
+// GetGitDiffStat returns the staged diff --stat output (files changed with insertion/deletion counts).
+func GetGitDiffStat() (string, error) {
+	cmd := exec.Command("git", "diff", "--cached", "--stat")
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("git command failed: %s", string(exitErr.Stderr))
+		}
+		return "", fmt.Errorf("failed to get git diff --stat: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 // GetStagedDiffSummary generates a string containing the diffs of all staged files.
 func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 	// 1. Get the list of staged file names.

@@ -22,14 +22,14 @@ const (
 
 // NOTE The following comments tells embed which path to look in from the file path
 
-//go:embed prompts/summary.prompt.tmpl
-var defaultSummaryPrompt string
+//go:embed prompts/change_analyzer.prompt.tmpl
+var defaultChangeAnalyzerPrompt string
 
-//go:embed prompts/commit_builder.prompt.tmpl
-var defaultCommitBuilderPrompt string
+//go:embed prompts/commit_body_generator.prompt.tmpl
+var defaultCommitBodyGeneratorPrompt string
 
-//go:embed prompts/output_format.prompt.tmpl
-var defaultOutputFormatPrompt string
+//go:embed prompts/commit_title_generator.prompt.tmpl
+var defaultCommitTitleGeneratorPrompt string
 
 //go:embed prompts/only_translate.prompt.tmpl
 var defaultOnlyTranslateFormatPrompt string
@@ -57,12 +57,12 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 		baseFileName := filepath.Base(fullPath)
 		promptName := strings.TrimSuffix(baseFileName, filepath.Ext(baseFileName))
 		switch promptName {
-		case "summary":
-			defaultPromptContent = defaultSummaryPrompt
-		case "commit_builder":
-			defaultPromptContent = defaultCommitBuilderPrompt
-		case "output_format":
-			defaultPromptContent = defaultOutputFormatPrompt
+		case "change_analyzer":
+			defaultPromptContent = defaultChangeAnalyzerPrompt
+		case "commit_body_generator":
+			defaultPromptContent = defaultCommitBodyGeneratorPrompt
+		case "commit_title_generator":
+			defaultPromptContent = defaultCommitTitleGeneratorPrompt
 		case "only_translate":
 			defaultPromptContent = defaultOnlyTranslateFormatPrompt
 		case "release":
@@ -91,22 +91,22 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 func loadIaPrompts(
 	configDir string, globalConfig *Config,
 ) error {
-	summaryPrompt, err := createOrLoadPromptFile(configDir, globalConfig.Prompts.SummaryPromptFile)
+	changeAnalyzerPrompt, err := createOrLoadPromptFile(configDir, globalConfig.Prompts.ChangeAnalyzerPromptFile)
 	if err != nil {
 		return err
 	}
 
-	commitBuilderPrompt, err := createOrLoadPromptFile(
+	commitBodyGeneratorPrompt, err := createOrLoadPromptFile(
 		configDir,
-		globalConfig.Prompts.CommitBuilderPromptFile,
+		globalConfig.Prompts.CommitBodyGeneratorPromptFile,
 	)
 	if err != nil {
 		return err
 	}
 
-	outputFormatPrompt, err := createOrLoadPromptFile(
+	commitTitleGeneratorPrompt, err := createOrLoadPromptFile(
 		configDir,
-		globalConfig.Prompts.OutputFormatPromptFile,
+		globalConfig.Prompts.CommitTitleGeneratorPromptFile,
 	)
 	if err != nil {
 		return err
@@ -128,9 +128,9 @@ func loadIaPrompts(
 		return err
 	}
 
-	globalConfig.Prompts.SummaryPrompt = summaryPrompt
-	globalConfig.Prompts.CommitBuilderPrompt = commitBuilderPrompt
-	globalConfig.Prompts.OutputFormatPrompt = outputFormatPrompt
+	globalConfig.Prompts.ChangeAnalyzerPrompt = changeAnalyzerPrompt
+	globalConfig.Prompts.CommitBodyGeneratorPrompt = commitBodyGeneratorPrompt
+	globalConfig.Prompts.CommitTitleGeneratorPrompt = commitTitleGeneratorPrompt
 	globalConfig.Prompts.OnlyTranslatePrompt = onlyTranslatePrompt
 	globalConfig.Prompts.ReleasePrompt = releasePrompt
 	return nil
