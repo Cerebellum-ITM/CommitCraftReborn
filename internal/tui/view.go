@@ -14,12 +14,13 @@ import (
 )
 
 var (
-	focusColor     color.Color
-	focusColorText color.Color
-	blurColor      color.Color
-	VerticalSpace  = lipgloss.NewStyle().Height(1).Render("")
-	LineStyle      = lipgloss.NewStyle()
-	HeaderStyle    = lipgloss.NewStyle().
+	focusColor      color.Color
+	focusColorText  color.Color
+	blurColor       color.Color
+	VerticalSpace   = lipgloss.NewStyle().Height(1).Render("")
+	HorizontalSpace = lipgloss.NewStyle().Width(1).Render("")
+	LineStyle       = lipgloss.NewStyle()
+	HeaderStyle     = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderBottom(false).
 			Padding(0, 1)
@@ -116,7 +117,10 @@ func (model *Model) userInputFooterView(state string) string {
 	textColor, lineColor := model.setColorVariables(state)
 
 	scrollInfo := fmt.Sprintf("%3.f%%", model.commitsKeysViewport.ScrollPercent()*100)
-	charInfo := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.commitsKeysInput.Value()))
+	charInfo := fmt.Sprintf(
+		"Number of characters %d",
+		lipgloss.Width(model.commitsKeysInput.Value()),
+	)
 
 	leftContent := FooterStyle.Foreground(textColor).Render(scrollInfo)
 	rightContent := FooterStyle.Foreground(textColor).Render(charInfo)
@@ -210,26 +214,31 @@ func (model *Model) releaseLivePreviewFooterView(state string) string {
 func (model *Model) buildTabBar(totalWidth int) string {
 	base := model.Theme.AppStyles().Base
 	activeStyle := base.
-		Background(model.Theme.Primary).
-		Foreground(model.Theme.Black).
+		Background(model.Theme.Purple).
+		Foreground(model.Theme.FgBase).
+		Bold(true).
 		Padding(0, 2)
 	inactiveStyle := base.
+		Background(model.Theme.Blur).
 		Foreground(model.Theme.FocusableElement).
 		Padding(0, 2)
 
+	gap := base.Render(" ")
+
 	var composeTab, pipelineTab string
 	if model.activeTab == 0 {
-		composeTab = activeStyle.Render("Compose")
-		pipelineTab = inactiveStyle.Render("Pipeline")
+		composeTab = activeStyle.Render("● Compose")
+		pipelineTab = inactiveStyle.Render("○ Pipeline")
 	} else {
-		composeTab = inactiveStyle.Render("Compose")
-		pipelineTab = activeStyle.Render("Pipeline")
+		composeTab = inactiveStyle.Render("○ Compose")
+		pipelineTab = activeStyle.Render("● Pipeline")
 	}
-	tabs := lipgloss.JoinHorizontal(lipgloss.Left, composeTab, pipelineTab)
-	tabWidth := lipgloss.Width(tabs)
+	tabs := lipgloss.JoinHorizontal(lipgloss.Left, composeTab, gap, pipelineTab)
+	whiteSpaces := HorizontalSpace + HorizontalSpace
+	tabWidth := lipgloss.Width(tabs) + lipgloss.Width(whiteSpaces)
 	line := base.Foreground(model.Theme.Blur).
 		Render(strings.Repeat("─", max(0, totalWidth-tabWidth)))
-	return lipgloss.JoinHorizontal(lipgloss.Left, tabs, line)
+	return lipgloss.JoinHorizontal(lipgloss.Left, tabs, whiteSpaces, line)
 }
 
 func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
@@ -325,7 +334,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	const glamourGutter = 3
 	statusBarContent := model.WritingStatusBar.Render()
 	tabBar := model.buildTabBar(model.width)
-	tabBarHeight := lipgloss.Height(tabBar)
+	tabBarHeight := lipgloss.Height(tabBar + VerticalSpace)
 
 	currentIaViewportStyle := model.iaViewport.Style
 	switch model.focusedElement {
@@ -432,6 +441,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	)
 	return lipgloss.JoinVertical(lipgloss.Left,
 		statusBarContent,
+		VerticalSpace,
 		tabBar,
 		VerticalSpace,
 		uiElements,
