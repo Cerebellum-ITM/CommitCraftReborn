@@ -581,7 +581,7 @@ func iaReleaseBuilder(model *Model) error {
 	return nil
 }
 
-func switchFocusElement(model *Model) {
+func switchFocusElement(model *Model) tea.Cmd {
 	switch model.focusedElement {
 	case focusListElement:
 		model.keys = viewPortKeys()
@@ -597,9 +597,12 @@ func switchFocusElement(model *Model) {
 		}
 	case focusMsgInput:
 		model.focusedElement = focusAIResponse
+		model.commitsKeysInput.Blur()
 	case focusAIResponse:
 		model.focusedElement = focusMsgInput
+		return model.commitsKeysInput.Focus()
 	}
+	return nil
 }
 
 // UPDATE functions
@@ -675,13 +678,13 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return openListPopup{items: menu, width: model.width / 2, height: model.height / 2, itemsOptions: menuOptions}
 			}
 		case key.Matches(msg, model.keys.NextField):
-			switchFocusElement(model)
+			cmd = switchFocusElement(model)
 			model.state = stateReleaseChoosingCommits
-			return model, nil
+			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
-			switchFocusElement(model)
+			cmd = switchFocusElement(model)
 			model.state = stateReleaseChoosingCommits
-			return model, nil
+			return model, cmd
 		}
 	}
 
@@ -746,11 +749,11 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 				model.commitLivePreview = item.Preview
 			}
 		case key.Matches(msg, model.keys.NextField):
-			switchFocusElement(model)
-			return model, nil
+			cmd = switchFocusElement(model)
+			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
-			switchFocusElement(model)
-			return model, nil
+			cmd = switchFocusElement(model)
+			return model, cmd
 		case key.Matches(msg, model.keys.Esc):
 			switch model.AppMode {
 			case CommitMode:
@@ -775,11 +778,11 @@ func updateEditingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		model.log.Debug(msg.String())
 		switch {
 		case key.Matches(msg, model.keys.NextField):
-			switchFocusElement(model)
-			return model, nil
+			cmd = switchFocusElement(model)
+			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
-			switchFocusElement(model)
-			return model, nil
+			cmd = switchFocusElement(model)
+			return model, cmd
 		case key.Matches(msg, model.keys.delteLine):
 			lineToDelete := model.msgEdit.Line()
 			lines := strings.Split(model.msgEdit.Value(), "\n")
@@ -822,11 +825,11 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.NextField):
-			switchFocusElement(model)
-			return model, nil
+			cmd = switchFocusElement(model)
+			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
-			switchFocusElement(model)
-			return model, nil
+			cmd = switchFocusElement(model)
+			return model, cmd
 		case key.Matches(msg, model.keys.SaveDraft):
 			if v := model.commitsKeysInput.Value(); v != "" {
 				model.keyPoints = append(model.keyPoints, v)
@@ -846,8 +849,8 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.AddCommitKey):
 			model.keyPoints = append(model.keyPoints, model.commitsKeysInput.Value())
 			model.commitsKeysInput.SetValue("")
-			model.commitsKeysInput.Focus()
-			return model, nil
+			cmd = model.commitsKeysInput.Focus()
+			return model, cmd
 		case key.Matches(msg, model.keys.Edit):
 			model.WritingStatusBar.Content = "You are making modifications to the AI's response"
 			model.WritingStatusBar.Level = statusbar.LevelWarning
@@ -991,9 +994,8 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.state = stateWritingMessage
 				model.focusedElement = focusMsgInput
 				model.keys = writingMessageKeys()
-				// model.msgInput.Focus()
-				model.commitsKeysInput.Focus()
-				return model, nil
+				cmd = model.commitsKeysInput.Focus()
+				return model, cmd
 			}
 			return model, nil
 		}
