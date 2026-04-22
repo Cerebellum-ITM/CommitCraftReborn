@@ -126,7 +126,7 @@ type Model struct {
 	err                     error
 	apiKeyInput             textinput.Model
 	keyPoints               []string
-	commitsKeysInput        textinput.Model
+	commitsKeysInput        textarea.Model
 	mainList                list.Model
 	releaseCommitList       list.Model
 	commitsKeysViewport     viewport.Model
@@ -185,8 +185,30 @@ func NewModel(
 	var WritingStatusBar statusbar.StatusBar
 
 	apiKeyInput := textinput.New()
-	commitsKeysInput := textinput.New()
 	theme := styles.NewCharmtoneTheme(config.TUI.UseNerdFonts)
+
+	commitsKeysInput := textarea.New()
+	commitsKeysInput.SetHeight(4)
+	commitsKeysInput.ShowLineNumbers = false
+	commitsKeysInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
+	commitsKeysInput.Placeholder = "Add a key point..."
+	kpiStyles := theme.AppStyles().TextArea
+	kpiStyles.Focused.Placeholder = theme.AppStyles().Base.Foreground(theme.FgMuted)
+	kpiStyles.Cursor.Blink = true
+	commitsKeysInput.SetStyles(kpiStyles)
+	commitsKeysInput.SetPromptFunc(4, func(info textarea.PromptInfo) string {
+		s := theme.AppStyles().KeyPointsInput
+		if info.LineNumber == 0 {
+			if info.Focused {
+				return s.PromptFocused.Render()
+			}
+			return s.PromptBlurred.Render()
+		}
+		if info.Focused {
+			return s.DotsFocused.Render()
+		}
+		return s.DotsBlurred.Render()
+	})
 
 	gitStatusData, err := GetAllGitStatusData()
 	if err != nil {

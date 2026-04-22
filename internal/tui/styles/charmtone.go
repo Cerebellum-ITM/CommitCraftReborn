@@ -6,11 +6,12 @@ func NerdFontSymbols() *Symbols {
 	return &Symbols{
 		Commit:           "󰜘",
 		Console:          "󰆍",
-		GhEnable:         "",
-		GhMissing:        "",
-		CommitCraft:      "",
+		GhEnable:         "",
+		GhMissing:        "",
+		CommitCraft:      "",
 		ClipboardEnable:  "󱄗",
 		ClipboardMissing: "󱘛",
+		KeyPoint:         ">",
 	}
 }
 
@@ -23,6 +24,7 @@ func DefaultSymbols() *Symbols {
 		GhEnable:         "💻",
 		GhMissing:        "X",
 		CommitCraft:      "📇",
+		KeyPoint:         ">",
 	}
 }
 

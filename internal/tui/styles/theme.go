@@ -59,6 +59,7 @@ type Symbols struct {
 	CommitCraft      string
 	ClipboardEnable  string
 	ClipboardMissing string
+	KeyPoint         string
 }
 
 type Styles struct {
@@ -66,6 +67,13 @@ type Styles struct {
 	IndicatorStyle lipgloss.Style
 	Help           help.Styles
 	TextArea       textarea.Styles
+
+	KeyPointsInput struct {
+		PromptFocused lipgloss.Style
+		PromptBlurred lipgloss.Style
+		DotsFocused   lipgloss.Style
+		DotsBlurred   lipgloss.Style
+	}
 }
 
 func (t *Theme) AppSymbols() *Symbols {
@@ -95,7 +103,7 @@ func (t *Theme) buildStyles() *Styles {
 	helpStyles.FullSeparator = base.Foreground(t.White)
 	helpStyles.Ellipsis = base.Foreground(t.FgSubtle)
 
-	return &Styles{
+	s := &Styles{
 		Base:           base,
 		IndicatorStyle: indicator,
 		Help:           helpStyles,
@@ -125,4 +133,11 @@ func (t *Theme) buildStyles() *Styles {
 			},
 		},
 	}
+
+	s.KeyPointsInput.PromptFocused = base.Foreground(t.Green).SetString("  > ")
+	s.KeyPointsInput.PromptBlurred = base.Foreground(t.Blur).SetString("  > ")
+	s.KeyPointsInput.DotsFocused = base.Foreground(t.Green).SetString("::: ")
+	s.KeyPointsInput.DotsBlurred = base.Foreground(t.Blur).SetString("::: ")
+
+	return s
 }

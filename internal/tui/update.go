@@ -337,7 +337,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	if v := model.commitsKeysInput.Value(); v != "" {
 		model.keyPoints = append(model.keyPoints, v)
-		model.commitsKeysInput.Reset()
+		model.commitsKeysInput.SetValue("")
 	}
 	model.currentCommit.Type = model.commitType
 	model.currentCommit.Scope = model.commitScope
@@ -830,7 +830,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.SaveDraft):
 			if v := model.commitsKeysInput.Value(); v != "" {
 				model.keyPoints = append(model.keyPoints, v)
-				model.commitsKeysInput.Reset()
+				model.commitsKeysInput.SetValue("")
 			}
 			model.currentCommit.KeyPoints = model.keyPoints
 			model.currentCommit.MessageEN = model.commitTranslate
@@ -845,7 +845,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, cmd
 		case key.Matches(msg, model.keys.AddCommitKey):
 			model.keyPoints = append(model.keyPoints, model.commitsKeysInput.Value())
-			model.commitsKeysInput.Reset()
+			model.commitsKeysInput.SetValue("")
 			model.commitsKeysInput.Focus()
 			return model, nil
 		case key.Matches(msg, model.keys.Edit):
@@ -871,7 +871,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.CreateIaCommit):
 			if v := model.commitsKeysInput.Value(); v != "" {
 				model.keyPoints = append(model.keyPoints, v)
-				model.commitsKeysInput.Reset()
+				model.commitsKeysInput.SetValue("")
 			}
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."

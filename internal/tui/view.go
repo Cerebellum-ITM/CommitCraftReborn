@@ -255,9 +255,8 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	model.commitsKeysInput.SetWidth(model.width / 2)
 	model.iaViewport.SetWidth(model.width / 2)
 	model.commitsKeysViewport.SetWidth(model.width / 2)
-	model.commitsKeysViewport.SetHeight(
-		userInputVContenHeight - lipgloss.Height(model.commitsKeysInput.View()) - 2,
-	)
+	inputH := lipgloss.Height(model.commitsKeysInput.View())
+	model.commitsKeysViewport.SetHeight(userInputVContenHeight - inputH - 2)
 	model.iaViewport.SetHeight(iaViewportContentHeight)
 
 	model.iaViewport.Style = currentIaViewportStyle
@@ -290,7 +289,6 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		VerticalSpace,
 		model.commitsKeysInput.View(),
 		model.commitsKeysViewport.View(),
-		// model.msgInput.View(),
 		VerticalSpace,
 		userInputiewFooterContent,
 	)
