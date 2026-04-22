@@ -1057,6 +1057,16 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
 			iaBuilderCmd := callIaCommitBuilderCmd(model)
 			return model, tea.Batch(spinnerCmd, iaBuilderCmd)
+		case key.Matches(msg, model.keys.PgUp):
+			if model.focusedElement == focusMsgInput {
+				model.commitsKeysViewport, cmd = model.commitsKeysViewport.Update(msg)
+				return model, cmd
+			}
+		case key.Matches(msg, model.keys.PgDown):
+			if model.focusedElement == focusMsgInput {
+				model.commitsKeysViewport, cmd = model.commitsKeysViewport.Update(msg)
+				return model, cmd
+			}
 		}
 	}
 	switch model.focusedElement {

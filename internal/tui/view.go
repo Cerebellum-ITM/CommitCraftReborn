@@ -113,14 +113,18 @@ func (model *Model) userInputHeaderView(state string) string {
 }
 
 func (model *Model) userInputFooterView(state string) string {
-	info := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.commitsKeysInput.Value()))
-	return model.buildStyledBorder(
-		state,
-		info,
-		FooterStyle,
-		model.width/2,
-		AlignFooter,
-	)
+	textColor, lineColor := model.setColorVariables(state)
+
+	scrollInfo := fmt.Sprintf("%3.f%%", model.commitsKeysViewport.ScrollPercent()*100)
+	charInfo := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.commitsKeysInput.Value()))
+
+	leftContent := FooterStyle.Foreground(textColor).Render(scrollInfo)
+	rightContent := FooterStyle.Foreground(textColor).Render(charInfo)
+
+	lineW := max(0, model.width/2-lipgloss.Width(leftContent)-lipgloss.Width(rightContent))
+	line := LineStyle.Foreground(lineColor).Render(strings.Repeat("─", lineW))
+
+	return lipgloss.JoinHorizontal(lipgloss.Left, leftContent, line, rightContent)
 }
 
 func (model *Model) msgEditHeaderView(state string) string {

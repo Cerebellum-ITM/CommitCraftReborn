@@ -92,6 +92,8 @@ func writingMessageKeys() KeyMap {
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		PgUp:       key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "Scroll keypoints up")),
+		PgDown:     key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "Scroll keypoints down")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 		SwitchTab: key.NewBinding(
 			key.WithKeys("ctrl+t"),
