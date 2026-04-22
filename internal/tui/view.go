@@ -221,6 +221,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(
 			model.Theme.FocusableElement,
 		)
+		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(model.Theme.BorderFocus)
 
 		iaViewHeaderContent = model.iaHeaderView("blur")
 		iaViewFooterContent = model.iaFooterView("blur")
@@ -229,6 +230,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		userInputiewFooterContent = model.userInputFooterView("focus")
 	case focusAIResponse:
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
+		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(model.Theme.FocusableElement)
 
 		iaViewHeaderContent = model.iaHeaderView("focus")
 		iaViewFooterContent = model.iaFooterView("focus")

@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var version = "v0.4.4"
+var version = "v0.4.5"
 
 func main() {
 	log := logger.New()
