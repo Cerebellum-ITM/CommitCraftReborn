@@ -251,7 +251,7 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	if model.commitTranslate == "" {
 		model.pipelineViewport3.SetContent("(empty — run the AI to populate this stage)")
 	} else {
-		model.pipelineViewport3.SetContent(model.commitTranslate)
+		model.pipelineViewport3.SetContent(model.iaTitleRawOutput)
 	}
 
 	focusColor := model.Theme.BorderFocus
@@ -279,9 +279,27 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	model.pipelineViewport2.Style = vp2Style
 	model.pipelineViewport3.Style = vp3Style
 
-	header1 := model.buildStyledBorder("blur", "Stage 1 — Summary  [1] re-run", HeaderStyle, contentWidth, AlignHeader)
-	header2 := model.buildStyledBorder("blur", "Stage 2 — Raw Commit  [2] re-run", HeaderStyle, contentWidth, AlignHeader)
-	header3 := model.buildStyledBorder("blur", "Stage 3 — Formatted  [3] re-run", HeaderStyle, contentWidth, AlignHeader)
+	header1 := model.buildStyledBorder(
+		"blur",
+		"Stage 1 — Summary  [1] re-run",
+		HeaderStyle,
+		contentWidth,
+		AlignHeader,
+	)
+	header2 := model.buildStyledBorder(
+		"blur",
+		"Stage 2 — Raw Commit  [2] re-run",
+		HeaderStyle,
+		contentWidth,
+		AlignHeader,
+	)
+	header3 := model.buildStyledBorder(
+		"blur",
+		"Stage 3 — Formatted  [3] re-run",
+		HeaderStyle,
+		contentWidth,
+		AlignHeader,
+	)
 
 	stage1 := lipgloss.JoinVertical(lipgloss.Left, header1, model.pipelineViewport1.View())
 	stage2 := lipgloss.JoinVertical(lipgloss.Left, header2, model.pipelineViewport2.View())
@@ -311,7 +329,9 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(
 			model.Theme.FocusableElement,
 		)
-		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(model.Theme.BorderFocus)
+		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(
+			model.Theme.BorderFocus,
+		)
 
 		iaViewHeaderContent = model.iaHeaderView("blur")
 		iaViewFooterContent = model.iaFooterView("blur")
@@ -320,7 +340,9 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		userInputiewFooterContent = model.userInputFooterView("focus")
 	case focusAIResponse:
 		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
-		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(model.Theme.FocusableElement)
+		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(
+			model.Theme.FocusableElement,
+		)
 
 		iaViewHeaderContent = model.iaHeaderView("focus")
 		iaViewFooterContent = model.iaFooterView("focus")

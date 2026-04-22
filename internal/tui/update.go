@@ -30,9 +30,11 @@ type IaResleaseBuilderResultMsg struct {
 	Err error
 }
 
-type IaSummaryResultMsg struct{ Err error }
-type IaCommitRawResultMsg struct{ Err error }
-type IaOutputFormatResultMsg struct{ Err error }
+type (
+	IaSummaryResultMsg      struct{ Err error }
+	IaCommitRawResultMsg    struct{ Err error }
+	IaOutputFormatResultMsg struct{ Err error }
+)
 
 // Main Update Function
 func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -350,6 +352,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.keyPoints = nil
 		model.iaSummaryOutput = ""
 		model.iaCommitRawOutput = ""
+		model.iaTitleRawOutput = ""
 		model.activeTab = 0
 		model.activePipelineStage = 0
 		model.keys = mainListKeys()
@@ -508,7 +511,13 @@ func iaCallChangeAnalyzer(model *Model) (string, error) {
 	model.diffCode = gitChanges
 
 	developerPoints := strings.Join(model.keyPoints, "\n")
-	model.log.Debug("Change Analyzer input", "developerPoints", developerPoints, "gitChanges", gitChanges)
+	model.log.Debug(
+		"Change Analyzer input",
+		"developerPoints",
+		developerPoints,
+		"gitChanges",
+		gitChanges,
+	)
 
 	result, err := createAndSendIaMessage(
 		promptConfig.ChangeAnalyzerPrompt,
@@ -580,6 +589,7 @@ func ia_commit_builder(model *Model) error {
 		return err
 	}
 
+	model.iaTitleRawOutput = titleText
 	model.commitTranslate = assembleCommitMessage(model, titleText, commitBody)
 	model.log.Debug("Final commit message", "commitTranslate", model.commitTranslate)
 	return nil
@@ -611,6 +621,7 @@ func callIaCommitBuilderStage2Cmd(model *Model) tea.Cmd {
 		if err != nil {
 			return IaCommitRawResultMsg{Err: err}
 		}
+		model.iaTitleRawOutput = titleText
 		model.commitTranslate = assembleCommitMessage(model, titleText, commitBody)
 		return IaCommitRawResultMsg{Err: nil}
 	}
@@ -622,6 +633,7 @@ func callIaOutputFormatCmd(model *Model) tea.Cmd {
 		if err != nil {
 			return IaOutputFormatResultMsg{Err: err}
 		}
+		model.iaTitleRawOutput = titleText
 		model.commitTranslate = assembleCommitMessage(model, titleText, model.iaCommitRawOutput)
 		return IaOutputFormatResultMsg{Err: nil}
 	}

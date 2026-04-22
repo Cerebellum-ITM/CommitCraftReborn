@@ -43,8 +43,8 @@ type Tools struct {
 }
 
 const (
-	focusMsgInput        focusableElement = iota // 0
-	focusAIResponse                              // 1
+	focusMsgInput   focusableElement = iota // 0
+	focusAIResponse                         // 1
 	focusListElement
 	focusViewportElement
 	focusPipelineViewport // 4 — active viewport in pipeline tab
@@ -160,6 +160,7 @@ type Model struct {
 	diffCode                string
 	iaSummaryOutput         string
 	iaCommitRawOutput       string
+	iaTitleRawOutput        string
 	activeTab               int
 	activePipelineStage     int
 	pipelineViewport1       viewport.Model
