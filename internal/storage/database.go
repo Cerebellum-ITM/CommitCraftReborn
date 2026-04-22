@@ -70,6 +70,24 @@ func applySchemaMigrations(db *sql.DB) error {
 			columnType:   "TEXT",
 			defaultValue: "'completed'",
 		},
+		{
+			tableName:    "commits",
+			columnName:   "ia_summary",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+		{
+			tableName:    "commits",
+			columnName:   "ia_commit_raw",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+		{
+			tableName:    "commits",
+			columnName:   "ia_title",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
 	}
 
 	for _, alt := range alterations {

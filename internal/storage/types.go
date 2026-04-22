@@ -4,15 +4,18 @@ import "time"
 
 // Commit represents a single commit record in the database.
 type Commit struct {
-	ID        int
-	Type      string
-	Scope     string
-	KeyPoints []string
-	MessageEN string
-	Workspace string
-	Diff_code string
-	Status    string
-	CreatedAt time.Time
+	ID           int
+	Type         string
+	Scope        string
+	KeyPoints    []string
+	MessageEN    string
+	Workspace    string
+	Diff_code    string
+	Status       string
+	IaSummary    string
+	IaCommitRaw  string
+	IaTitle      string
+	CreatedAt    time.Time
 }
 
 // representation of a release in the database

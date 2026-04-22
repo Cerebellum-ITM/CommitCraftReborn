@@ -22,7 +22,7 @@ func splitKeyPoints(s string) []string {
 // GetCommits retrieves commits from the database based on a status.
 func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	rows, err := db.Query(
-		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
 		pwd,
 		status,
 	)
@@ -35,7 +35,7 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	for rows.Next() {
 		var c Commit
 		var createdAt, messageES string
-		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &createdAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
 		c.KeyPoints = splitKeyPoints(messageES)
@@ -168,7 +168,7 @@ func (db *DB) SaveDraft(c *Commit) error {
 		c.Status = "draft"
 
 		res, err := db.Exec(
-			"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			c.Type,
 			c.Scope,
 			joinKeyPoints(c.KeyPoints),
@@ -176,6 +176,9 @@ func (db *DB) SaveDraft(c *Commit) error {
 			c.Workspace,
 			c.Diff_code,
 			c.Status,
+			c.IaSummary,
+			c.IaCommitRaw,
+			c.IaTitle,
 			createdAt,
 		)
 		if err != nil {
@@ -191,12 +194,15 @@ func (db *DB) SaveDraft(c *Commit) error {
 
 	// If ID is not 0, it's an existing draft, so we UPDATE.
 	_, err := db.Exec(
-		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ? WHERE id = ?",
+		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ?, ia_summary = ?, ia_commit_raw = ?, ia_title = ? WHERE id = ?",
 		c.Type,
 		c.Scope,
 		joinKeyPoints(c.KeyPoints),
 		c.MessageEN,
 		c.Diff_code,
+		c.IaSummary,
+		c.IaCommitRaw,
+		c.IaTitle,
 		c.ID,
 	)
 	return errors.Wrap(err, "failed to update draft commit")

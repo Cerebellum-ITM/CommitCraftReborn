@@ -1009,6 +1009,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.currentCommit.Type = model.commitType
 			model.currentCommit.Scope = model.commitScope
 			model.currentCommit.Workspace = model.pwd
+			model.currentCommit.Diff_code = model.diffCode
+			model.currentCommit.IaSummary = model.iaSummaryOutput
+			model.currentCommit.IaCommitRaw = model.iaCommitRawOutput
+			model.currentCommit.IaTitle = model.iaTitleRawOutput
 			if err := model.db.SaveDraft(&model.currentCommit); err != nil {
 				model.err = err
 				return model, nil
@@ -1287,10 +1291,15 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.currentCommit = commit
 					model.commitMsg = strings.Join(commit.KeyPoints, "\n")
 					model.keyPoints = commit.KeyPoints
-					model.state = stateWritingMessage
-					model.iaViewport.SetContent(commit.MessageEN)
+					model.commitTranslate = commit.MessageEN
 					model.commitType = commit.Type
 					model.commitScope = commit.Scope
+					model.diffCode = commit.Diff_code
+					model.iaSummaryOutput = commit.IaSummary
+					model.iaCommitRawOutput = commit.IaCommitRaw
+					model.iaTitleRawOutput = commit.IaTitle
+					model.state = stateWritingMessage
+					model.iaViewport.SetContent(commit.MessageEN)
 					model.keys = writingMessageKeys()
 					model.WritingStatusBar.Content = "Continuing with draft..."
 					return model, nil
