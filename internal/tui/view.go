@@ -13,6 +13,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const rewordPopupRatio = 0.70
+
 var (
 	focusColor      color.Color
 	focusColorText  color.Color
@@ -633,6 +635,82 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 	)
 }
 
+func (model *Model) buildRewordSelectView() string {
+	const glamourGutter = 3
+
+	popupW := int(float64(model.width) * rewordPopupRatio)
+	popupH := int(float64(model.height) * rewordPopupRatio)
+	// 2 chars for the rounded border on each axis
+	innerW := max(10, popupW-2)
+	innerH := max(4, popupH-2)
+	halfW := innerW / 2
+
+	listHeader := model.buildStyledBorder("focus", "Select a commit to reword", HeaderStyle, halfW, AlignHeader)
+	listFooter := model.buildStyledBorder("focus", "↑/↓ navigate  ·  enter reword  ·  esc back", FooterStyle, halfW, AlignFooter)
+	previewHeader := model.buildStyledBorder("blur", "Commit diff", HeaderStyle, halfW, AlignHeader)
+	previewFooter := model.buildStyledBorder("blur", fmt.Sprintf("%3.f%%", model.releaseViewport.ScrollPercent()*100), FooterStyle, halfW, AlignFooter)
+
+	headerH := lipgloss.Height(listHeader)
+	footerH := lipgloss.Height(listFooter)
+	vertSpaceH := 2 * lipgloss.Height(VerticalSpace)
+	listHeight := max(1, innerH-headerH-footerH-vertSpaceH)
+
+	model.releaseCommitList.SetWidth(halfW)
+	model.releaseCommitList.SetHeight(listHeight)
+	model.releaseViewport.SetWidth(halfW)
+	model.releaseViewport.SetHeight(listHeight)
+
+	glamourRenderWidth := max(10, halfW-model.releaseViewport.Style.GetHorizontalFrameSize()-glamourGutter)
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithStyles(styles.DarkStyleConfig),
+		glamour.WithWordWrap(glamourRenderWidth),
+	)
+	glamourContentStr, _ := renderer.Render(model.commitLivePreview)
+	model.releaseViewport.SetContent(glamourContentStr)
+
+	listFocusLine := lipgloss.NewStyle().Height(listHeight).Render("┃")
+	listCompositeView := lipgloss.JoinHorizontal(lipgloss.Center, listFocusLine, model.releaseCommitList.View())
+
+	leftContent := lipgloss.JoinVertical(lipgloss.Left,
+		listHeader,
+		VerticalSpace,
+		listCompositeView,
+		VerticalSpace,
+		listFooter,
+	)
+	rightContent := lipgloss.JoinVertical(lipgloss.Left,
+		previewHeader,
+		VerticalSpace,
+		model.releaseViewport.View(),
+		VerticalSpace,
+		previewFooter,
+	)
+
+	innerContent := lipgloss.JoinHorizontal(lipgloss.Top, leftContent, rightContent)
+
+	popupBox := lipgloss.NewStyle().
+		Width(innerW).
+		Height(innerH).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(model.Theme.Primary).
+		Render(innerContent)
+
+	statusBarContent := model.WritingStatusBar.Render()
+	helpView := lipgloss.NewStyle().Padding(0, 2).SetString(model.help.View(model.keys)).String()
+	statusBarH := lipgloss.Height(statusBarContent)
+	helpH := lipgloss.Height(helpView)
+	vertSpaceSingle := lipgloss.Height(VerticalSpace)
+	availableH := max(1, model.height-statusBarH-helpH-vertSpaceSingle)
+
+	centeredPopup := lipgloss.Place(model.width, availableH, lipgloss.Center, lipgloss.Center, popupBox)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		statusBarContent,
+		VerticalSpace,
+		centeredPopup,
+	)
+}
+
 // View renders the UI based on the current state of the model.
 func (model *Model) View() tea.View {
 	var mainContent string
@@ -742,6 +820,16 @@ func (model *Model) View() tea.View {
 		mainContent = model.buildEditingMessageView(appStyle)
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
+	case stateRewordSelectCommit:
+		rewordContent := model.buildRewordSelectView()
+		mainView := lipgloss.JoinVertical(lipgloss.Left,
+			rewordContent,
+			VerticalSpace,
+			helpView,
+		)
+		finalView := tea.NewView(mainView)
+		finalView.AltScreen = true
+		return finalView
 	}
 
 	mainView := lipgloss.JoinVertical(lipgloss.Left,

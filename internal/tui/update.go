@@ -92,6 +92,21 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				model.FinalMessage = fmt.Sprintf("%s %s: %s\n\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
 			}
 			return model, tea.Quit
+		case "Output message":
+			model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+			return model, tea.Quit
+		case "Reword commit":
+			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
+			model.releaseCommitList.Select(0)
+			model.state = stateRewordSelectCommit
+			model.focusedElement = focusListElement
+			model.keys = rewordSelectKeys()
+			model.WritingStatusBar.Content = "Select a commit to reword"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.commitLivePreview = item.Preview
+			}
+			return model, nil
 		case "Copy to clipboard":
 			var finalMessage string
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
@@ -310,6 +325,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateReleaseBuildingText(msg, model)
 	case stateReleaseMainMenu:
 		subModel, subCmd = updateReleaseMainMenu(msg, model)
+	case stateRewordSelectCommit:
+		subModel, subCmd = updateRewordSelectCommit(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)
@@ -1322,9 +1339,15 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.WritingStatusBar.Content = "Continuing with draft..."
 					return model, nil
 				} else {
-					// Original logic for completed commits
-					model.FinalMessage = assembleOutputCommitMessage(model, commit)
-					return model, tea.Quit
+					model.currentCommit = commit
+					if model.OutputDirect {
+						model.FinalMessage = assembleOutputCommitMessage(model, commit)
+						return model, tea.Quit
+					}
+					menu := []string{"Output message", "Reword commit"}
+					return model, func() tea.Msg {
+						return openListPopup{items: menu, width: model.width / 2, height: model.height / 2}
+					}
 				}
 
 			case key.Matches(msg, model.keys.SwitchMode):
@@ -1374,5 +1397,40 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	model.mainList, cmd = model.mainList.Update(msg)
+	return model, cmd
+}
+
+func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	model.releaseCommitList, cmd = model.releaseCommitList.Update(msg)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, model.keys.Up, model.keys.Down):
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.commitLivePreview = item.Preview
+			}
+		case key.Matches(msg, model.keys.Enter):
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.RewordHash = item.Hash
+				model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+				return model, tea.Quit
+			}
+		case key.Matches(msg, model.keys.Esc):
+			model.state = stateChoosingCommit
+			model.keys = mainListKeys()
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"choose, create, or edit a commit ::: %s",
+				model.Theme.AppStyles().
+					Base.Foreground(model.Theme.Tertiary).
+					SetString(model.mainList.Title),
+			)
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+			return model, nil
+		}
+	}
+
 	return model, cmd
 }

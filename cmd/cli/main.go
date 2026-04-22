@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var version = "v0.5.6"
+var version = "v0.5.7"
 
 func main() {
 	log := logger.New()
@@ -22,6 +22,11 @@ func main() {
 		"r",
 		false,
 		"Start the application in release choosing release mode",
+	)
+	directOutput := flag.Bool(
+		"o",
+		false,
+		"Output the commit message directly to stdout without showing options popup",
 	)
 	flag.Parse()
 
@@ -53,7 +58,7 @@ func main() {
 		appMode = tui.ReleaseMode
 	}
 
-	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes, pwd, appMode, version)
+	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes, pwd, appMode, version, *directOutput)
 	if err != nil {
 		log.Fatal("Error creating the TUI model", "error", err)
 	}
@@ -65,7 +70,15 @@ func main() {
 		log.Fatal("Oh no! There was an error", "error", err)
 	}
 
-	if m, ok := finalModel.(*tui.Model); ok && m.FinalMessage != "" {
-		fmt.Print(m.FinalMessage)
+	if m, ok := finalModel.(*tui.Model); ok {
+		if m.RewordHash != "" {
+			if err := tui.RewordCommit(m.RewordHash, m.FinalMessage); err != nil {
+				fmt.Fprintf(os.Stderr, "Error rewording commit: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Fprintf(os.Stderr, "Commit %s reworded successfully.\n", m.RewordHash[:7])
+		} else if m.FinalMessage != "" {
+			fmt.Print(m.FinalMessage)
+		}
 	}
 }

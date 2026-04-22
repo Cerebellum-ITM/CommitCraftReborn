@@ -318,6 +318,16 @@ func listKeys() KeyMap {
 	}
 }
 
+func rewordSelectKeys() KeyMap {
+	return KeyMap{
+		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Reword selected commit")),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+	}
+}
+
 func textInputKeys() KeyMap {
 	return KeyMap{
 		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "confirm")),

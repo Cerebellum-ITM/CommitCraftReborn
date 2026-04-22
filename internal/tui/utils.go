@@ -638,3 +638,56 @@ func GetNerdFontIcon(filename string, isDir bool) string {
 		return ""
 	}
 }
+
+// RewordCommit changes the commit message of the given hash to newMessage.
+// For HEAD it uses git commit --amend; for other commits it uses a non-interactive rebase.
+func RewordCommit(hash, newMessage string) error {
+	headOut, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		return fmt.Errorf("git rev-parse HEAD: %w", err)
+	}
+	headHash := strings.TrimSpace(string(headOut))
+
+	if strings.HasPrefix(headHash, hash) || strings.HasPrefix(hash, headHash) {
+		return exec.Command("git", "commit", "--amend", "-m", newMessage).Run()
+	}
+
+	shortHash := hash
+	if len(hash) > 7 {
+		shortHash = hash[:7]
+	}
+
+	seqEditor, err := os.CreateTemp("", "cc_seq_*.sh")
+	if err != nil {
+		return fmt.Errorf("creating temp sequence editor: %w", err)
+	}
+	fmt.Fprintf(seqEditor, "#!/bin/sh\nsed -i.bak 's/^pick %s/reword %s/' \"$1\"\n", shortHash, shortHash)
+	seqEditor.Close()
+	os.Chmod(seqEditor.Name(), 0o755)
+	defer os.Remove(seqEditor.Name())
+	defer os.Remove(seqEditor.Name() + ".bak")
+
+	msgFile, err := os.CreateTemp("", "cc_msg_*.txt")
+	if err != nil {
+		return fmt.Errorf("creating temp message file: %w", err)
+	}
+	fmt.Fprint(msgFile, newMessage)
+	msgFile.Close()
+	defer os.Remove(msgFile.Name())
+
+	msgEditor, err := os.CreateTemp("", "cc_editmsg_*.sh")
+	if err != nil {
+		return fmt.Errorf("creating temp message editor: %w", err)
+	}
+	fmt.Fprintf(msgEditor, "#!/bin/sh\ncp %s \"$1\"\n", msgFile.Name())
+	msgEditor.Close()
+	os.Chmod(msgEditor.Name(), 0o755)
+	defer os.Remove(msgEditor.Name())
+
+	cmd := exec.Command("git", "rebase", "-i", hash+"^")
+	cmd.Env = append(os.Environ(),
+		"GIT_SEQUENCE_EDITOR="+seqEditor.Name(),
+		"GIT_EDITOR="+msgEditor.Name(),
+	)
+	return cmd.Run()
+}

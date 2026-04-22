@@ -111,6 +111,7 @@ const (
 	stateReleaseChoosingCommits
 	stateReleaseBuildingText
 	stateReleaseMainMenu
+	stateRewordSelectCommit
 	stateDone
 )
 
@@ -168,6 +169,8 @@ type Model struct {
 	pipelineViewport3       viewport.Model
 	useDbCommmit            bool
 	FinalMessage            string
+	RewordHash              string
+	OutputDirect            bool
 	currentCommit           storage.Commit
 	draftMode               bool
 	keys                    KeyMap
@@ -187,6 +190,7 @@ func NewModel(
 	pwd string,
 	appMode appMode,
 	version string,
+	outputDirect bool,
 ) (*Model, error) {
 	var initalState appState
 	var initialKeys KeyMap
@@ -376,6 +380,7 @@ func NewModel(
 		pipelineViewport2:       pvp2,
 		pipelineViewport3:       pvp3,
 		useDbCommmit:            false,
+		OutputDirect:            outputDirect,
 		Version:                 version,
 	}
 	return m, nil
