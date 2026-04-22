@@ -392,6 +392,9 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	model.currentCommit.MessageEN = model.commitTranslate
 	model.currentCommit.Workspace = model.pwd
 	model.currentCommit.Diff_code = model.diffCode
+	model.currentCommit.IaSummary = model.iaSummaryOutput
+	model.currentCommit.IaCommitRaw = model.iaCommitRawOutput
+	model.currentCommit.IaTitle = model.iaTitleRawOutput
 	model.currentCommit.CreatedAt = time.Now()
 
 	var err error
@@ -1261,14 +1264,19 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				selectedItem := model.mainList.SelectedItem()
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
 					commit := commitItem.commit
+					model.currentCommit = commit
 					model.commitScope = commit.Scope
 					model.commitType = commit.Type
 					model.diffCode = commit.Diff_code
 					model.commitMsg = strings.Join(commit.KeyPoints, "\n")
 					model.commitTranslate = commit.MessageEN
+					model.iaSummaryOutput = commit.IaSummary
+					model.iaCommitRawOutput = commit.IaCommitRaw
+					model.iaTitleRawOutput = commit.IaTitle
 					model.useDbCommmit = true
 					model.keyPoints = commit.KeyPoints
 					model.state = stateWritingMessage
+					model.iaViewport.SetContent(commit.MessageEN)
 					model.keys = writingMessageKeys()
 				}
 				return model, nil

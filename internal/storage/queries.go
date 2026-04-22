@@ -55,7 +55,7 @@ func (db *DB) CreateCommit(c Commit) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
 	_, err := db.Exec(
-		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		c.Type,
 		c.Scope,
 		joinKeyPoints(c.KeyPoints),
@@ -63,6 +63,9 @@ func (db *DB) CreateCommit(c Commit) error {
 		c.Workspace,
 		c.Diff_code,
 		"completed",
+		c.IaSummary,
+		c.IaCommitRaw,
+		c.IaTitle,
 		createdAt,
 	)
 	return errors.Wrap(err, "failed to insert commit")
@@ -211,12 +214,15 @@ func (db *DB) SaveDraft(c *Commit) error {
 // FinalizeCommit updates a commit to set its status to 'completed' and saves final data.
 func (db *DB) FinalizeCommit(c Commit) error {
 	_, err := db.Exec(
-		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ?, status = 'completed' WHERE id = ?",
+		"UPDATE commits SET type = ?, scope = ?, message_es = ?, message_en = ?, diff_code = ?, ia_summary = ?, ia_commit_raw = ?, ia_title = ?, status = 'completed' WHERE id = ?",
 		c.Type,
 		c.Scope,
 		joinKeyPoints(c.KeyPoints),
 		c.MessageEN,
 		c.Diff_code,
+		c.IaSummary,
+		c.IaCommitRaw,
+		c.IaTitle,
 		c.ID,
 	)
 	return errors.Wrap(err, "failed to finalize commit")
