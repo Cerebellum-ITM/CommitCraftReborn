@@ -570,6 +570,11 @@ func assembleCommitMessage(titleText, commitBody string) string {
 	return fmt.Sprintf("%s\n\n%s", titleText, commitBody)
 }
 
+func assembleOutputCommitMessage(model *Model, commit storage.Commit) string {
+	formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
+	return fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+}
+
 func ia_commit_builder(model *Model) error {
 	summaryParagraphs, err := iaCallChangeAnalyzer(model)
 	if err != nil {
@@ -1291,8 +1296,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					return model, nil
 				} else {
 					// Original logic for completed commits
-					formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
-					model.FinalMessage = fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+					model.FinalMessage = assembleOutputCommitMessage(model, commit)
 					return model, tea.Quit
 				}
 
