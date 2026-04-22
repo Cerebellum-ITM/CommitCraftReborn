@@ -64,7 +64,7 @@ stateReleaseBuildingText    → preview and edit the generated release
 **Key transitions:**
 - `stateChoosingCommit → stateChoosingType` (AddCommit key)
 - `stateChoosingType → stateChoosingScope` (Enter)
-- `stateChoosingScope → stateWritingMessage` (Enter)
+- `stateChoosingScope → stateWritingMessage` (Enter) — calls `commitsKeysInput.Focus()`, returns the cmd
 - `stateWritingMessage` → AI call (Ctrl+W) → `IaCommitBuilderResultMsg` → stays in same state
 - `stateWritingMessage` → Enter → `createCommit()` → `stateChoosingCommit`
 - ESC on most states returns to the previous state
@@ -117,6 +117,69 @@ type Commit struct {
 }
 ```
 
+## commitsKeysInput — textarea for keypoints
+
+`commitsKeysInput` is a `textarea.Model` (not `textinput`). Each keypoint is a separate entry in `model.keyPoints []string`. The textarea provides multi-line display but Enter adds a keypoint — it does NOT insert a newline.
+
+**Initialization in `model.go`:**
+```go
+commitsKeysInput := textarea.New()
+commitsKeysInput.SetHeight(4)
+commitsKeysInput.ShowLineNumbers = false
+commitsKeysInput.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
+commitsKeysInput.Placeholder = "Add a key point..."
+kpiStyles := theme.AppStyles().TextArea
+kpiStyles.Focused.Placeholder = theme.AppStyles().Base.Foreground(theme.FgMuted)
+kpiStyles.Cursor.Blink = true
+commitsKeysInput.SetStyles(kpiStyles)
+commitsKeysInput.SetPromptFunc(4, func(info textarea.PromptInfo) string {
+    s := theme.AppStyles().KeyPointsInput
+    if info.LineNumber == 0 {
+        if info.Focused { return s.PromptFocused.Render() }
+        return s.PromptBlurred.Render()
+    }
+    if info.Focused { return s.DotsFocused.Render() }
+    return s.DotsBlurred.Render()
+})
+```
+
+**Prompt symbols (from `styles/theme.go` → `KeyPointsInput`):**
+- Line 0: `  > ` (green when focused, `theme.Blur` when blurred)
+- Other lines: `::: ` (green when focused, `theme.Blur` when blurred)
+
+**Focus/Blur rule:** `Focus()` returns a `tea.Cmd` that starts the blink tick — it must always be called from `update.go` and its return value captured and returned. Never call `Focus()` or `Blur()` from `view.go` (the cmd would be lost). `switchFocusElement()` handles Focus/Blur for Tab/Shift+Tab transitions.
+
+**Pending input flush:** Before any save operation (create, draft, AI call), flush uncommitted textarea text:
+```go
+if v := model.commitsKeysInput.Value(); v != "" {
+    model.keyPoints = append(model.keyPoints, v)
+    model.commitsKeysInput.SetValue("")
+}
+```
+
+## Theme — styles/theme.go
+
+`Styles` struct contains a `KeyPointsInput` sub-struct:
+```go
+KeyPointsInput struct {
+    PromptFocused lipgloss.Style
+    PromptBlurred lipgloss.Style
+    DotsFocused   lipgloss.Style
+    DotsBlurred   lipgloss.Style
+}
+```
+
+Populated in `buildStyles()` using `base.Foreground(t.Green).SetString("  > ")` pattern (lipgloss embedded string style). Always use `theme.AppStyles().KeyPointsInput` to access these — never hardcode prompt strings or colors.
+
+## switchFocusElement
+
+`switchFocusElement(model *Model) tea.Cmd` in `update.go`:
+- Handles Tab/Shift+Tab focus switching for all states
+- For `focusMsgInput → focusAIResponse`: calls `commitsKeysInput.Blur()` (no cmd needed)
+- For `focusAIResponse → focusMsgInput`: calls `commitsKeysInput.Focus()` and returns the cmd
+- For release states: swaps between `focusListElement` and `focusViewportElement`
+- All callers must capture and return the cmd: `cmd = switchFocusElement(model); return model, cmd`
+
 ## AI flow
 
 ```
@@ -147,6 +210,8 @@ Commit types support `behavior = "append" | "replace"` to combine or replace the
 - Always use `model.Theme` for styling — never hardcode colors.
 - Schema migrations go in `applySchemaMigrations()`, never modify `createTables()`.
 - `model.keyPoints []string` is the source of truth for keypoints; `model.commitMsg` is the joined string passed to the AI.
+- `Focus()` on any component returns a `tea.Cmd` — always capture it and return it up the call chain.
+- Never call component `Focus()`/`Blur()` from `view.go` — only from `update.go`.
 
 ## Key bindings (stateWritingMessage)
 
@@ -159,3 +224,7 @@ Commit types support `behavior = "append" | "replace"` to combine or replace the
 | `Tab` / `Shift+Tab` | Switches focus between input and AI viewport |
 | `Ctrl+E` | Enters AI response edit mode |
 | `ESC` | Cancels and returns to previous state |
+
+## Planned features (not yet implemented)
+
+- **Autocomplete for git files:** trigger with `@` or `/` in `commitsKeysInput`, showing a popup list populated from `model.gitStatusData`. Previously this was on `textinput` — now needs to be reimplemented on `textarea`.
