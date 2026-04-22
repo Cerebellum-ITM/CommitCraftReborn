@@ -43,10 +43,11 @@ type Tools struct {
 }
 
 const (
-	focusMsgInput   focusableElement = iota // 0
-	focusAIResponse                         // 1
+	focusMsgInput        focusableElement = iota // 0
+	focusAIResponse                              // 1
 	focusListElement
 	focusViewportElement
+	focusPipelineViewport // 4 — active viewport in pipeline tab
 )
 
 // We use iota to create an "enum" for our application states.
@@ -157,6 +158,13 @@ type Model struct {
 	commitMsg               string
 	commitTranslate         string
 	diffCode                string
+	iaSummaryOutput         string
+	iaCommitRawOutput       string
+	activeTab               int
+	activePipelineStage     int
+	pipelineViewport1       viewport.Model
+	pipelineViewport2       viewport.Model
+	pipelineViewport3       viewport.Model
 	useDbCommmit            bool
 	FinalMessage            string
 	currentCommit           storage.Commit
@@ -270,6 +278,17 @@ func NewModel(
 		BorderForeground(theme.FocusableElement).
 		PaddingRight(2)
 
+	pipelineVpStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.Border{Left: "┃"}).
+		BorderForeground(theme.FocusableElement).
+		PaddingRight(2)
+	pvp1 := viewport.New()
+	pvp1.Style = pipelineVpStyle
+	pvp2 := viewport.New()
+	pvp2.Style = pipelineVpStyle
+	pvp3 := viewport.New()
+	pvp3.Style = pipelineVpStyle
+
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
@@ -352,6 +371,9 @@ func NewModel(
 		globalConfig:            config,
 		Theme:                   theme,
 		commitsKeysViewport:     ckiVp,
+		pipelineViewport1:       pvp1,
+		pipelineViewport2:       pvp2,
+		pipelineViewport3:       pvp3,
 		useDbCommmit:            false,
 		Version:                 version,
 	}

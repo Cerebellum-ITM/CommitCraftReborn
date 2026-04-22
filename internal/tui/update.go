@@ -30,6 +30,10 @@ type IaResleaseBuilderResultMsg struct {
 	Err error
 }
 
+type IaSummaryResultMsg struct{ Err error }
+type IaCommitRawResultMsg struct{ Err error }
+type IaOutputFormatResultMsg struct{ Err error }
+
 // Main Update Function
 func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Make sure the model is passed as a pointer.
@@ -205,6 +209,42 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.state = stateWritingMessage
 		return model, tea.Batch(cmds...)
 
+	case IaSummaryResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		if msg.Err != nil {
+			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 1): %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else {
+			model.WritingStatusBar.Content = "Pipeline re-run complete!"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+		}
+		model.state = stateWritingMessage
+		return model, tea.Batch(cmds...)
+
+	case IaCommitRawResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		if msg.Err != nil {
+			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 2): %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else {
+			model.WritingStatusBar.Content = "Stages 2+3 re-run complete!"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+		}
+		model.state = stateWritingMessage
+		return model, tea.Batch(cmds...)
+
+	case IaOutputFormatResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		if msg.Err != nil {
+			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 3): %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else {
+			model.WritingStatusBar.Content = "Stage 3 re-run complete!"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+		}
+		model.state = stateWritingMessage
+		return model, tea.Batch(cmds...)
+
 	case IaResleaseBuilderResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 
@@ -308,6 +348,10 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.commitTranslate = ""
 		model.commitScope = ""
 		model.keyPoints = nil
+		model.iaSummaryOutput = ""
+		model.iaCommitRawOutput = ""
+		model.activeTab = 0
+		model.activePipelineStage = 0
 		model.keys = mainListKeys()
 	case stateChoosingType:
 		statusBarMessage = "Select a prefix for the commit"
@@ -477,6 +521,7 @@ func ia_commit_builder(userInput string, model *Model) error {
 		model,
 	)
 
+	model.iaSummaryOutput = iaSumarry
 	model.log.Debug("exit summary prompt", "iaSumarry", iaSumarry)
 	iaCommitRawOutput, err := createAndSendIaMessage(
 		promptConfig.CommitBuilderPrompt,
@@ -490,6 +535,7 @@ func ia_commit_builder(userInput string, model *Model) error {
 			err,
 		)
 	}
+	model.iaCommitRawOutput = iaCommitRawOutput
 
 	iaFormattedInput := fmt.Sprintf("[PREAMBLE]: %s\n%s", preambleMessage, iaCommitRawOutput)
 	model.log.Debug("output Input", "iaFormattedInput", iaFormattedInput)
@@ -521,6 +567,60 @@ func callIaCommitBuilderCmd(userInput string, model *Model) tea.Cmd {
 	return func() tea.Msg {
 		err := ia_commit_builder(userInput, model)
 		return IaCommitBuilderResultMsg{Err: err}
+	}
+}
+
+func callIaSummaryCmd(model *Model) tea.Cmd {
+	userInput := strings.Join(model.keyPoints, "\n")
+	return func() tea.Msg {
+		err := ia_commit_builder(userInput, model)
+		return IaSummaryResultMsg{Err: err}
+	}
+}
+
+func callIaCommitBuilderStage2Cmd(model *Model) tea.Cmd {
+	return func() tea.Msg {
+		promptConfig := model.globalConfig.Prompts
+		preamble := fmt.Sprintf("%s %s: ", model.commitType, model.commitScope)
+		raw, err := createAndSendIaMessage(
+			promptConfig.CommitBuilderPrompt,
+			fmt.Sprintf("COMMIT_TYPE:\n%s\nSUMMARY:\n%s", model.commitType, model.iaSummaryOutput),
+			promptConfig.CommitBuilderPromptModel,
+			model,
+		)
+		if err != nil {
+			return IaCommitRawResultMsg{Err: err}
+		}
+		model.iaCommitRawOutput = raw
+		formatted, err := createAndSendIaMessage(
+			promptConfig.OutputFormatPrompt,
+			fmt.Sprintf("[PREAMBLE]: %s\n%s", preamble, raw),
+			promptConfig.OutputFormatPromptModel,
+			model,
+		)
+		if err != nil {
+			return IaCommitRawResultMsg{Err: err}
+		}
+		model.commitTranslate = formatted
+		return IaCommitRawResultMsg{Err: nil}
+	}
+}
+
+func callIaOutputFormatCmd(model *Model) tea.Cmd {
+	return func() tea.Msg {
+		promptConfig := model.globalConfig.Prompts
+		preamble := fmt.Sprintf("%s %s: ", model.commitType, model.commitScope)
+		formatted, err := createAndSendIaMessage(
+			promptConfig.OutputFormatPrompt,
+			fmt.Sprintf("[PREAMBLE]: %s\n%s", preamble, model.iaCommitRawOutput),
+			promptConfig.OutputFormatPromptModel,
+			model,
+		)
+		if err != nil {
+			return IaOutputFormatResultMsg{Err: err}
+		}
+		model.commitTranslate = formatted
+		return IaOutputFormatResultMsg{Err: nil}
 	}
 }
 
@@ -824,10 +924,60 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.SwitchTab):
+			if model.activeTab == 0 {
+				model.activeTab = 1
+				model.focusedElement = focusPipelineViewport
+				model.commitsKeysInput.Blur()
+				model.keys.RerunStage1.SetEnabled(true)
+				model.keys.RerunStage2.SetEnabled(true)
+				model.keys.RerunStage3.SetEnabled(true)
+			} else {
+				model.activeTab = 0
+				model.activePipelineStage = 0
+				model.focusedElement = focusMsgInput
+				model.keys.RerunStage1.SetEnabled(false)
+				model.keys.RerunStage2.SetEnabled(false)
+				model.keys.RerunStage3.SetEnabled(false)
+				return model, model.commitsKeysInput.Focus()
+			}
+			return model, nil
+		case key.Matches(msg, model.keys.RerunStage1):
+			if model.iaSummaryOutput != "" {
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				model.WritingStatusBar.Content = "Re-running from Stage 1..."
+				spinnerCmd := model.WritingStatusBar.StartSpinner()
+				return model, tea.Batch(spinnerCmd, callIaSummaryCmd(model))
+			}
+			return model, nil
+		case key.Matches(msg, model.keys.RerunStage2):
+			if model.iaSummaryOutput != "" {
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				model.WritingStatusBar.Content = "Re-running from Stage 2..."
+				spinnerCmd := model.WritingStatusBar.StartSpinner()
+				return model, tea.Batch(spinnerCmd, callIaCommitBuilderStage2Cmd(model))
+			}
+			return model, nil
+		case key.Matches(msg, model.keys.RerunStage3):
+			if model.iaCommitRawOutput != "" {
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				model.WritingStatusBar.Content = "Re-running Stage 3..."
+				spinnerCmd := model.WritingStatusBar.StartSpinner()
+				return model, tea.Batch(spinnerCmd, callIaOutputFormatCmd(model))
+			}
+			return model, nil
 		case key.Matches(msg, model.keys.NextField):
+			if model.activeTab == 1 {
+				model.activePipelineStage = (model.activePipelineStage + 1) % 3
+				return model, nil
+			}
 			cmd = switchFocusElement(model)
 			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
+			if model.activeTab == 1 {
+				model.activePipelineStage = (model.activePipelineStage + 2) % 3
+				return model, nil
+			}
 			cmd = switchFocusElement(model)
 			return model, cmd
 		case key.Matches(msg, model.keys.SaveDraft):
@@ -886,10 +1036,18 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	}
 	switch model.focusedElement {
 	case focusMsgInput:
-		// model.msgInput, cmd = model.msgInput.Update(msg)
 		model.commitsKeysInput, cmd = model.commitsKeysInput.Update(msg)
 	case focusAIResponse:
 		model.iaViewport, cmd = model.iaViewport.Update(msg)
+	case focusPipelineViewport:
+		switch model.activePipelineStage {
+		case 0:
+			model.pipelineViewport1, cmd = model.pipelineViewport1.Update(msg)
+		case 1:
+			model.pipelineViewport2, cmd = model.pipelineViewport2.Update(msg)
+		case 2:
+			model.pipelineViewport3, cmd = model.pipelineViewport3.Update(msg)
+		}
 	}
 	return model, cmd
 }

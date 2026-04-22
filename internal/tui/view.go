@@ -203,6 +203,93 @@ func (model *Model) releaseLivePreviewFooterView(state string) string {
 	)
 }
 
+func (model *Model) buildTabBar(totalWidth int) string {
+	base := model.Theme.AppStyles().Base
+	activeStyle := base.
+		Background(model.Theme.Primary).
+		Foreground(model.Theme.Black).
+		Padding(0, 2)
+	inactiveStyle := base.
+		Foreground(model.Theme.FocusableElement).
+		Padding(0, 2)
+
+	var composeTab, pipelineTab string
+	if model.activeTab == 0 {
+		composeTab = activeStyle.Render("Compose")
+		pipelineTab = inactiveStyle.Render("Pipeline")
+	} else {
+		composeTab = inactiveStyle.Render("Compose")
+		pipelineTab = activeStyle.Render("Pipeline")
+	}
+	tabs := lipgloss.JoinHorizontal(lipgloss.Left, composeTab, pipelineTab)
+	tabWidth := lipgloss.Width(tabs)
+	line := base.Foreground(model.Theme.Blur).
+		Render(strings.Repeat("─", max(0, totalWidth-tabWidth)))
+	return lipgloss.JoinHorizontal(lipgloss.Left, tabs, line)
+}
+
+func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
+	stageH := contentHeight / 3
+
+	model.pipelineViewport1.SetWidth(contentWidth)
+	model.pipelineViewport1.SetHeight(max(1, stageH-2))
+	model.pipelineViewport2.SetWidth(contentWidth)
+	model.pipelineViewport2.SetHeight(max(1, stageH-2))
+	model.pipelineViewport3.SetWidth(contentWidth)
+	model.pipelineViewport3.SetHeight(max(1, stageH-2))
+
+	if model.iaSummaryOutput == "" {
+		model.pipelineViewport1.SetContent("(empty — run the AI to populate this stage)")
+	} else {
+		model.pipelineViewport1.SetContent(model.iaSummaryOutput)
+	}
+	if model.iaCommitRawOutput == "" {
+		model.pipelineViewport2.SetContent("(empty — run the AI to populate this stage)")
+	} else {
+		model.pipelineViewport2.SetContent(model.iaCommitRawOutput)
+	}
+	if model.commitTranslate == "" {
+		model.pipelineViewport3.SetContent("(empty — run the AI to populate this stage)")
+	} else {
+		model.pipelineViewport3.SetContent(model.commitTranslate)
+	}
+
+	focusColor := model.Theme.BorderFocus
+	blurColor := model.Theme.FocusableElement
+
+	vp1Style := model.pipelineViewport1.Style
+	vp2Style := model.pipelineViewport2.Style
+	vp3Style := model.pipelineViewport3.Style
+
+	switch model.activePipelineStage {
+	case 0:
+		vp1Style = vp1Style.BorderForeground(focusColor)
+		vp2Style = vp2Style.BorderForeground(blurColor)
+		vp3Style = vp3Style.BorderForeground(blurColor)
+	case 1:
+		vp1Style = vp1Style.BorderForeground(blurColor)
+		vp2Style = vp2Style.BorderForeground(focusColor)
+		vp3Style = vp3Style.BorderForeground(blurColor)
+	case 2:
+		vp1Style = vp1Style.BorderForeground(blurColor)
+		vp2Style = vp2Style.BorderForeground(blurColor)
+		vp3Style = vp3Style.BorderForeground(focusColor)
+	}
+	model.pipelineViewport1.Style = vp1Style
+	model.pipelineViewport2.Style = vp2Style
+	model.pipelineViewport3.Style = vp3Style
+
+	header1 := model.buildStyledBorder("blur", "Stage 1 — Summary  [1] re-run", HeaderStyle, contentWidth, AlignHeader)
+	header2 := model.buildStyledBorder("blur", "Stage 2 — Raw Commit  [2] re-run", HeaderStyle, contentWidth, AlignHeader)
+	header3 := model.buildStyledBorder("blur", "Stage 3 — Formatted  [3] re-run", HeaderStyle, contentWidth, AlignHeader)
+
+	stage1 := lipgloss.JoinVertical(lipgloss.Left, header1, model.pipelineViewport1.View())
+	stage2 := lipgloss.JoinVertical(lipgloss.Left, header2, model.pipelineViewport2.View())
+	stage3 := lipgloss.JoinVertical(lipgloss.Left, header3, model.pipelineViewport3.View())
+
+	return lipgloss.JoinVertical(lipgloss.Left, stage1, stage2, stage3)
+}
+
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	var (
 		glamourContent             string
@@ -215,6 +302,9 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 
 	const glamourGutter = 3
 	statusBarContent := model.WritingStatusBar.Render()
+	tabBar := model.buildTabBar(model.width)
+	tabBarHeight := lipgloss.Height(tabBar)
+
 	currentIaViewportStyle := model.iaViewport.Style
 	switch model.focusedElement {
 	case focusMsgInput:
@@ -237,6 +327,11 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 
 		userInputViewHeaderContent = model.userInputHeaderView("blur")
 		userInputiewFooterContent = model.userInputFooterView("blur")
+	case focusPipelineViewport:
+		userInputViewHeaderContent = model.userInputHeaderView("blur")
+		userInputiewFooterContent = model.userInputFooterView("blur")
+		iaViewHeaderContent = model.iaHeaderView("blur")
+		iaViewFooterContent = model.iaFooterView("blur")
 	}
 
 	statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
@@ -248,7 +343,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	userInputViewFooterH := lipgloss.Height(userInputiewFooterContent)
 	iaVerticalMarginHeight := iaHeaderH + iaFooterH
 	userInputViewVerticalMarginHeight := userInputViewHeaderH + userInputViewFooterH
-	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - 2
+	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - tabBarHeight - 2
 
 	iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
 	userInputVContenHeight := totalAvailableContentHeight - userInputViewVerticalMarginHeight
@@ -292,18 +387,26 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		VerticalSpace,
 		userInputiewFooterContent,
 	)
-	rightTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
-		iaViewHeaderContent,
-		model.iaViewport.View(),
-		iaViewFooterContent,
-	)
+
+	var rightContent string
+	if model.activeTab == 0 {
+		rightContent = lipgloss.JoinVertical(lipgloss.Left,
+			iaViewHeaderContent,
+			model.iaViewport.View(),
+			iaViewFooterContent,
+		)
+	} else {
+		rightContent = model.buildPipelineView(model.width/2, totalAvailableContentHeight)
+	}
+
 	uiElements := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		leftTranslatedContent,
-		rightTranslatedContent,
+		rightContent,
 	)
 	return lipgloss.JoinVertical(lipgloss.Left,
 		statusBarContent,
+		tabBar,
 		VerticalSpace,
 		uiElements,
 	)

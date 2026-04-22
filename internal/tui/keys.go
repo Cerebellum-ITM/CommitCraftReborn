@@ -46,6 +46,12 @@ type KeyMap struct {
 
 	// Templates
 	CreateLocalTomlConfig key.Binding
+
+	// Pipeline tab
+	SwitchTab   key.Binding
+	RerunStage1 key.Binding
+	RerunStage2 key.Binding
+	RerunStage3 key.Binding
 }
 
 func writingMessageKeys() KeyMap {
@@ -87,6 +93,25 @@ func writingMessageKeys() KeyMap {
 		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+		SwitchTab: key.NewBinding(
+			key.WithKeys("ctrl+t"),
+			key.WithHelp("ctrl+t", "Switch tab"),
+		),
+		RerunStage1: key.NewBinding(
+			key.WithKeys("1"),
+			key.WithHelp("1", "Re-run Stage 1+"),
+			key.WithDisabled(),
+		),
+		RerunStage2: key.NewBinding(
+			key.WithKeys("2"),
+			key.WithHelp("2", "Re-run Stage 2+"),
+			key.WithDisabled(),
+		),
+		RerunStage3: key.NewBinding(
+			key.WithKeys("3"),
+			key.WithHelp("3", "Re-run Stage 3"),
+			key.WithDisabled(),
+		),
 	}
 }
 
@@ -360,6 +385,18 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	if k.GlobalQuit.Enabled() {
 		b = append(b, k.GlobalQuit)
 	}
+	if k.SwitchTab.Enabled() {
+		b = append(b, k.SwitchTab)
+	}
+	if k.RerunStage1.Enabled() {
+		b = append(b, k.RerunStage1)
+	}
+	if k.RerunStage2.Enabled() {
+		b = append(b, k.RerunStage2)
+	}
+	if k.RerunStage3.Enabled() {
+		b = append(b, k.RerunStage3)
+	}
 	return b
 }
 
@@ -442,6 +479,18 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.CreateLocalTomlConfig.Enabled() {
 		b = append(b, k.CreateLocalTomlConfig)
+	}
+	if k.SwitchTab.Enabled() {
+		b = append(b, k.SwitchTab)
+	}
+	if k.RerunStage1.Enabled() {
+		b = append(b, k.RerunStage1)
+	}
+	if k.RerunStage2.Enabled() {
+		b = append(b, k.RerunStage2)
+	}
+	if k.RerunStage3.Enabled() {
+		b = append(b, k.RerunStage3)
 	}
 	return [][]key.Binding{b}
 }
