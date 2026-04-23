@@ -253,20 +253,29 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	model.pipelineViewport3.SetWidth(contentWidth)
 	model.pipelineViewport3.SetHeight(max(1, stageH-2))
 
+	glamourStyle := styles.TokyoNightStyleConfig
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithStyles(glamourStyle),
+		glamour.WithWordWrap(contentWidth),
+	)
+
 	if model.iaSummaryOutput == "" {
 		model.pipelineViewport1.SetContent("(empty — run the AI to populate this stage)")
 	} else {
-		model.pipelineViewport1.SetContent(model.iaSummaryOutput)
+		glamourContentStr, _ := renderer.Render(model.iaSummaryOutput)
+		model.pipelineViewport1.SetContent(glamourContentStr)
 	}
 	if model.iaCommitRawOutput == "" {
 		model.pipelineViewport2.SetContent("(empty — run the AI to populate this stage)")
 	} else {
-		model.pipelineViewport2.SetContent(model.iaCommitRawOutput)
+		glamourContentStr, _ := renderer.Render(model.iaCommitRawOutput)
+		model.pipelineViewport2.SetContent(glamourContentStr)
 	}
 	if model.commitTranslate == "" {
 		model.pipelineViewport3.SetContent("(empty — run the AI to populate this stage)")
 	} else {
-		model.pipelineViewport3.SetContent(model.iaTitleRawOutput)
+		glamourContentStr, _ := renderer.Render(model.iaTitleRawOutput)
+		model.pipelineViewport3.SetContent(glamourContentStr)
 	}
 
 	focusColor := model.Theme.BorderFocus
@@ -393,7 +402,7 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 
 	model.iaViewport.Style = currentIaViewportStyle
 	glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
-	glamourStyle := styles.DarkStyleConfig
+	glamourStyle := styles.TokyoNightStyleConfig
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStyles(glamourStyle),
 		glamour.WithWordWrap(glamourRenderWidth),
@@ -508,7 +517,7 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 		model.msgEdit.View(),
 	)
 	glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
-	glamourStyle := styles.DarkStyleConfig
+	glamourStyle := styles.TokyoNightStyleConfig
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStyles(glamourStyle),
 		glamour.WithWordWrap(glamourRenderWidth),
@@ -590,7 +599,7 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 	model.releaseViewport.SetHeight(totalAvailableContentHeight)
 
 	glamourRenderWidth := model.releaseViewport.Width() - model.releaseViewport.Style.GetHorizontalFrameSize() - glamourGutter
-	glamourStyle := styles.DarkStyleConfig
+	glamourStyle := styles.TokyoNightStyleConfig
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStyles(glamourStyle),
 		glamour.WithWordWrap(glamourRenderWidth),
