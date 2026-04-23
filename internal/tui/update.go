@@ -1368,9 +1368,13 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 						model.FinalMessage = assembleOutputCommitMessage(model, commit)
 						return model, tea.Quit
 					}
+					var menuOptions []itemsOptions
 					menu := []string{"Output message", "Reword commit", "Commit and reword"}
+					menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Red, icon: model.Theme.AppSymbols().Console})
+					menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.Theme.Yellow, icon: model.Theme.AppSymbols().Rewrite})
+					menuOptions = append(menuOptions, itemsOptions{index: 2, color: model.Theme.Success, icon: model.Theme.AppSymbols().NewAndRewrite})
 					return model, func() tea.Msg {
-						return openListPopup{items: menu, width: model.width / 2, height: model.height / 2}
+						return openListPopup{items: menu, itemsOptions: menuOptions, width: model.width / 2, height: model.height / 2}
 					}
 				}
 

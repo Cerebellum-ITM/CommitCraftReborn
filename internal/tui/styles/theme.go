@@ -53,6 +53,8 @@ type Theme struct {
 
 type Symbols struct {
 	Commit           string
+	Rewrite          string
+	NewAndRewrite    string
 	Console          string
 	GhEnable         string
 	GhMissing        string

@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const rewordPopupRatio = 0.70
+const rewordPopupRatio = 1
 
 var (
 	focusColor      color.Color
@@ -645,10 +645,28 @@ func (model *Model) buildRewordSelectView() string {
 	innerH := max(4, popupH-2)
 	halfW := innerW / 2
 
-	listHeader := model.buildStyledBorder("focus", "Select a commit to reword", HeaderStyle, halfW, AlignHeader)
-	listFooter := model.buildStyledBorder("focus", "↑/↓ navigate  ·  enter reword  ·  esc back", FooterStyle, halfW, AlignFooter)
+	listHeader := model.buildStyledBorder(
+		"focus",
+		"Select a commit to reword",
+		HeaderStyle,
+		halfW,
+		AlignHeader,
+	)
+	listFooter := model.buildStyledBorder(
+		"focus",
+		"↑/↓ navigate  ·  enter reword  ·  esc back",
+		FooterStyle,
+		halfW,
+		AlignFooter,
+	)
 	previewHeader := model.buildStyledBorder("blur", "Commit diff", HeaderStyle, halfW, AlignHeader)
-	previewFooter := model.buildStyledBorder("blur", fmt.Sprintf("%3.f%%", model.releaseViewport.ScrollPercent()*100), FooterStyle, halfW, AlignFooter)
+	previewFooter := model.buildStyledBorder(
+		"blur",
+		fmt.Sprintf("%3.f%%", model.releaseViewport.ScrollPercent()*100),
+		FooterStyle,
+		halfW,
+		AlignFooter,
+	)
 
 	headerH := lipgloss.Height(listHeader)
 	footerH := lipgloss.Height(listFooter)
@@ -660,7 +678,10 @@ func (model *Model) buildRewordSelectView() string {
 	model.releaseViewport.SetWidth(halfW)
 	model.releaseViewport.SetHeight(listHeight)
 
-	glamourRenderWidth := max(10, halfW-model.releaseViewport.Style.GetHorizontalFrameSize()-glamourGutter)
+	glamourRenderWidth := max(
+		10,
+		halfW-model.releaseViewport.Style.GetHorizontalFrameSize()-glamourGutter,
+	)
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStyles(styles.DarkStyleConfig),
 		glamour.WithWordWrap(glamourRenderWidth),
@@ -669,7 +690,11 @@ func (model *Model) buildRewordSelectView() string {
 	model.releaseViewport.SetContent(glamourContentStr)
 
 	listFocusLine := lipgloss.NewStyle().Height(listHeight).Render("┃")
-	listCompositeView := lipgloss.JoinHorizontal(lipgloss.Center, listFocusLine, model.releaseCommitList.View())
+	listCompositeView := lipgloss.JoinHorizontal(
+		lipgloss.Center,
+		listFocusLine,
+		model.releaseCommitList.View(),
+	)
 
 	leftContent := lipgloss.JoinVertical(lipgloss.Left,
 		listHeader,
@@ -702,7 +727,13 @@ func (model *Model) buildRewordSelectView() string {
 	vertSpaceSingle := lipgloss.Height(VerticalSpace)
 	availableH := max(1, model.height-statusBarH-helpH-vertSpaceSingle)
 
-	centeredPopup := lipgloss.Place(model.width, availableH, lipgloss.Center, lipgloss.Center, popupBox)
+	centeredPopup := lipgloss.Place(
+		model.width,
+		availableH,
+		lipgloss.Center,
+		lipgloss.Center,
+		popupBox,
+	)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		statusBarContent,
