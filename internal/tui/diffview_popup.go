@@ -7,17 +7,196 @@ import (
 	"strconv"
 	"strings"
 
-	"commit_craft_reborn/internal/tui/styles"
+	tuistyles "commit_craft_reborn/internal/tui/styles"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	chroma "github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/lexers"
+	chromastyles "github.com/alecthomas/chroma/v2/styles"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/exp/charmtone"
 )
+
+// -------------------------------------------------------------------------
+// Crush base diff style — exact replica of crush's DefaultStyles() s.Diff block
+// (internal/ui/styles/styles.go), variables mapped:
+//   fgHalfMuted = charmtone.Smoke  (#BFBCC8)
+//   bgBaseLighter = charmtone.BBQ  (#2d2c35)
+//   bgBase        = charmtone.Pepper (#201F26)
+//   fgMuted       = charmtone.Squid  (#858392)
+
+type diffLineStyle struct {
+	LineNumber lipgloss.Style
+	Symbol     lipgloss.Style
+	Code       lipgloss.Style
+	// bgHex is used to drive chroma syntax highlighting background.
+	bgHex string
+}
+
+type diffStyle struct {
+	DividerLine diffLineStyle
+	MissingLine diffLineStyle
+	EqualLine   diffLineStyle
+	InsertLine  diffLineStyle
+	DeleteLine  diffLineStyle
+	Filename    diffLineStyle
+}
+
+func crushBaseStyle() diffStyle {
+	return diffStyle{
+		DividerLine: diffLineStyle{
+			LineNumber: lipgloss.NewStyle().
+				Foreground(charmtone.Smoke).
+				Background(charmtone.BBQ),
+			Code: lipgloss.NewStyle().
+				Foreground(charmtone.Smoke).
+				Background(charmtone.BBQ),
+			bgHex: "#2d2c35",
+		},
+		MissingLine: diffLineStyle{
+			LineNumber: lipgloss.NewStyle().
+				Background(charmtone.BBQ),
+			Code: lipgloss.NewStyle().
+				Background(charmtone.BBQ),
+			bgHex: "#2d2c35",
+		},
+		EqualLine: diffLineStyle{
+			LineNumber: lipgloss.NewStyle().
+				Foreground(charmtone.Squid).
+				Background(charmtone.Pepper),
+			Code: lipgloss.NewStyle().
+				Foreground(charmtone.Squid).
+				Background(charmtone.Pepper),
+			bgHex: "#201F26",
+		},
+		InsertLine: diffLineStyle{
+			LineNumber: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#629657")).
+				Background(lipgloss.Color("#2b322a")),
+			Symbol: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#629657")).
+				Background(lipgloss.Color("#323931")),
+			Code: lipgloss.NewStyle().
+				Background(lipgloss.Color("#323931")),
+			bgHex: "#323931",
+		},
+		DeleteLine: diffLineStyle{
+			LineNumber: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#a45c59")).
+				Background(lipgloss.Color("#312929")),
+			Symbol: lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#a45c59")).
+				Background(lipgloss.Color("#383030")),
+			Code: lipgloss.NewStyle().
+				Background(lipgloss.Color("#383030")),
+			bgHex: "#383030",
+		},
+		Filename: diffLineStyle{
+			LineNumber: lipgloss.NewStyle().
+				Foreground(charmtone.Smoke).
+				Background(charmtone.BBQ),
+			Code: lipgloss.NewStyle().
+				Foreground(charmtone.Smoke).
+				Background(charmtone.BBQ),
+			bgHex: "#2d2c35",
+		},
+	}
+}
+
+// -------------------------------------------------------------------------
+// Syntax highlighting helpers
+
+var (
+	// Strip all ANSI background codes chroma emits so we can apply our own.
+	ansiBgRe = regexp.MustCompile(`\x1b\[4[89](;[0-9;]*)?m|\x1b\[48[;:][0-9;:]*m`)
+	// Replace full resets \033[0m with foreground-only resets so our bg persists.
+	ansiResetRe = regexp.MustCompile(`\x1b\[0m`)
+)
+
+// highlightCode applies chroma monokai foreground syntax colors to code and
+// renders it on bgHex background, padded/truncated to codeWidth visible chars.
+func highlightCode(code string, lexer chroma.Lexer, codeWidth int, bgHex string) string {
+	if lexer == nil {
+		return plainCodeBg(code, bgHex, codeWidth)
+	}
+
+	monoStyle := chromastyles.Get("monokai")
+	if monoStyle == nil {
+		monoStyle = chromastyles.Fallback
+	}
+
+	tokens, err := lexer.Tokenise(nil, code)
+	if err != nil {
+		return plainCodeBg(code, bgHex, codeWidth)
+	}
+
+	var buf strings.Builder
+	if err := formatters.Get("terminal16m").Format(&buf, monoStyle, tokens); err != nil {
+		return plainCodeBg(code, bgHex, codeWidth)
+	}
+
+	// Strip trailing newlines BEFORE regex processing while they are still plainly visible.
+	result := strings.TrimRight(buf.String(), "\n")
+
+	// 1. Strip any background codes chroma added (we control the background).
+	result = ansiBgRe.ReplaceAllString(result, "")
+
+	// 2. Replace full resets with foreground-only resets so our bg stays active.
+	result = ansiResetRe.ReplaceAllString(result, "\x1b[39;22;23m")
+
+	// 3. Prepend our crush background.
+	r, g, b := hexToRGB(bgHex)
+	result = fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b) + result
+
+	// 4. Pad or truncate to codeWidth.
+	visWidth := ansi.StringWidth(result)
+	switch {
+	case visWidth < codeWidth:
+		result += strings.Repeat(" ", codeWidth-visWidth)
+	case visWidth > codeWidth:
+		result = ansi.Truncate(result, codeWidth, "")
+	}
+
+	// 5. Full reset at the end.
+	return result + "\x1b[0m"
+}
+
+// plainCodeBg renders code as plain text on bgHex background, padded to width.
+func plainCodeBg(code, bgHex string, width int) string {
+	r, g, b := hexToRGB(bgHex)
+	runes := []rune(code)
+	if len(runes) > width {
+		runes = []rune(string(runes[:width-1]) + "…")
+	}
+	padding := width - len(runes)
+	if padding < 0 {
+		padding = 0
+	}
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm%s%s\x1b[0m",
+		r, g, b, string(runes), strings.Repeat(" ", padding))
+}
+
+func hexToRGB(hex string) (r, g, b uint8) {
+	hex = strings.TrimPrefix(hex, "#")
+	if len(hex) != 6 {
+		return 0, 0, 0
+	}
+	rv, _ := strconv.ParseUint(hex[0:2], 16, 8)
+	gv, _ := strconv.ParseUint(hex[2:4], 16, 8)
+	bv, _ := strconv.ParseUint(hex[4:6], 16, 8)
+	return uint8(rv), uint8(gv), uint8(bv)
+}
+
+// -------------------------------------------------------------------------
+// Popup model
 
 type diffViewPopup struct {
 	filePath string
 	viewport viewport.Model
-	theme    *styles.Theme
+	theme    *tuistyles.Theme
 	width    int
 	height   int
 }
@@ -30,18 +209,17 @@ type diffFetchedMsg struct {
 	err      error
 }
 
-func newDiffViewPopup(filePath, diffText string, width, height int, theme *styles.Theme) diffViewPopup {
+func newDiffViewPopup(filePath, diffText string, width, height int, theme *tuistyles.Theme) diffViewPopup {
 	popupW := width * 85 / 100
 	popupH := height * 80 / 100
 
-	// viewport sits inside the popup border (2 sides) + header/footer lines
 	vpW := popupW - 4
 	vpH := popupH - 5
 
 	vp := viewport.New()
 	vp.SetWidth(vpW)
 	vp.SetHeight(vpH)
-	vp.SetContent(renderDiff(diffText, vpW, theme))
+	vp.SetContent(renderDiff(diffText, vpW, filePath))
 
 	return diffViewPopup{
 		filePath: filePath,
@@ -85,7 +263,7 @@ func (p diffViewPopup) View() tea.View {
 
 	scrollPct := fmt.Sprintf(" %3.f%% ", p.viewport.ScrollPercent()*100)
 	footerHint := lipgloss.NewStyle().Foreground(dimColor).Render("  q/esc close  ↑↓ scroll")
-	footerPct := lipgloss.NewStyle().Foreground(theme.Accent).Render(scrollPct)
+	footerPct := crushBaseStyle().DividerLine.LineNumber.Render(scrollPct)
 	footerSep := lipgloss.NewStyle().
 		Foreground(dimColor).
 		Render(strings.Repeat("─", max(0, p.width-lipgloss.Width(footerHint)-lipgloss.Width(footerPct)-4)))
@@ -106,39 +284,33 @@ func (p diffViewPopup) View() tea.View {
 	return tea.NewView(boxStyle.Render(inner))
 }
 
-// hunkHeader parses "@@ -a,b +c,d @@" and returns beforeStart and afterStart.
+// -------------------------------------------------------------------------
+// Diff renderer — crush-style with chroma syntax highlighting
+
 var hunkRe = regexp.MustCompile(`@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@`)
 
-func renderDiff(raw string, width int, theme *styles.Theme) string {
+func renderDiff(raw string, width int, filePath string) string {
+	st := crushBaseStyle()
+
+	// Detect chroma lexer from file extension.
+	var lexer chroma.Lexer
+	if filePath != "" {
+		lexer = lexers.Match(filepath.Base(filePath))
+	}
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	lexer = chroma.Coalesce(lexer)
+
 	if raw == "" {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("  (no staged changes for this file)")
+		return st.EqualLine.Code.Render("  (no staged changes for this file)")
 	}
 
-	// Colors — Tokyo Night palette
-	addedBg := lipgloss.Color("#293229")
-	deletedBg := lipgloss.Color("#332929")
-	addedFg := lipgloss.Color("#9ece6a")
-	deletedFg := lipgloss.Color("#f7768e")
-	hunkFg := lipgloss.Color("#7dcfff")
-	headerFg := lipgloss.Color("#565f89")
-	lineNumFg := lipgloss.Color("#3b4261")
-	sepFg := lipgloss.Color("#3b4261")
-
-	lineNumStyle := lipgloss.NewStyle().Foreground(lineNumFg)
-	sepStyle := lipgloss.NewStyle().Foreground(sepFg)
-	addedStyle := lipgloss.NewStyle().Foreground(addedFg).Background(addedBg)
-	deletedStyle := lipgloss.NewStyle().Foreground(deletedFg).Background(deletedBg)
-	hunkStyle := lipgloss.NewStyle().Foreground(hunkFg)
-	headerStyle := lipgloss.NewStyle().Foreground(headerFg)
-	contextStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-
-	sep := sepStyle.Render(" │ ")
-
-	// Line number widths — detect from hunk headers first pass
+	// First pass: detect max line number for column width.
 	maxLineNum := 1
 	for _, line := range strings.Split(raw, "\n") {
 		if m := hunkRe.FindStringSubmatch(line); m != nil {
-			if n, err := strconv.Atoi(m[2]); err == nil && n > maxLineNum {
+			if n, err := strconv.Atoi(m[2]); err == nil && n+200 > maxLineNum {
 				maxLineNum = n + 200
 			}
 		}
@@ -146,21 +318,45 @@ func renderDiff(raw string, width int, theme *styles.Theme) string {
 	numWidth := len(strconv.Itoa(maxLineNum))
 	numFmt := fmt.Sprintf("%%%dd", numWidth)
 
-	var (
-		sb          strings.Builder
-		beforeLine  int
-		afterLine   int
-	)
-
-	// code content width after line number + sep + sigil + sep
-	// numWidth + 3 (sep) + 1 (sigil) + 3 (sep)
+	// col widths: lineNum(numWidth) + " │ "(3) + symbol(1) + " │ "(3) + code
 	codeWidth := width - numWidth - 7
 	if codeWidth < 10 {
 		codeWidth = 10
 	}
 
+	// Neutral separator — lets the crush bg colors define the visual boundary.
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(" │ ")
+
+	renderNum := func(ls diffLineStyle, n int) string {
+		return ls.LineNumber.Width(numWidth).Render(fmt.Sprintf(numFmt, n))
+	}
+	blankNum := func(ls diffLineStyle) string {
+		return ls.LineNumber.Width(numWidth).Render(strings.Repeat(" ", numWidth))
+	}
+
+	var (
+		sb         strings.Builder
+		beforeLine int
+		afterLine  int
+	)
+
 	for _, line := range strings.Split(raw, "\n") {
 		switch {
+		// ── git metadata & filename headers ──────────────────────────────
+		case strings.HasPrefix(line, "diff ") ||
+			strings.HasPrefix(line, "index ") ||
+			strings.HasPrefix(line, "new file") ||
+			strings.HasPrefix(line, "deleted file") ||
+			strings.HasPrefix(line, "---") ||
+			strings.HasPrefix(line, "+++"):
+			sb.WriteString(blankNum(st.Filename))
+			sb.WriteString(sep)
+			sb.WriteString(st.Filename.Symbol.Render(" "))
+			sb.WriteString(sep)
+			sb.WriteString(st.Filename.Code.Width(codeWidth).Render(truncateLine(line, codeWidth)))
+			sb.WriteString("\n")
+
+		// ── hunk divider ─────────────────────────────────────────────────
 		case strings.HasPrefix(line, "@@"):
 			m := hunkRe.FindStringSubmatch(line)
 			if m != nil {
@@ -169,76 +365,50 @@ func renderDiff(raw string, width int, theme *styles.Theme) string {
 				beforeLine = before
 				afterLine = after
 			}
-			// Render hunk header without line number
-			placeholder := strings.Repeat(" ", numWidth)
-			rendered := truncateLine(line, codeWidth)
-			sb.WriteString(lineNumStyle.Render(placeholder))
+			sb.WriteString(blankNum(st.DividerLine))
 			sb.WriteString(sep)
-			sb.WriteString(hunkStyle.Render("  "))
+			sb.WriteString(st.DividerLine.LineNumber.Render(" "))
 			sb.WriteString(sep)
-			sb.WriteString(hunkStyle.Render(rendered))
+			sb.WriteString(st.DividerLine.Code.Width(codeWidth).Render(truncateLine(line, codeWidth)))
 			sb.WriteString("\n")
 
-		case strings.HasPrefix(line, "---") || strings.HasPrefix(line, "+++"):
-			placeholder := strings.Repeat(" ", numWidth)
-			rendered := truncateLine(line, codeWidth)
-			sb.WriteString(lineNumStyle.Render(placeholder))
-			sb.WriteString(sep)
-			sb.WriteString(headerStyle.Render("  "))
-			sb.WriteString(sep)
-			sb.WriteString(headerStyle.Render(rendered))
-			sb.WriteString("\n")
-
-		case strings.HasPrefix(line, "diff ") ||
-			strings.HasPrefix(line, "index ") ||
-			strings.HasPrefix(line, "new file") ||
-			strings.HasPrefix(line, "deleted file"):
-			placeholder := strings.Repeat(" ", numWidth)
-			rendered := truncateLine(line, codeWidth)
-			sb.WriteString(lineNumStyle.Render(placeholder))
-			sb.WriteString(sep)
-			sb.WriteString(headerStyle.Render("  "))
-			sb.WriteString(sep)
-			sb.WriteString(headerStyle.Render(rendered))
-			sb.WriteString("\n")
-
+		// ── inserted line ─────────────────────────────────────────────────
 		case strings.HasPrefix(line, "+"):
-			numStr := fmt.Sprintf(numFmt, afterLine)
+			code := line[1:]
+			sb.WriteString(renderNum(st.InsertLine, afterLine))
 			afterLine++
-			code := truncateLine(line[1:], codeWidth)
-			sb.WriteString(lineNumStyle.Render(numStr))
 			sb.WriteString(sep)
-			sb.WriteString(addedStyle.Render("+"))
+			sb.WriteString(st.InsertLine.Symbol.Render("+"))
 			sb.WriteString(sep)
-			sb.WriteString(addedStyle.Render(padRight(code, codeWidth)))
+			sb.WriteString(highlightCode(code, lexer, codeWidth, st.InsertLine.bgHex))
 			sb.WriteString("\n")
 
+		// ── deleted line ──────────────────────────────────────────────────
 		case strings.HasPrefix(line, "-"):
-			numStr := fmt.Sprintf(numFmt, beforeLine)
+			code := line[1:]
+			sb.WriteString(renderNum(st.DeleteLine, beforeLine))
 			beforeLine++
-			code := truncateLine(line[1:], codeWidth)
-			sb.WriteString(lineNumStyle.Render(numStr))
 			sb.WriteString(sep)
-			sb.WriteString(deletedStyle.Render("-"))
+			sb.WriteString(st.DeleteLine.Symbol.Render("-"))
 			sb.WriteString(sep)
-			sb.WriteString(deletedStyle.Render(padRight(code, codeWidth)))
+			sb.WriteString(highlightCode(code, lexer, codeWidth, st.DeleteLine.bgHex))
 			sb.WriteString("\n")
 
+		// ── context line ──────────────────────────────────────────────────
 		case strings.HasPrefix(line, " "):
-			numStr := fmt.Sprintf(numFmt, afterLine)
+			code := line[1:]
+			sb.WriteString(renderNum(st.EqualLine, afterLine))
 			beforeLine++
 			afterLine++
-			code := truncateLine(line[1:], codeWidth)
-			sb.WriteString(lineNumStyle.Render(numStr))
 			sb.WriteString(sep)
-			sb.WriteString(contextStyle.Render(" "))
+			sb.WriteString(st.EqualLine.LineNumber.Render(" "))
 			sb.WriteString(sep)
-			sb.WriteString(contextStyle.Render(code))
+			sb.WriteString(highlightCode(code, lexer, codeWidth, st.EqualLine.bgHex))
 			sb.WriteString("\n")
 
 		default:
 			if line != "" {
-				sb.WriteString(headerStyle.Render(truncateLine(line, width)))
+				sb.WriteString(st.EqualLine.Code.Render(truncateLine(line, width)))
 				sb.WriteString("\n")
 			}
 		}
@@ -252,18 +422,10 @@ func truncateLine(s string, maxW int) string {
 	if len(runes) <= maxW {
 		return s
 	}
-	if maxW <= 3 {
+	if maxW <= 1 {
 		return string(runes[:maxW])
 	}
 	return string(runes[:maxW-1]) + "…"
-}
-
-func padRight(s string, width int) string {
-	runes := []rune(s)
-	if len(runes) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(runes))
 }
 
 func fetchDiffCmd(filePath string) tea.Cmd {
