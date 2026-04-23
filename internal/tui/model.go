@@ -171,6 +171,7 @@ type Model struct {
 	FinalMessage            string
 	RewordHash              string
 	OutputDirect            bool
+	commitAndReword         bool
 	currentCommit           storage.Commit
 	draftMode               bool
 	keys                    KeyMap

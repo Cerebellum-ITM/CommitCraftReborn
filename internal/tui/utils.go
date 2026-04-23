@@ -639,6 +639,96 @@ func GetNerdFontIcon(filename string, isDir bool) string {
 	}
 }
 
+// GetCommitGitStatusData builds a GitStatusData from the files changed in a specific commit,
+// mirroring what GetAllGitStatusData does for staged changes.
+func GetCommitGitStatusData(hash string) (GitStatusData, error) {
+	var data GitStatusData
+	data.FileStatus = make(map[string]string)
+	data.AffectedDirectories = make(map[string]bool)
+
+	gitRootBytes, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return data, fmt.Errorf("could not determine git root: %w", err)
+	}
+	data.Root = strings.TrimSpace(string(gitRootBytes))
+
+	output, err := exec.Command("git", "diff-tree", "--no-commit-id", "--name-status", "-r", hash).Output()
+	if err != nil {
+		return data, fmt.Errorf("could not get commit file statuses: %w", err)
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			data.FileStatus[parts[1]] = parts[0]
+		}
+	}
+
+	for filePath := range data.FileStatus {
+		dir := filepath.Dir(filePath)
+		currentDir := dir
+		for currentDir != "" && currentDir != "." && currentDir != "/" {
+			data.AffectedDirectories[currentDir] = true
+			currentDir = filepath.Dir(currentDir)
+		}
+		if dir == "." {
+			data.AffectedDirectories["."] = true
+		}
+	}
+
+	return data, nil
+}
+
+// GetCommitDiffSummary returns the diff of a specific commit, structured per file,
+// with the same format as GetStagedDiffSummary for consistent AI input.
+func GetCommitDiffSummary(hash string, maxDiffChars int) (string, error) {
+	cmdFiles := exec.Command("git", "diff-tree", "--no-commit-id", "--name-only", "-r", hash)
+	filesOutput, err := cmdFiles.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit file list: %w", err)
+	}
+
+	if len(filesOutput) == 0 {
+		return "", nil
+	}
+
+	files := strings.Split(strings.TrimSpace(string(filesOutput)), "\n")
+	var resultBuilder strings.Builder
+	currentChars := 0
+
+	for _, file := range files {
+		if file == "" {
+			continue
+		}
+
+		cmdDiff := exec.Command("git", "diff", "--unified=0", hash+"^", hash, "--", file)
+		diffBytes, err := cmdDiff.Output()
+		if err != nil {
+			// Initial commit has no parent; fall back to diff-tree directly
+			cmdDiff = exec.Command("git", "diff-tree", "-p", "--unified=0", "--no-commit-id", "-r", hash, "--", file)
+			diffBytes, err = cmdDiff.Output()
+			if err != nil {
+				continue
+			}
+		}
+
+		block := fmt.Sprintf("=== %s ===\n%s\n", file, string(diffBytes))
+		blockLen := len(block)
+
+		if maxDiffChars > 0 && currentChars+blockLen > maxDiffChars {
+			break
+		}
+
+		resultBuilder.WriteString(block)
+		currentChars += blockLen
+	}
+
+	return resultBuilder.String(), nil
+}
+
 // RewordCommit changes the commit message of the given hash to newMessage.
 // For HEAD it uses git commit --amend; for other commits it uses a non-interactive rebase.
 func RewordCommit(hash, newMessage string) error {

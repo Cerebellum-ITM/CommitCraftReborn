@@ -107,6 +107,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				model.commitLivePreview = item.Preview
 			}
 			return model, nil
+		case "Commit and reword":
+			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
+			model.releaseCommitList.Select(0)
+			model.state = stateRewordSelectCommit
+			model.focusedElement = focusListElement
+			model.keys = rewordSelectKeys()
+			model.WritingStatusBar.Content = "Select the git commit to reword with a new AI message"
+			model.WritingStatusBar.Level = statusbar.LevelInfo
+			model.commitAndReword = true
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.commitLivePreview = item.Preview
+			}
+			return model, nil
 		case "Copy to clipboard":
 			var finalMessage string
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
@@ -372,6 +385,13 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.iaTitleRawOutput = ""
 		model.activeTab = 0
 		model.activePipelineStage = 0
+		model.RewordHash = ""
+		model.commitAndReword = false
+		model.useDbCommmit = false
+		if gitData, gErr := GetAllGitStatusData(); gErr == nil {
+			model.gitStatusData = gitData
+			model.currentUpdateFileListFn(model.pwd, &model.fileList, model.gitStatusData)
+		}
 		model.keys = mainListKeys()
 	case stateChoosingType:
 		statusBarMessage = "Select a prefix for the commit"
@@ -1057,6 +1077,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if model.commitTranslate != "" {
 				_, cmd := createCommit(model)
 				model.useDbCommmit = false
+				if model.RewordHash != "" {
+					model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+					return model, tea.Quit
+				}
 				return model, cmd
 			} else {
 				model.WritingStatusBar.Content = "You need to first make a request to the AI to continue!!"
@@ -1344,7 +1368,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 						model.FinalMessage = assembleOutputCommitMessage(model, commit)
 						return model, tea.Quit
 					}
-					menu := []string{"Output message", "Reword commit"}
+					menu := []string{"Output message", "Reword commit", "Commit and reword"}
 					return model, func() tea.Msg {
 						return openListPopup{items: menu, width: model.width / 2, height: model.height / 2}
 					}
@@ -1414,6 +1438,36 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 		case key.Matches(msg, model.keys.Enter):
 			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				if model.commitAndReword {
+					model.RewordHash = item.Hash
+					model.commitAndReword = false
+					model.useDbCommmit = true
+					diffCode, err := GetCommitDiffSummary(item.Hash, model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize)
+					if err != nil {
+						model.log.Error("Error getting commit diff", "error", err)
+					}
+					model.diffCode = diffCode
+					if commitGitData, gErr := GetCommitGitStatusData(item.Hash); gErr == nil {
+						model.gitStatusData = commitGitData
+						model.currentUpdateFileListFn(model.pwd, &model.fileList, model.gitStatusData)
+					} else {
+						model.log.Error("Error getting commit git status data", "error", gErr)
+					}
+					model.currentCommit = storage.Commit{}
+					model.keyPoints = nil
+					model.commitTranslate = ""
+					model.iaSummaryOutput = ""
+					model.iaCommitRawOutput = ""
+					model.iaTitleRawOutput = ""
+					model.activeTab = 0
+					model.activePipelineStage = 0
+					model.state = stateChoosingType
+					model.keys = listKeys()
+					model.WritingStatusBar.Content = "Select a prefix for the commit"
+					model.WritingStatusBar.Level = statusbar.LevelInfo
+					ResetAndActiveFilterOnList(&model.commitTypeList)
+					return model, nil
+				}
 				model.RewordHash = item.Hash
 				model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
 				return model, tea.Quit

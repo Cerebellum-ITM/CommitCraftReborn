@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var version = "v0.5.7"
+var version = "v0.5.8"
 
 func main() {
 	log := logger.New()
@@ -58,7 +58,16 @@ func main() {
 		appMode = tui.ReleaseMode
 	}
 
-	initialModel, err := tui.NewModel(log, db, globalCfg, finalCommitTypes, pwd, appMode, version, *directOutput)
+	initialModel, err := tui.NewModel(
+		log,
+		db,
+		globalCfg,
+		finalCommitTypes,
+		pwd,
+		appMode,
+		version,
+		*directOutput,
+	)
 	if err != nil {
 		log.Fatal("Error creating the TUI model", "error", err)
 	}
