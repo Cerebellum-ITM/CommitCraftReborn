@@ -66,11 +66,10 @@ func crushBaseStyle() diffStyle {
 		EqualLine: diffLineStyle{
 			LineNumber: lipgloss.NewStyle().
 				Foreground(charmtone.Squid).
-				Background(charmtone.Pepper),
+				Background(lipgloss.Color("#2d2c35")),
 			Code: lipgloss.NewStyle().
-				Foreground(charmtone.Squid).
-				Background(charmtone.Pepper),
-			bgHex: "#201F26",
+				Background(lipgloss.Color("#2d2c35")),
+			bgHex: "#2d2c35",
 		},
 		InsertLine: diffLineStyle{
 			LineNumber: lipgloss.NewStyle().
@@ -123,6 +122,13 @@ func highlightCode(code string, lexer chroma.Lexer, codeWidth int, bgHex string)
 		return plainCodeBg(code, bgHex, codeWidth)
 	}
 
+	// Measure and truncate BEFORE adding any ANSI — plain text width is reliable.
+	plainWidth := ansi.StringWidth(code)
+	if plainWidth > codeWidth {
+		code = ansi.Truncate(code, codeWidth, "")
+		plainWidth = codeWidth
+	}
+
 	monoStyle := chromastyles.Get("monokai")
 	if monoStyle == nil {
 		monoStyle = chromastyles.Fallback
@@ -138,7 +144,6 @@ func highlightCode(code string, lexer chroma.Lexer, codeWidth int, bgHex string)
 		return plainCodeBg(code, bgHex, codeWidth)
 	}
 
-	// Strip trailing newlines BEFORE regex processing while they are still plainly visible.
 	result := strings.TrimRight(buf.String(), "\n")
 
 	// 1. Strip any background codes chroma added (we control the background).
@@ -151,13 +156,10 @@ func highlightCode(code string, lexer chroma.Lexer, codeWidth int, bgHex string)
 	r, g, b := hexToRGB(bgHex)
 	result = fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b) + result
 
-	// 4. Pad or truncate to codeWidth.
-	visWidth := ansi.StringWidth(result)
-	switch {
-	case visWidth < codeWidth:
-		result += strings.Repeat(" ", codeWidth-visWidth)
-	case visWidth > codeWidth:
-		result = ansi.Truncate(result, codeWidth, "")
+	// 4. Pad to codeWidth using the reliable plain-text measurement.
+	padding := codeWidth - plainWidth
+	if padding > 0 {
+		result += strings.Repeat(" ", padding)
 	}
 
 	// 5. Full reset at the end.
@@ -209,12 +211,16 @@ type diffFetchedMsg struct {
 	err      error
 }
 
-func newDiffViewPopup(filePath, diffText string, width, height int, theme *tuistyles.Theme) diffViewPopup {
+func newDiffViewPopup(
+	filePath, diffText string,
+	width, height int,
+	theme *tuistyles.Theme,
+) diffViewPopup {
 	popupW := width * 85 / 100
 	popupH := height * 80 / 100
 
 	vpW := popupW - 4
-	vpH := popupH - 5
+	vpH := popupH - 4
 
 	vp := viewport.New()
 	vp.SetWidth(vpW)
@@ -318,14 +324,11 @@ func renderDiff(raw string, width int, filePath string) string {
 	numWidth := len(strconv.Itoa(maxLineNum))
 	numFmt := fmt.Sprintf("%%%dd", numWidth)
 
-	// col widths: lineNum(numWidth) + " │ "(3) + symbol(1) + " │ "(3) + code
-	codeWidth := width - numWidth - 7
+	// col widths: lineNum(numWidth) + symbol(1) + code — no separators between columns
+	codeWidth := width - numWidth - 1
 	if codeWidth < 10 {
 		codeWidth = 10
 	}
-
-	// Neutral separator — lets the crush bg colors define the visual boundary.
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(" │ ")
 
 	renderNum := func(ls diffLineStyle, n int) string {
 		return ls.LineNumber.Width(numWidth).Render(fmt.Sprintf(numFmt, n))
@@ -350,9 +353,7 @@ func renderDiff(raw string, width int, filePath string) string {
 			strings.HasPrefix(line, "---") ||
 			strings.HasPrefix(line, "+++"):
 			sb.WriteString(blankNum(st.Filename))
-			sb.WriteString(sep)
 			sb.WriteString(st.Filename.Symbol.Render(" "))
-			sb.WriteString(sep)
 			sb.WriteString(st.Filename.Code.Width(codeWidth).Render(truncateLine(line, codeWidth)))
 			sb.WriteString("\n")
 
@@ -366,10 +367,10 @@ func renderDiff(raw string, width int, filePath string) string {
 				afterLine = after
 			}
 			sb.WriteString(blankNum(st.DividerLine))
-			sb.WriteString(sep)
 			sb.WriteString(st.DividerLine.LineNumber.Render(" "))
-			sb.WriteString(sep)
-			sb.WriteString(st.DividerLine.Code.Width(codeWidth).Render(truncateLine(line, codeWidth)))
+			sb.WriteString(
+				st.DividerLine.Code.Width(codeWidth).Render(truncateLine(line, codeWidth)),
+			)
 			sb.WriteString("\n")
 
 		// ── inserted line ─────────────────────────────────────────────────
@@ -377,9 +378,7 @@ func renderDiff(raw string, width int, filePath string) string {
 			code := line[1:]
 			sb.WriteString(renderNum(st.InsertLine, afterLine))
 			afterLine++
-			sb.WriteString(sep)
 			sb.WriteString(st.InsertLine.Symbol.Render("+"))
-			sb.WriteString(sep)
 			sb.WriteString(highlightCode(code, lexer, codeWidth, st.InsertLine.bgHex))
 			sb.WriteString("\n")
 
@@ -388,9 +387,7 @@ func renderDiff(raw string, width int, filePath string) string {
 			code := line[1:]
 			sb.WriteString(renderNum(st.DeleteLine, beforeLine))
 			beforeLine++
-			sb.WriteString(sep)
 			sb.WriteString(st.DeleteLine.Symbol.Render("-"))
-			sb.WriteString(sep)
 			sb.WriteString(highlightCode(code, lexer, codeWidth, st.DeleteLine.bgHex))
 			sb.WriteString("\n")
 
@@ -400,9 +397,7 @@ func renderDiff(raw string, width int, filePath string) string {
 			sb.WriteString(renderNum(st.EqualLine, afterLine))
 			beforeLine++
 			afterLine++
-			sb.WriteString(sep)
 			sb.WriteString(st.EqualLine.LineNumber.Render(" "))
-			sb.WriteString(sep)
 			sb.WriteString(highlightCode(code, lexer, codeWidth, st.EqualLine.bgHex))
 			sb.WriteString("\n")
 
