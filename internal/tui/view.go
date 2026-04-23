@@ -247,6 +247,23 @@ func (model *Model) buildTabBar(totalWidth int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, tabs, whiteSpaces, line)
 }
 
+func (model *Model) buildPipelineDiffListView(width, height int) string {
+	isFocused := model.focusedElement == focusPipelineDiffList
+	state := "blur"
+	if isFocused {
+		state = "focus"
+	}
+
+	model.pipelineDiffList.SetWidth(width)
+	model.pipelineDiffList.SetHeight(height - 4)
+
+	header := model.buildStyledBorder(state, "Changed Files  [Enter] view diff  [Tab] switch panel", HeaderStyle, width, AlignHeader)
+	count := len(model.pipelineDiffList.Items())
+	footer := model.buildStyledBorder(state, fmt.Sprintf("%d file(s) modified", count), FooterStyle, width, AlignFooter)
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, model.pipelineDiffList.View(), footer)
+}
+
 func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	glamourStyle := styles.TokyoNightStyleConfig
 	renderer, _ := glamour.NewTermRenderer(
@@ -466,20 +483,23 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 		userInputiewFooterContent,
 	)
 
+	var leftContent string
 	var rightContent string
 	if model.activeTab == 0 {
+		leftContent = leftTranslatedContent
 		rightContent = lipgloss.JoinVertical(lipgloss.Left,
 			iaViewHeaderContent,
 			model.iaViewport.View(),
 			iaViewFooterContent,
 		)
 	} else {
+		leftContent = model.buildPipelineDiffListView(model.width/2, totalAvailableContentHeight)
 		rightContent = model.buildPipelineView(model.width/2, totalAvailableContentHeight)
 	}
 
 	uiElements := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		leftTranslatedContent,
+		leftContent,
 		rightContent,
 	)
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -927,6 +947,9 @@ func (model *Model) View() tea.View {
 		ok = true
 		popupView = popupModel.View()
 	case mentionFilePopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case diffViewPopup:
 		ok = true
 		popupView = popupModel.View()
 	default:

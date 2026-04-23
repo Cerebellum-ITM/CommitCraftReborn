@@ -729,6 +729,15 @@ func GetCommitDiffSummary(hash string, maxDiffChars int) (string, error) {
 	return resultBuilder.String(), nil
 }
 
+func GetStagedFileDiff(filePath string) (string, error) {
+	cmd := exec.Command("git", "diff", "--cached", "--unified=4", "--", filePath)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get diff for %s: %w", filePath, err)
+	}
+	return string(out), nil
+}
+
 // RewordCommit changes the commit message of the given hash to newMessage.
 // For HEAD it uses git commit --amend; for other commits it uses a non-interactive rebase.
 func RewordCommit(hash, newMessage string) error {

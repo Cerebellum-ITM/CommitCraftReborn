@@ -47,7 +47,8 @@ const (
 	focusAIResponse                         // 1
 	focusListElement
 	focusViewportElement
-	focusPipelineViewport // 4 — active viewport in pipeline tab
+	focusPipelineViewport  // 4 — active viewport in pipeline tab
+	focusPipelineDiffList  // 5 — left file list in pipeline tab
 )
 
 // We use iota to create an "enum" for our application states.
@@ -144,6 +145,7 @@ type Model struct {
 	commitTypeList          list.Model
 	fileList                list.Model
 	fileListFilter          bool
+	pipelineDiffList        list.Model
 	currentUpdateFileListFn UpdateFileListFunc
 	gitStatusData           GitStatusData
 	msgEdit                 textarea.Model
@@ -364,6 +366,7 @@ func NewModel(
 		focusedElement:          focusMsgInput,
 		fileList:                fileList,
 		fileListFilter:          false,
+		pipelineDiffList:        NewDiffFileList(gitStatusData, config.TUI.UseNerdFonts),
 		currentUpdateFileListFn: ChooseUpdateFileListFunction(false),
 		gitStatusData:           gitStatusData,
 		WritingStatusBar:        WritingStatusBar,

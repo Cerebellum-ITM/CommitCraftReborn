@@ -80,6 +80,17 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closePopupMsg, closeListPopup:
 		model.popup = nil
 		return model, nil
+	case closeDiffViewPopupMsg:
+		model.popup = nil
+		return model, nil
+	case diffFetchedMsg:
+		if msg.err != nil {
+			model.WritingStatusBar.Content = fmt.Sprintf("Error loading diff: %s", msg.err)
+			model.WritingStatusBar.Level = statusbar.LevelError
+			return model, nil
+		}
+		model.popup = newDiffViewPopup(msg.filePath, msg.content, model.width, model.height, model.Theme)
+		return model, nil
 	case mentionFileSelectedMsg:
 		model.popup = nil
 		currentVal := model.commitsKeysInput.Value()
@@ -1016,7 +1027,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.SwitchTab):
 			if model.activeTab == 0 {
 				model.activeTab = 1
-				model.focusedElement = focusPipelineViewport
+				model.focusedElement = focusPipelineDiffList
 				model.commitsKeysInput.Blur()
 				model.keys.RerunStage1.SetEnabled(true)
 				model.keys.RerunStage2.SetEnabled(true)
@@ -1057,14 +1068,35 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, nil
 		case key.Matches(msg, model.keys.NextField):
 			if model.activeTab == 1 {
-				model.activePipelineStage = (model.activePipelineStage + 1) % 3
+				switch model.focusedElement {
+				case focusPipelineDiffList:
+					model.focusedElement = focusPipelineViewport
+					model.activePipelineStage = 0
+				case focusPipelineViewport:
+					if model.activePipelineStage < 2 {
+						model.activePipelineStage++
+					} else {
+						model.activePipelineStage = 0
+						model.focusedElement = focusPipelineDiffList
+					}
+				}
 				return model, nil
 			}
 			cmd = switchFocusElement(model)
 			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
 			if model.activeTab == 1 {
-				model.activePipelineStage = (model.activePipelineStage + 2) % 3
+				switch model.focusedElement {
+				case focusPipelineDiffList:
+					model.focusedElement = focusPipelineViewport
+					model.activePipelineStage = 2
+				case focusPipelineViewport:
+					if model.activePipelineStage > 0 {
+						model.activePipelineStage--
+					} else {
+						model.focusedElement = focusPipelineDiffList
+					}
+				}
 				return model, nil
 			}
 			cmd = switchFocusElement(model)
@@ -1104,6 +1136,12 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Esc):
 			return model.cancelProcess(stateChoosingScope)
 		case key.Matches(msg, model.keys.Enter):
+			if model.focusedElement == focusPipelineDiffList && model.activeTab == 1 {
+				if item, ok := model.pipelineDiffList.SelectedItem().(DiffFileItem); ok {
+					return model, fetchDiffCmd(item.FilePath)
+				}
+				return model, nil
+			}
 			if model.commitTranslate != "" {
 				_, cmd := createCommit(model)
 				model.useDbCommmit = false
@@ -1145,6 +1183,8 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		model.commitsKeysInput, cmd = model.commitsKeysInput.Update(msg)
 	case focusAIResponse:
 		model.iaViewport, cmd = model.iaViewport.Update(msg)
+	case focusPipelineDiffList:
+		model.pipelineDiffList, cmd = model.pipelineDiffList.Update(msg)
 	case focusPipelineViewport:
 		switch model.activePipelineStage {
 		case 0:
