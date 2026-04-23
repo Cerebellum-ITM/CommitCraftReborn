@@ -16,9 +16,9 @@ import (
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/styles"
 
-	"github.com/BurntSushi/toml"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
+	"github.com/BurntSushi/toml"
 )
 
 type FilterState int
@@ -81,19 +81,35 @@ func UploadReleaseToGithub(
 	}
 
 	filesStr := strings.Join(files, " ")
+	tmpFile, err := os.CreateTemp("", "release-notes-*.md")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file for release notes: %w", err)
+	}
+	defer func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}()
+
 	logger.Debug(filesStr)
 	token := config.ReleaseConfig.GhToken
 	tag := config.ReleaseConfig.Version
 	repository := config.ReleaseConfig.Repository
 	title := fmt.Sprintf("Release %s: %s", tag, selectedItem.release.Title)
-	body := selectedItem.release.Body
+
+	_, err = tmpFile.WriteString(selectedItem.release.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write release notes to temporary file: %w", err)
+	}
+	tmpFile.Sync()
+	notesFilePath := tmpFile.Name()
+
 	createCommand := fmt.Sprintf(
-		"export GH_TOKEN=\"%s\" && gh release create \"%s\" --repo \"%s\" --title \"%s\" --notes \"%s\" %s",
+		"export GH_TOKEN=\"%s\" && gh release create \"%s\" --repo \"%s\" --title \"%s\" --notes-file \"%s\" %s",
 		token,
 		tag,
 		repository,
 		title,
-		body,
+		notesFilePath,
 		filesStr,
 	)
 	cmd := exec.Command("sh", "-c", createCommand)
@@ -652,7 +668,8 @@ func GetCommitGitStatusData(hash string) (GitStatusData, error) {
 	}
 	data.Root = strings.TrimSpace(string(gitRootBytes))
 
-	output, err := exec.Command("git", "diff-tree", "--no-commit-id", "--name-status", "-r", hash).Output()
+	output, err := exec.Command("git", "diff-tree", "--no-commit-id", "--name-status", "-r", hash).
+		Output()
 	if err != nil {
 		return data, fmt.Errorf("could not get commit file statuses: %w", err)
 	}
@@ -708,7 +725,17 @@ func GetCommitDiffSummary(hash string, maxDiffChars int) (string, error) {
 		diffBytes, err := cmdDiff.Output()
 		if err != nil {
 			// Initial commit has no parent; fall back to diff-tree directly
-			cmdDiff = exec.Command("git", "diff-tree", "-p", "--unified=0", "--no-commit-id", "-r", hash, "--", file)
+			cmdDiff = exec.Command(
+				"git",
+				"diff-tree",
+				"-p",
+				"--unified=0",
+				"--no-commit-id",
+				"-r",
+				hash,
+				"--",
+				file,
+			)
 			diffBytes, err = cmdDiff.Output()
 			if err != nil {
 				continue
@@ -760,7 +787,12 @@ func RewordCommit(hash, newMessage string) error {
 	if err != nil {
 		return fmt.Errorf("creating temp sequence editor: %w", err)
 	}
-	fmt.Fprintf(seqEditor, "#!/bin/sh\nsed -i.bak 's/^pick %s/reword %s/' \"$1\"\n", shortHash, shortHash)
+	fmt.Fprintf(
+		seqEditor,
+		"#!/bin/sh\nsed -i.bak 's/^pick %s/reword %s/' \"$1\"\n",
+		shortHash,
+		shortHash,
+	)
 	seqEditor.Close()
 	os.Chmod(seqEditor.Name(), 0o755)
 	defer os.Remove(seqEditor.Name())
