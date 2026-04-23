@@ -177,6 +177,7 @@ type Model struct {
 	keys                    KeyMap
 	help                    help.Model
 	popup                   tea.Model
+	mentionStart            int
 	width, height           int
 	globalConfig            config.Config
 	Version                 string

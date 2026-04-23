@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -79,6 +80,18 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closePopupMsg, closeListPopup:
 		model.popup = nil
 		return model, nil
+	case mentionFileSelectedMsg:
+		model.popup = nil
+		currentVal := model.commitsKeysInput.Value()
+		runes := []rune(currentVal)
+		newVal := string(runes[:model.mentionStart]) + msg.filename + " "
+		model.commitsKeysInput.SetValue(newVal)
+		cmd = model.commitsKeysInput.Focus()
+		return model, cmd
+	case closeMentionPopupMsg:
+		model.popup = nil
+		cmd = model.commitsKeysInput.Focus()
+		return model, cmd
 	case releaseAction:
 		model.popup = nil
 
@@ -982,6 +995,18 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() == "@" && model.focusedElement == focusMsgInput {
+			files, err := GetGitDiffNameStatus()
+			if err == nil && len(files) > 0 {
+				fileList := make([]string, 0, len(files))
+				for f := range files {
+					fileList = append(fileList, f)
+				}
+				sort.Strings(fileList)
+				model.mentionStart = len([]rune(model.commitsKeysInput.Value()))
+				model.popup = newMentionFilePopup(fileList, model.width, model.height, model.Theme)
+			}
+		}
 		switch {
 		case key.Matches(msg, model.keys.SwitchTab):
 			if model.activeTab == 0 {

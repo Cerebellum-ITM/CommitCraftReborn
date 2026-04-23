@@ -926,6 +926,9 @@ func (model *Model) View() tea.View {
 	case listPopupModel:
 		ok = true
 		popupView = popupModel.View()
+	case mentionFilePopupModel:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}
