@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"strings"
 
+	"charm.land/bubbles/v2/viewport"
 	"charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/styles"
@@ -13,7 +14,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const rewordPopupRatio = 1
+const (
+	rewordPopupRatio         = 1
+	pipelineCompactThreshold = 30
+)
 
 var (
 	focusColor      color.Color
@@ -244,6 +248,24 @@ func (model *Model) buildTabBar(totalWidth int) string {
 }
 
 func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
+	glamourStyle := styles.TokyoNightStyleConfig
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithStyles(glamourStyle),
+		glamour.WithWordWrap(contentWidth),
+	)
+
+	renderContent := func(raw string) string {
+		if raw == "" {
+			return "(empty — run the AI to populate this stage)"
+		}
+		s, _ := renderer.Render(raw)
+		return s
+	}
+
+	if contentHeight < pipelineCompactThreshold {
+		return model.buildPipelineViewCompact(contentWidth, contentHeight, renderContent)
+	}
+
 	stageH := contentHeight / 3
 
 	model.pipelineViewport1.SetWidth(contentWidth)
@@ -253,29 +275,12 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	model.pipelineViewport3.SetWidth(contentWidth)
 	model.pipelineViewport3.SetHeight(max(1, stageH-2))
 
-	glamourStyle := styles.TokyoNightStyleConfig
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithStyles(glamourStyle),
-		glamour.WithWordWrap(contentWidth),
-	)
-
-	if model.iaSummaryOutput == "" {
-		model.pipelineViewport1.SetContent("(empty — run the AI to populate this stage)")
-	} else {
-		glamourContentStr, _ := renderer.Render(model.iaSummaryOutput)
-		model.pipelineViewport1.SetContent(glamourContentStr)
-	}
-	if model.iaCommitRawOutput == "" {
-		model.pipelineViewport2.SetContent("(empty — run the AI to populate this stage)")
-	} else {
-		glamourContentStr, _ := renderer.Render(model.iaCommitRawOutput)
-		model.pipelineViewport2.SetContent(glamourContentStr)
-	}
+	model.pipelineViewport1.SetContent(renderContent(model.iaSummaryOutput))
+	model.pipelineViewport2.SetContent(renderContent(model.iaCommitRawOutput))
 	if model.commitTranslate == "" {
-		model.pipelineViewport3.SetContent("(empty — run the AI to populate this stage)")
+		model.pipelineViewport3.SetContent(renderContent(""))
 	} else {
-		glamourContentStr, _ := renderer.Render(model.iaTitleRawOutput)
-		model.pipelineViewport3.SetContent(glamourContentStr)
+		model.pipelineViewport3.SetContent(renderContent(model.iaTitleRawOutput))
 	}
 
 	focusColor := model.Theme.BorderFocus
@@ -330,6 +335,39 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	stage3 := lipgloss.JoinVertical(lipgloss.Left, header3, model.pipelineViewport3.View())
 
 	return lipgloss.JoinVertical(lipgloss.Left, stage1, stage2, stage3)
+}
+
+var pipelineStageLabels = [3]string{
+	"Stage 1 — Summary  [1] re-run",
+	"Stage 2 — Raw Commit  [2] re-run",
+	"Stage 3 — Formatted  [3] re-run",
+}
+
+func (model *Model) buildPipelineViewCompact(
+	contentWidth, contentHeight int,
+	renderContent func(string) string,
+) string {
+	vps := [3]*viewport.Model{
+		&model.pipelineViewport1,
+		&model.pipelineViewport2,
+		&model.pipelineViewport3,
+	}
+	rawContents := [3]string{model.iaSummaryOutput, model.iaCommitRawOutput, ""}
+	if model.commitTranslate != "" {
+		rawContents[2] = model.iaTitleRawOutput
+	}
+
+	active := model.activePipelineStage
+	vp := vps[active]
+	vp.SetWidth(contentWidth)
+	vp.SetHeight(max(1, contentHeight-2))
+	vp.SetContent(renderContent(rawContents[active]))
+	vp.Style = vp.Style.BorderForeground(model.Theme.BorderFocus)
+
+	label := fmt.Sprintf("%s  ← → switch", pipelineStageLabels[active])
+	header := model.buildStyledBorder("blur", label, HeaderStyle, contentWidth, AlignHeader)
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, vp.View())
 }
 
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
