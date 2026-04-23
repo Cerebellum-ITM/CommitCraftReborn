@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"commit_craft_reborn/internal/tui/styles"
 
@@ -52,6 +53,8 @@ func (d mentionFileDelegate) Render(w io.Writer, m list.Model, index int, listIt
 }
 
 type mentionFilePopupModel struct {
+	allFiles []string
+	filter   string
 	selector list.Model
 	width    int
 	height   int
@@ -63,11 +66,6 @@ type mentionFileSelectedMsg struct{ filename string }
 type closeMentionPopupMsg struct{}
 
 func newMentionFilePopup(files []string, width, height int, theme *styles.Theme) mentionFilePopupModel {
-	listItems := make([]list.Item, len(files))
-	for i, f := range files {
-		listItems[i] = mentionFileItem{path: f}
-	}
-
 	base := theme.AppStyles().Base
 	delegate := mentionFileDelegate{
 		theme:          theme,
@@ -75,21 +73,48 @@ func newMentionFilePopup(files []string, width, height int, theme *styles.Theme)
 		indicatorStyle: theme.AppStyles().IndicatorStyle,
 	}
 
+	listItems := filesToListItems(files)
 	listHeight := min(len(files)+4, 12)
 	l := list.New(listItems, delegate, width/2, listHeight)
 	l.Title = "@ Reference a file"
 	l.SetShowStatusBar(false)
 	l.SetShowPagination(false)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 	l.Help.Styles = theme.AppStyles().Help
 
 	return mentionFilePopupModel{
+		allFiles: files,
+		filter:   "",
 		selector: l,
 		width:    width,
 		height:   height,
 		theme:    theme,
 		keys:     listKeys(),
 	}
+}
+
+func filesToListItems(files []string) []list.Item {
+	items := make([]list.Item, len(files))
+	for i, f := range files {
+		items[i] = mentionFileItem{path: f}
+	}
+	return items
+}
+
+func (m *mentionFilePopupModel) applyFilter() {
+	var matched []string
+	if m.filter == "" {
+		matched = m.allFiles
+	} else {
+		lower := strings.ToLower(m.filter)
+		for _, f := range m.allFiles {
+			if strings.Contains(strings.ToLower(f), lower) {
+				matched = append(matched, f)
+			}
+		}
+	}
+	m.selector.SetItems(filesToListItems(matched))
+	m.selector.Select(0)
 }
 
 func (m mentionFilePopupModel) Init() tea.Cmd { return nil }
@@ -110,6 +135,22 @@ func (m mentionFilePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			filename := selected.path
 			return m, func() tea.Msg { return mentionFileSelectedMsg{filename: filename} }
+		default:
+			s := msg.String()
+			if s == "backspace" || s == "ctrl+h" {
+				runes := []rune(m.filter)
+				if len(runes) > 0 {
+					m.filter = string(runes[:len(runes)-1])
+					m.applyFilter()
+				}
+				return m, nil
+			}
+			// Single printable character
+			if len(s) == 1 {
+				m.filter += s
+				m.applyFilter()
+				return m, nil
+			}
 		}
 	}
 	m.selector, cmd = m.selector.Update(msg)
@@ -122,12 +163,19 @@ func (m mentionFilePopupModel) View() tea.View {
 		contentWidth = 30
 	}
 
+	base := m.theme.AppStyles().Base
+	filterPrompt := base.Foreground(m.theme.FgMuted).Render("Filter: ") +
+		base.Foreground(m.theme.FgBase).Render(m.filter) +
+		base.Foreground(m.theme.Accent).Render("█")
+
+	content := lipgloss.JoinVertical(lipgloss.Left, filterPrompt, m.selector.View())
+
 	popupBox := lipgloss.NewStyle().
 		Width(contentWidth).
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(m.theme.Accent).
-		Render(m.selector.View())
+		Render(content)
 
 	return tea.NewView(popupBox)
 }

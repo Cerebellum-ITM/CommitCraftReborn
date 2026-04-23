@@ -90,6 +90,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, cmd
 	case closeMentionPopupMsg:
 		model.popup = nil
+		currentVal := model.commitsKeysInput.Value()
+		runes := []rune(currentVal)
+		if model.mentionStart < len(runes) && runes[model.mentionStart] == '@' {
+			model.commitsKeysInput.SetValue(string(runes[:model.mentionStart]) + string(runes[model.mentionStart+1:]))
+		}
 		cmd = model.commitsKeysInput.Focus()
 		return model, cmd
 	case releaseAction:
