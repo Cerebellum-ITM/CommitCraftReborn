@@ -269,11 +269,11 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	stageH := contentHeight / 3
 
 	model.pipelineViewport1.SetWidth(contentWidth)
-	model.pipelineViewport1.SetHeight(max(1, stageH-2))
+	model.pipelineViewport1.SetHeight(max(1, stageH-3))
 	model.pipelineViewport2.SetWidth(contentWidth)
-	model.pipelineViewport2.SetHeight(max(1, stageH-2))
+	model.pipelineViewport2.SetHeight(max(1, stageH-3))
 	model.pipelineViewport3.SetWidth(contentWidth)
-	model.pipelineViewport3.SetHeight(max(1, stageH-2))
+	model.pipelineViewport3.SetHeight(max(1, stageH-3))
 
 	model.pipelineViewport1.SetContent(renderContent(model.iaSummaryOutput))
 	model.pipelineViewport2.SetContent(renderContent(model.iaCommitRawOutput))
@@ -308,31 +308,24 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 	model.pipelineViewport2.Style = vp2Style
 	model.pipelineViewport3.Style = vp3Style
 
-	header1 := model.buildStyledBorder(
-		"blur",
-		"Stage 1 — Summary  [1] re-run",
-		HeaderStyle,
-		contentWidth,
-		AlignHeader,
-	)
-	header2 := model.buildStyledBorder(
-		"blur",
-		"Stage 2 — Raw Commit  [2] re-run",
-		HeaderStyle,
-		contentWidth,
-		AlignHeader,
-	)
-	header3 := model.buildStyledBorder(
-		"blur",
-		"Stage 3 — Formatted  [3] re-run",
-		HeaderStyle,
-		contentWidth,
-		AlignHeader,
-	)
+	stateOf := func(i int) string {
+		if i == model.activePipelineStage {
+			return "focus"
+		}
+		return "blur"
+	}
 
-	stage1 := lipgloss.JoinVertical(lipgloss.Left, header1, model.pipelineViewport1.View())
-	stage2 := lipgloss.JoinVertical(lipgloss.Left, header2, model.pipelineViewport2.View())
-	stage3 := lipgloss.JoinVertical(lipgloss.Left, header3, model.pipelineViewport3.View())
+	header1 := model.buildStyledBorder(stateOf(0), "Stage 1 — Summary  [1] re-run", HeaderStyle, contentWidth, AlignHeader)
+	header2 := model.buildStyledBorder(stateOf(1), "Stage 2 — Raw Commit  [2] re-run", HeaderStyle, contentWidth, AlignHeader)
+	header3 := model.buildStyledBorder(stateOf(2), "Stage 3 — Formatted  [3] re-run", HeaderStyle, contentWidth, AlignHeader)
+
+	footer1 := model.buildStyledBorder(stateOf(0), fmt.Sprintf("%3.f%%", model.pipelineViewport1.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
+	footer2 := model.buildStyledBorder(stateOf(1), fmt.Sprintf("%3.f%%", model.pipelineViewport2.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
+	footer3 := model.buildStyledBorder(stateOf(2), fmt.Sprintf("%3.f%%", model.pipelineViewport3.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
+
+	stage1 := lipgloss.JoinVertical(lipgloss.Left, header1, model.pipelineViewport1.View(), footer1)
+	stage2 := lipgloss.JoinVertical(lipgloss.Left, header2, model.pipelineViewport2.View(), footer2)
+	stage3 := lipgloss.JoinVertical(lipgloss.Left, header3, model.pipelineViewport3.View(), footer3)
 
 	return lipgloss.JoinVertical(lipgloss.Left, stage1, stage2, stage3)
 }
@@ -360,14 +353,15 @@ func (model *Model) buildPipelineViewCompact(
 	active := model.activePipelineStage
 	vp := vps[active]
 	vp.SetWidth(contentWidth)
-	vp.SetHeight(max(1, contentHeight-2))
+	vp.SetHeight(max(1, contentHeight-3))
 	vp.SetContent(renderContent(rawContents[active]))
 	vp.Style = vp.Style.BorderForeground(model.Theme.BorderFocus)
 
 	label := fmt.Sprintf("%s  ← → switch", pipelineStageLabels[active])
-	header := model.buildStyledBorder("blur", label, HeaderStyle, contentWidth, AlignHeader)
+	header := model.buildStyledBorder("focus", label, HeaderStyle, contentWidth, AlignHeader)
+	footer := model.buildStyledBorder("focus", fmt.Sprintf("%3.f%%", vp.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, vp.View())
+	return lipgloss.JoinVertical(lipgloss.Left, header, vp.View(), footer)
 }
 
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
