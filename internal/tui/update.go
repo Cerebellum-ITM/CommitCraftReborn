@@ -327,7 +327,37 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
 		return model, tea.Batch(cmds...)
+	case logLineMsg:
+		if model.logViewVisible {
+			model.refreshLogsViewport()
+		}
+		cmds = append(cmds, waitForLogLineCmd(model.logsCh))
+		return model, tea.Batch(cmds...)
+	case logsChannelClosedMsg:
+		return model, tea.Batch(cmds...)
 	case tea.KeyMsg:
+		// Global logs popup toggle — works on top of any state, even with
+		// another popup open, as long as we're not typing in a filter.
+		if msg.String() == "ctrl+l" {
+			model.logViewVisible = !model.logViewVisible
+			if model.logViewVisible {
+				w, h := model.logsPopupSize()
+				model.logViewport.SetWidth(w - 4)
+				model.logViewport.SetHeight(h - 4)
+				model.refreshLogsViewport()
+			}
+			return model, nil
+		}
+		if model.logViewVisible {
+			if msg.String() == "esc" {
+				model.logViewVisible = false
+				return model, nil
+			}
+			var vpCmd tea.Cmd
+			model.logViewport, vpCmd = model.logViewport.Update(msg)
+			cmds = append(cmds, vpCmd)
+			return model, tea.Batch(cmds...)
+		}
 		if model.popup != nil {
 			var popupCmd tea.Cmd
 			model.popup, popupCmd = model.popup.Update(msg)

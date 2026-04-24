@@ -930,6 +930,17 @@ func (model *Model) View() tea.View {
 		helpView,
 	)
 
+	if model.logViewVisible {
+		logsView := model.renderLogsPopup()
+		startX, startY := calculatePopupPosition(model.width, model.height, logsView)
+		mainLayer := lipgloss.NewLayer(mainView)
+		logsLayer := lipgloss.NewLayer(logsView).X(startX).Y(startY).Z(2)
+		comp := lipgloss.NewCompositor(mainLayer, logsLayer)
+		finalView := tea.NewView(comp.Render())
+		finalView.AltScreen = true
+		return finalView
+	}
+
 	if model.popup == nil {
 		finalView := tea.NewView(mainView)
 		finalView.AltScreen = true

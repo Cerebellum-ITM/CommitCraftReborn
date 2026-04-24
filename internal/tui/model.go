@@ -155,6 +155,7 @@ type Model struct {
 	WritingStatusBar        statusbar.StatusBar
 	logViewport             viewport.Model
 	logViewVisible          bool
+	logsCh                  <-chan string
 	commitType              string
 	commitTypeColor         string
 	commitScope             string
@@ -393,5 +394,19 @@ func NewModel(
 
 // Init is the first command that runs when the program starts.
 func (model *Model) Init() tea.Cmd {
-	return nil
+	model.logsCh = model.log.Subscribe()
+	return waitForLogLineCmd(model.logsCh)
+}
+
+// waitForLogLineCmd reads the next line from the logs subscription channel and
+// turns it into a logLineMsg. When the channel is closed it emits
+// logsChannelClosedMsg so we stop re-subscribing.
+func waitForLogLineCmd(ch <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		line, ok := <-ch
+		if !ok {
+			return logsChannelClosedMsg{}
+		}
+		return logLineMsg{line: line}
+	}
 }

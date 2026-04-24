@@ -47,3 +47,7 @@ Module cache: `~/go/pkg/mod/`
 - All code/comments in English
 - State handlers: `updateXxx(msg, model) (tea.Model, tea.Cmd)`
 - Never hardcode colors — use `model.Theme`
+
+## Versioning
+
+- Bump `version` in `cmd/cli/main.go` on every change (semver: patch for fixes, minor for features, major for breaking changes).
