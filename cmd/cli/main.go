@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"commit_craft_reborn/internal/config"
+	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui"
@@ -13,7 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var version = "v0.8.0"
+var version = "v0.8.1"
 
 func main() {
 	log := logger.New()
@@ -87,7 +88,7 @@ func main() {
 
 	if m, ok := finalModel.(*tui.Model); ok {
 		if m.RewordHash != "" {
-			if err := tui.RewordCommit(m.RewordHash, m.FinalMessage); err != nil {
+			if err := git.RewordCommit(m.RewordHash, m.FinalMessage); err != nil {
 				fmt.Fprintf(os.Stderr, "Error rewording commit: %v\n", err)
 				os.Exit(1)
 			}

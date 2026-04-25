@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"commit_craft_reborn/internal/git"
 	tuistyles "commit_craft_reborn/internal/tui/styles"
 
 	"charm.land/bubbles/v2/viewport"
@@ -425,7 +426,7 @@ func truncateLine(s string, maxW int) string {
 
 func fetchDiffCmd(filePath string) tea.Cmd {
 	return func() tea.Msg {
-		content, err := GetStagedFileDiff(filePath)
+		content, err := git.GetStagedFileDiff(filePath)
 		return diffFetchedMsg{filePath: filePath, content: content, err: err}
 	}
 }

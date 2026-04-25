@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	"commit_craft_reborn/internal/git"
+
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -81,7 +83,7 @@ func (d diffFileDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 	return nil
 }
 
-func NewDiffFileList(gitStatus GitStatusData, useNerdFonts bool) list.Model {
+func NewDiffFileList(gitStatus git.StatusData, useNerdFonts bool) list.Model {
 	paths := make([]string, 0, len(gitStatus.FileStatus))
 	for p := range gitStatus.FileStatus {
 		paths = append(paths, p)

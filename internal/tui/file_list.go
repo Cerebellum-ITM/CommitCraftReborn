@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"commit_craft_reborn/internal/git"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
@@ -99,7 +101,7 @@ func (d FileDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 func (d FileDelegate) Height() int  { return 1 }
 func (d FileDelegate) Spacing() int { return 0 }
 
-func NewFileList(pwd string, useNerdFont bool, gitData GitStatusData) (list.Model, error) {
+func NewFileList(pwd string, useNerdFont bool, gitData git.StatusData) (list.Model, error) {
 	items, err := CreateFileItemsList(pwd, gitData)
 	if err != nil {
 		return list.Model{}, fmt.Errorf("Error changing list items %s", err)

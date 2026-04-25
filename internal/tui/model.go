@@ -6,6 +6,7 @@ import (
 
 	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/config"
+	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/statusbar"
@@ -29,18 +30,7 @@ type (
 		color color.Color
 		icon  string
 	}
-	ToolInfo struct {
-		name      string
-		available bool
-		textColor color.Color
-		icon      string
-	}
 )
-
-type Tools struct {
-	xclip ToolInfo
-	gh    ToolInfo
-}
 
 const (
 	focusMsgInput   focusableElement = iota // 0
@@ -147,7 +137,7 @@ type Model struct {
 	fileListFilter          bool
 	pipelineDiffList        list.Model
 	currentUpdateFileListFn UpdateFileListFunc
-	gitStatusData           GitStatusData
+	gitStatusData           git.StatusData
 	msgEdit                 textarea.Model
 	spinner                 spinner.Model
 	iaViewport              viewport.Model
@@ -236,7 +226,7 @@ func NewModel(
 		return s.DotsBlurred.Render()
 	})
 
-	gitStatusData, err := GetAllGitStatusData()
+	gitStatusData, err := git.GetAllGitStatusData()
 	if err != nil {
 		log.Error("Failed to initialize git Status Data", "error", err)
 		return nil, err
@@ -364,7 +354,7 @@ func NewModel(
 	// to reword as a regular commit or as a release-style commit.
 	var pendingRewordHash string
 	if rewordHash != "" && config.TUI.IsAPIKeySet {
-		full, rerr := ResolveCommitHash(rewordHash)
+		full, rerr := git.ResolveCommitHash(rewordHash)
 		if rerr != nil {
 			log.Error("Cannot resolve reword hash", "hash", rewordHash, "error", rerr)
 			return nil, fmt.Errorf("cannot resolve commit %s: %w", rewordHash, rerr)
