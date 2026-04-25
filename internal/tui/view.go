@@ -609,6 +609,7 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 
 func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 	const glamourGutter = 3
+
 	var (
 		releaseCommitListHeader string
 		releaseCommitListFooter string

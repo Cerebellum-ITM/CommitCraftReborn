@@ -178,11 +178,10 @@ type Model struct {
 	// pendingRewordHash holds the resolved hash passed via -w until the user
 	// picks a mode in the startup chooser popup. Cleared after the choice.
 	pendingRewordHash string
-	// rewordReleaseMode is true while the user is finishing a -w flow that
-	// chose release-style output, so the Enter handler in
-	// stateReleaseBuildingText quits with a release-formatted FinalMessage
-	// instead of opening the create-release menu.
-	rewordReleaseMode bool
+	// pendingReleaseUpload, when non-nil, is the release the user has just
+	// asked to publish on GitHub. We pop the version editor first and only
+	// fire execUploadRelease after the user confirms the tag.
+	pendingReleaseUpload *HistoryReleaseItem
 	currentCommit           storage.Commit
 	draftMode               bool
 	keys                    KeyMap

@@ -85,6 +85,15 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, nil
 	case closeVersionPopupMsg:
 		model.popup = nil
+		if model.pendingReleaseUpload != nil {
+			model.pendingReleaseUpload = nil
+			cancelCmd := model.WritingStatusBar.ShowMessageForDuration(
+				"GitHub release cancelled",
+				statusbar.LevelWarning,
+				2*time.Second,
+			)
+			return model, cancelCmd
+		}
 		return model, nil
 	case versionUpdatedMsg:
 		model.popup = nil
@@ -92,9 +101,25 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.log.Error("Error updating release version", "error", msg.err)
 			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.err)
 			model.WritingStatusBar.Level = statusbar.LevelError
+			model.pendingReleaseUpload = nil
 			return model, nil
 		}
 		model.globalConfig.ReleaseConfig.Version = msg.version
+
+		// If the version editor was popped as a pre-upload step, chain
+		// straight into the GitHub release with the freshly-saved tag.
+		if pending := model.pendingReleaseUpload; pending != nil {
+			model.pendingReleaseUpload = nil
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"Creating GitHub release %s…",
+				msg.version,
+			)
+			spinnerCmd := model.WritingStatusBar.StartSpinner()
+			model.releaseViewState.releaseCreated = true
+			return model, tea.Batch(spinnerCmd, execUploadRelease(*pending, model))
+		}
+
 		statusCmd := model.WritingStatusBar.ShowMessageForDuration(
 			fmt.Sprintf("Release version set to %s", msg.version),
 			statusbar.LevelSuccess,
@@ -194,11 +219,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "Create release in repository":
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
-				model.WritingStatusBar.Level = statusbar.LevelWarning
-				model.WritingStatusBar.Content = "Creating a release on GitHub"
-				spinnerCmd := model.WritingStatusBar.StartSpinner()
-				model.releaseViewState.releaseCreated = true
-				return model, tea.Batch(spinnerCmd, execUploadRelease(selectedItem, model))
+				item := selectedItem
+				model.pendingReleaseUpload = &item
+				model.popup = openVersionEditor(model)
 			}
 			return model, nil
 		case "Release Commit":
@@ -235,16 +258,15 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			model.releaseBranch = branch
 			createRelease(model)
-			model.WritingStatusBar.Level = statusbar.LevelWarning
-			model.WritingStatusBar.Content = "Creating a release on GitHub"
-			spinnerCmd := model.WritingStatusBar.StartSpinner()
-			model.releaseViewState.releaseCreated = true
 			release, err := model.db.GetLatestRelease(model.pwd)
 			if err != nil {
 				model.err = err
 				return model, tea.Quit
 			}
-			return model, tea.Batch(spinnerCmd, execUploadRelease(HistoryReleaseItem{release: release}, model))
+			item := HistoryReleaseItem{release: release}
+			model.pendingReleaseUpload = &item
+			model.popup = openVersionEditor(model)
+			return model, nil
 		default:
 			// NOTE: Any selected branch leads to this action
 			model.releaseBranch = msg.action
@@ -386,24 +408,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, popupCmd
 		}
 		if key.Matches(msg, versionPopupKey) {
-			tag, tErr := GetLastGitTag()
-			if tErr != nil {
-				model.log.Error("Error reading last git tag", "error", tErr)
-			}
-			w := model.width / 2
-			if w < 50 {
-				w = 60
-			}
-			h := model.height / 2
-			if h < 12 {
-				h = 14
-			}
-			model.popup = newVersionPopup(
-				w, h,
-				model.globalConfig.ReleaseConfig.Version,
-				tag,
-				model.Theme,
-			)
+			model.popup = openVersionEditor(model)
 			return model, nil
 		}
 		switch {
@@ -931,23 +936,6 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, model.keys.Enter):
-			if model.rewordReleaseMode {
-				parts := strings.SplitN(strings.TrimSpace(model.releaseText), "\n", 2)
-				title := strings.TrimSpace(parts[0])
-				body := ""
-				if len(parts) > 1 {
-					body = strings.TrimSpace(parts[1])
-				}
-				typeFmt := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, model.releaseType)
-				model.FinalMessage = fmt.Sprintf(
-					"%s %s: %s\n\n%s",
-					typeFmt,
-					model.releaseBranch,
-					title,
-					body,
-				)
-				return model, tea.Quit
-			}
 			var menuOptions []itemsOptions
 			menu := []string{"Create item in CommitCraft", "Create release in Github"}
 			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().CommitCraft})
@@ -1653,6 +1641,31 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	return model, cmd
 }
 
+// openVersionEditor builds the release-version editor popup with the latest
+// git tag as the bump base. Used both by the Ctrl+V global shortcut and as a
+// pre-flight step before publishing a GitHub release, so the user always
+// reviews the tag the upload is about to use.
+func openVersionEditor(model *Model) versionPopupModel {
+	tag, err := GetLastGitTag()
+	if err != nil {
+		model.log.Error("Error reading last git tag", "error", err)
+	}
+	w := model.width / 2
+	if w < 50 {
+		w = 60
+	}
+	h := model.height / 2
+	if h < 12 {
+		h = 14
+	}
+	return newVersionPopup(
+		w, h,
+		model.globalConfig.ReleaseConfig.Version,
+		tag,
+		model.Theme,
+	)
+}
+
 // setupCommitReword configures the model so the user can rewrite the message
 // of model.pendingRewordHash through the regular commit AI pipeline (type →
 // scope → AI generation). Triggered from the startup chooser popup.
@@ -1683,42 +1696,23 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
-// setupReleaseReword configures the model to reword model.pendingRewordHash
-// using the release AI pipeline. The commit metadata is loaded into
-// selectedCommitList as a single-element batch and iaReleaseBuilder is
-// dispatched immediately. The Enter handler in stateReleaseBuildingText
-// detects rewordReleaseMode and quits with a [REL]-formatted FinalMessage.
+// setupReleaseReword routes the user from the -w startup popup into the
+// regular release creation flow (-r). The pending hash is discarded because
+// release creation is multi-commit: the user picks the commits to include in
+// the release notes from stateReleaseMainMenu / stateReleaseChoosingCommits.
 func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
-	hash := model.pendingRewordHash
 	model.pendingRewordHash = ""
-	model.RewordHash = hash
+	model.RewordHash = ""
 
-	item, err := LoadCommitForRelease(hash)
-	if err != nil {
-		model.log.Error("Error loading commit for release reword", "error", err)
-		model.err = err
-		return model, tea.Quit
-	}
-	model.selectedCommitList = []WorkspaceCommitItem{item}
-
-	model.releaseType = "REL"
-	branch, bErr := GetCurrentGitBranch()
-	if bErr != nil {
-		model.log.Error("Error getting current branch for release reword", "error", bErr)
-	}
-	model.releaseBranch = branch
-	model.rewordReleaseMode = true
-	model.releaseViewState.releaseCreated = true
-
-	model.state = stateReleaseBuildingText
-	model.focusedElement = focusViewportElement
-	model.keys = releaseKeys()
-	model.WritingStatusBar.Level = statusbar.LevelWarning
+	model.AppMode = ReleaseMode
+	model.state = stateReleaseMainMenu
+	model.keys = releaseMainListKeys()
 	model.WritingStatusBar.Content = fmt.Sprintf(
-		"Reword %s · generating release-style message…",
-		hash[:7],
+		"choose, create, or edit a release ::: %s",
+		model.Theme.AppStyles().
+			Base.Foreground(model.Theme.Tertiary).
+			SetString(model.releaseMainList.Title),
 	)
-
-	spinnerCmd := model.WritingStatusBar.StartSpinner()
-	return model, tea.Batch(spinnerCmd, callIaReleaseBuilderCmd(model))
+	model.WritingStatusBar.Level = statusbar.LevelInfo
+	return model, nil
 }
