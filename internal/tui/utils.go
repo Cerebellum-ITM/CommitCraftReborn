@@ -765,6 +765,17 @@ func GetStagedFileDiff(filePath string) (string, error) {
 	return string(out), nil
 }
 
+// ResolveCommitHash expands a partial hash (or any rev-spec git accepts) to a
+// full SHA1. Returns an error if the revision does not exist in the current
+// repository.
+func ResolveCommitHash(rev string) (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--verify", rev+"^{commit}").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // RewordCommit changes the commit message of the given hash to newMessage.
 // For HEAD it uses git commit --amend; for other commits it uses a non-interactive rebase.
 func RewordCommit(hash, newMessage string) error {

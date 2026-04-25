@@ -196,6 +196,7 @@ func NewModel(
 	appMode appMode,
 	version string,
 	outputDirect bool,
+	rewordHash string,
 ) (*Model, error) {
 	var initalState appState
 	var initialKeys KeyMap
@@ -350,6 +351,43 @@ func NewModel(
 	toolInfo := CheckTools(*theme)
 	// --- End of Initializations ---
 
+	// When the CLI is invoked with a hash to reword, jump straight into the
+	// reword pipeline (commit type → scope → AI message) instead of the
+	// commit history list. We resolve the partial hash to a full one so the
+	// downstream git calls don't have to.
+	var initialRewordHash, initialDiffCode string
+	initialUseDbCommit := false
+	if rewordHash != "" && config.TUI.IsAPIKeySet {
+		full, rerr := ResolveCommitHash(rewordHash)
+		if rerr != nil {
+			log.Error("Cannot resolve reword hash", "hash", rewordHash, "error", rerr)
+			return nil, fmt.Errorf("cannot resolve commit %s: %w", rewordHash, rerr)
+		}
+		initialRewordHash = full
+		diff, dErr := GetCommitDiffSummary(full, config.Prompts.ChangeAnalyzerMaxDiffSize)
+		if dErr != nil {
+			log.Error("Error getting commit diff for reword", "error", dErr)
+		}
+		initialDiffCode = diff
+		if commitGitData, gErr := GetCommitGitStatusData(full); gErr == nil {
+			gitStatusData = commitGitData
+		} else {
+			log.Error("Error getting commit git status data for reword", "error", gErr)
+		}
+		initialUseDbCommit = true
+		initalState = stateChoosingType
+		initialKeys = listKeys()
+		statusBarInitialMessage = fmt.Sprintf("Reword %s · select a prefix", full[:7])
+		WritingStatusBar = statusbar.New(
+			statusBarInitialMessage,
+			statusbar.LevelInfo,
+			50,
+			theme,
+			version,
+		)
+		ResetAndActiveFilterOnList(&commitTypesList)
+	}
+
 	m := &Model{
 		AppMode:                 appMode,
 		ToolsInfo:               toolInfo,
@@ -358,6 +396,8 @@ func NewModel(
 		db:                      database,
 		apiKeyInput:             apiKeyInput,
 		state:                   initalState,
+		RewordHash:              initialRewordHash,
+		diffCode:                initialDiffCode,
 		mainList:                workspaceCommitsList,
 		releaseMainList:         releaseList,
 		releaseViewport:         releaseViewport,
@@ -385,7 +425,7 @@ func NewModel(
 		pipelineViewport1:       pvp1,
 		pipelineViewport2:       pvp2,
 		pipelineViewport3:       pvp3,
-		useDbCommmit:            false,
+		useDbCommmit:            initialUseDbCommit,
 		OutputDirect:            outputDirect,
 		Version:                 version,
 	}

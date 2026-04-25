@@ -21,6 +21,26 @@ type WorkspaceCommitItem struct {
 	Body     string
 	Preview  string
 	Diff     string
+	// Tags holds the git refs pointing at this commit that are release tags.
+	// Populated from `git log --pretty=...%D...` so we can surface the last
+	// release boundary in the commit picker without extra git calls.
+	Tags []string
+}
+
+// extractTagsFromRefs pulls release tags out of git's %D decoration string.
+// The format looks like: "HEAD -> main, tag: v0.7.0, tag: v0.6.1, origin/main".
+func extractTagsFromRefs(refs string) []string {
+	if refs == "" {
+		return nil
+	}
+	var tags []string
+	for _, ref := range strings.Split(refs, ",") {
+		ref = strings.TrimSpace(ref)
+		if strings.HasPrefix(ref, "tag: ") {
+			tags = append(tags, strings.TrimPrefix(ref, "tag: "))
+		}
+	}
+	return tags
 }
 
 func (wsi WorkspaceCommitItem) FilterValue() string {
@@ -35,6 +55,7 @@ type ReleaseListDelegate struct {
 	textStyle      lipgloss.Style
 	dateStyle      lipgloss.Style
 	selectedStyle  lipgloss.Style
+	tagStyle       lipgloss.Style
 }
 
 func NewReleaseListDelegate(theme *styles.Theme) list.ItemDelegate {
@@ -49,6 +70,11 @@ func NewReleaseListDelegate(theme *styles.Theme) list.ItemDelegate {
 		dateStyle:      baseState,
 		selectedStyle:  base.Foreground(theme.FgBase),
 		indicatorStyle: theme.AppStyles().IndicatorStyle,
+		tagStyle: base.
+			Foreground(theme.FgBase).
+			Background(theme.Secondary).
+			Padding(0, 1).
+			Bold(true),
 	}
 }
 
@@ -87,17 +113,27 @@ func (d ReleaseListDelegate) Render(w io.Writer, m list.Model, index int, listIt
 	}
 
 	hashLength := 11
-	maxWith := max(0, m.Width()-hashLength-lipgloss.Width(item.Date)-lipgloss.Width(selected))
+
+	var tagString string
+	if len(item.Tags) > 0 {
+		tagString = d.tagStyle.Render(item.Tags[0]) + " "
+	}
+
+	maxWith := max(
+		0,
+		m.Width()-hashLength-lipgloss.Width(item.Date)-lipgloss.Width(selected)-lipgloss.Width(tagString),
+	)
 	hashString := hashStyle.Render(TruncateString(item.Hash, hashLength))
 	subjetString := textStyle.Render(TruncateString(item.Subject, maxWith))
 	dateString := dateStyle.Render(item.Date)
 	selectedString := d.selectedStyle.Render(selected)
 	line := fmt.Sprintf(
-		"%s %s %s %s %s",
+		"%s %s %s %s %s%s",
 		selectedString,
 		indicator,
 		hashString,
 		dateString,
+		tagString,
 		subjetString,
 	)
 	fmt.Fprint(w, line)
@@ -113,7 +149,7 @@ func NewReleaseCommitList(pwd string, theme *styles.Theme) list.Model {
 		"log",
 		"-p",
 		"--date=format:%y-%m-%d %H:%M",
-		"--pretty=format:%x00COMMIT_ITEM_START%x00%H%x00%s%x00%b%x00%ad%x00COMMIT_METADATA_END%x00",
+		"--pretty=format:%x00COMMIT_ITEM_START%x00%H%x00%s%x00%b%x00%ad%x00%D%x00COMMIT_METADATA_END%x00",
 	)
 	commitHistoryCmd.Stderr = &stderr
 
@@ -152,6 +188,9 @@ func NewReleaseCommitList(pwd string, theme *styles.Theme) list.Model {
 		}
 		if len(metaFields) > 3 {
 			commit.Date = metaFields[3]
+		}
+		if len(metaFields) > 4 {
+			commit.Tags = extractTagsFromRefs(metaFields[4])
 		}
 		commit.Diff = diffStr
 		preview.WriteString(fmt.Sprintf("```\n%s```", commit.Diff))

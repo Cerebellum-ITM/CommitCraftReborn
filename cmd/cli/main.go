@@ -13,7 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var version = "v0.7.0"
+var version = "v0.7.1"
 
 func main() {
 	log := logger.New()
@@ -27,6 +27,11 @@ func main() {
 		"o",
 		false,
 		"Output the commit message directly to stdout without showing options popup",
+	)
+	rewordHash := flag.String(
+		"w",
+		"",
+		"Start the application directly in reword mode for the given commit hash",
 	)
 	flag.Parse()
 
@@ -67,6 +72,7 @@ func main() {
 		appMode,
 		version,
 		*directOutput,
+		*rewordHash,
 	)
 	if err != nil {
 		log.Fatal("Error creating the TUI model", "error", err)
