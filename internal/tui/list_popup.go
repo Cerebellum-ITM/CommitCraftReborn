@@ -190,16 +190,19 @@ func (m listPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m listPopupModel) View() tea.View {
-	contentWidth := (m.width / 2) - 4
-	contentWidth = max(contentWidth, 20)
-
-	popupBox := lipgloss.NewStyle().
-		Width(contentWidth).
-		Align(lipgloss.Center).
+	boxStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Height(m.height).
+		Align(lipgloss.Left).
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(m.color).
-		Render(m.selector.View())
+		BorderForeground(m.color)
 
+	innerWidth := max(20, m.width-boxStyle.GetHorizontalFrameSize())
+	innerHeight := max(4, m.height-boxStyle.GetVerticalFrameSize())
+	m.selector.SetWidth(innerWidth)
+	m.selector.SetHeight(innerHeight)
+
+	popupBox := boxStyle.Render(m.selector.View())
 	return tea.NewView(popupBox)
 }
