@@ -175,6 +175,14 @@ type Model struct {
 	RewordHash              string
 	OutputDirect            bool
 	commitAndReword         bool
+	// pendingRewordHash holds the resolved hash passed via -w until the user
+	// picks a mode in the startup chooser popup. Cleared after the choice.
+	pendingRewordHash string
+	// rewordReleaseMode is true while the user is finishing a -w flow that
+	// chose release-style output, so the Enter handler in
+	// stateReleaseBuildingText quits with a release-formatted FinalMessage
+	// instead of opening the create-release menu.
+	rewordReleaseMode bool
 	currentCommit           storage.Commit
 	draftMode               bool
 	keys                    KeyMap
@@ -351,45 +359,18 @@ func NewModel(
 	toolInfo := CheckTools(*theme)
 	// --- End of Initializations ---
 
-	// When the CLI is invoked with a hash to reword, jump straight into the
-	// reword pipeline (commit type → scope → AI message) instead of the
-	// commit history list. We resolve the partial hash to a full one so the
-	// downstream git calls don't have to.
-	var initialRewordHash, initialDiffCode string
-	initialUseDbCommit := false
+	// When the CLI is invoked with a hash to reword we don't preconfigure the
+	// state machine here; instead we resolve the hash and store it as
+	// pendingRewordHash so Init() can pop a chooser asking the user whether
+	// to reword as a regular commit or as a release-style commit.
+	var pendingRewordHash string
 	if rewordHash != "" && config.TUI.IsAPIKeySet {
 		full, rerr := ResolveCommitHash(rewordHash)
 		if rerr != nil {
 			log.Error("Cannot resolve reword hash", "hash", rewordHash, "error", rerr)
 			return nil, fmt.Errorf("cannot resolve commit %s: %w", rewordHash, rerr)
 		}
-		initialRewordHash = full
-		diff, dErr := GetCommitDiffSummary(full, config.Prompts.ChangeAnalyzerMaxDiffSize)
-		if dErr != nil {
-			log.Error("Error getting commit diff for reword", "error", dErr)
-		}
-		initialDiffCode = diff
-		if commitGitData, gErr := GetCommitGitStatusData(full); gErr == nil {
-			gitStatusData = commitGitData
-			// fileList was built with the live workspace status above; rebuild
-			// it from the commit's status so the scope picker shows the files
-			// changed in the commit being reworded instead of an empty list.
-			ChooseUpdateFileListFunction(false)(pwd, &fileList, gitStatusData)
-		} else {
-			log.Error("Error getting commit git status data for reword", "error", gErr)
-		}
-		initialUseDbCommit = true
-		initalState = stateChoosingType
-		initialKeys = listKeys()
-		statusBarInitialMessage = fmt.Sprintf("Reword %s · select a prefix", full[:7])
-		WritingStatusBar = statusbar.New(
-			statusBarInitialMessage,
-			statusbar.LevelInfo,
-			50,
-			theme,
-			version,
-		)
-		ResetAndActiveFilterOnList(&commitTypesList)
+		pendingRewordHash = full
 	}
 
 	m := &Model{
@@ -400,8 +381,7 @@ func NewModel(
 		db:                      database,
 		apiKeyInput:             apiKeyInput,
 		state:                   initalState,
-		RewordHash:              initialRewordHash,
-		diffCode:                initialDiffCode,
+		pendingRewordHash:       pendingRewordHash,
 		mainList:                workspaceCommitsList,
 		releaseMainList:         releaseList,
 		releaseViewport:         releaseViewport,
@@ -429,7 +409,7 @@ func NewModel(
 		pipelineViewport1:       pvp1,
 		pipelineViewport2:       pvp2,
 		pipelineViewport3:       pvp3,
-		useDbCommmit:            initialUseDbCommit,
+		useDbCommmit:            false,
 		OutputDirect:            outputDirect,
 		Version:                 version,
 	}
@@ -439,8 +419,49 @@ func NewModel(
 // Init is the first command that runs when the program starts.
 func (model *Model) Init() tea.Cmd {
 	model.logsCh = model.log.Subscribe()
-	return waitForLogLineCmd(model.logsCh)
+	cmds := []tea.Cmd{waitForLogLineCmd(model.logsCh)}
+	if model.pendingRewordHash != "" {
+		cmds = append(cmds, openRewordChooserCmd(model))
+	}
+	return tea.Batch(cmds...)
 }
+
+// openRewordChooserCmd builds the startup chooser popup that asks the user
+// whether to reword the target commit using the regular commit AI pipeline or
+// the release AI pipeline. The selection is dispatched as releaseAction with
+// one of the rewordChooseAs* labels.
+func openRewordChooserCmd(model *Model) tea.Cmd {
+	short := model.pendingRewordHash
+	if len(short) > 7 {
+		short = short[:7]
+	}
+	w := model.width / 2
+	if w < 40 {
+		w = 60
+	}
+	h := model.height / 2
+	if h < 8 {
+		h = 10
+	}
+	return func() tea.Msg {
+		return openListPopup{
+			title:  fmt.Sprintf("Reword %s", short),
+			color:  model.Theme.Primary,
+			items:  []string{rewordChooseAsCommit, rewordChooseAsRelease},
+			width:  w,
+			height: h,
+			itemsOptions: []itemsOptions{
+				{index: 0, color: model.Theme.Primary, icon: model.Theme.AppSymbols().CommitCraft},
+				{index: 1, color: model.Theme.Secondary, icon: model.Theme.AppSymbols().Rewrite},
+			},
+		}
+	}
+}
+
+const (
+	rewordChooseAsCommit  = "Reword as commit"
+	rewordChooseAsRelease = "Reword as release"
+)
 
 // waitForLogLineCmd reads the next line from the logs subscription channel and
 // turns it into a logLineMsg. When the channel is closed it emits

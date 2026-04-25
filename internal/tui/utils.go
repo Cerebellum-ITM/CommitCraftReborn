@@ -776,6 +776,36 @@ func ResolveCommitHash(rev string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// LoadCommitForRelease fetches the metadata of a single commit (hash, subject,
+// body, date) so it can be fed to the release AI pipeline as the lone element
+// of the selected commit list.
+func LoadCommitForRelease(hash string) (WorkspaceCommitItem, error) {
+	out, err := exec.Command(
+		"git", "log", "-1",
+		"--date=format:%y-%m-%d %H:%M",
+		"--pretty=format:%H%x00%s%x00%b%x00%ad",
+		hash,
+	).Output()
+	if err != nil {
+		return WorkspaceCommitItem{}, err
+	}
+	fields := strings.Split(strings.TrimSpace(string(out)), "\x00")
+	item := WorkspaceCommitItem{}
+	if len(fields) > 0 {
+		item.Hash = fields[0]
+	}
+	if len(fields) > 1 {
+		item.Subject = fields[1]
+	}
+	if len(fields) > 2 {
+		item.Body = fields[2]
+	}
+	if len(fields) > 3 {
+		item.Date = fields[3]
+	}
+	return item, nil
+}
+
 // RewordCommit changes the commit message of the given hash to newMessage.
 // For HEAD it uses git commit --amend; for other commits it uses a non-interactive rebase.
 func RewordCommit(hash, newMessage string) error {
