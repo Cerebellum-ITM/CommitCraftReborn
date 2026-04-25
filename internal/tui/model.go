@@ -371,6 +371,10 @@ func NewModel(
 		initialDiffCode = diff
 		if commitGitData, gErr := GetCommitGitStatusData(full); gErr == nil {
 			gitStatusData = commitGitData
+			// fileList was built with the live workspace status above; rebuild
+			// it from the commit's status so the scope picker shows the files
+			// changed in the commit being reworded instead of an empty list.
+			ChooseUpdateFileListFunction(false)(pwd, &fileList, gitStatusData)
 		} else {
 			log.Error("Error getting commit git status data for reword", "error", gErr)
 		}
