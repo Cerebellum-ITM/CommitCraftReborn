@@ -776,6 +776,84 @@ func ResolveCommitHash(rev string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetLastGitTag returns the most recent tag reachable from HEAD using the
+// natural-version sort order. Empty string + nil error means the repo has no
+// tags yet (which is a valid state, not an error to surface to the user).
+func GetLastGitTag() (string, error) {
+	out, err := exec.Command(
+		"git", "tag",
+		"--sort=-v:refname",
+	).Output()
+	if err != nil {
+		return "", err
+	}
+	tags := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for _, t := range tags {
+		if t = strings.TrimSpace(t); t != "" {
+			return t, nil
+		}
+	}
+	return "", nil
+}
+
+// BumpVersionPatch increments the last numeric segment of a version string
+// (e.g. "v0.6.1" → "v0.6.2"). Non-numeric trailing characters are preserved.
+// Returns "" if the input has no digits at all.
+func BumpVersionPatch(v string) string {
+	if v == "" {
+		return ""
+	}
+	runes := []rune(v)
+	end := len(runes)
+	for end > 0 && !(runes[end-1] >= '0' && runes[end-1] <= '9') {
+		end--
+	}
+	if end == 0 {
+		return ""
+	}
+	start := end
+	for start > 0 && runes[start-1] >= '0' && runes[start-1] <= '9' {
+		start--
+	}
+	num := 0
+	for i := start; i < end; i++ {
+		num = num*10 + int(runes[i]-'0')
+	}
+	num++
+	out := string(runes[:start]) + fmt.Sprintf("%d", num) + string(runes[end:])
+	return out
+}
+
+// UpdateLocalConfigVersion sets release_config.version inside the repo's
+// .commitcraft.toml. The file is created from the default template if it
+// doesn't exist yet, so the user doesn't need to bootstrap it manually.
+func UpdateLocalConfigVersion(version string) error {
+	if err := CreateLocalConfigTomlTmpl(); err != nil {
+		return fmt.Errorf("ensuring local config exists: %w", err)
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	configPath := filepath.Join(workDir, ".commitcraft.toml")
+
+	var cfg config.Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return fmt.Errorf("decoding %s: %w", configPath, err)
+	}
+	cfg.ReleaseConfig.Version = version
+
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+		return fmt.Errorf("encoding config: %w", err)
+	}
+	if err := os.WriteFile(configPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", configPath, err)
+	}
+	return nil
+}
+
 // LoadCommitForRelease fetches the metadata of a single commit (hash, subject,
 // body, date) so it can be fed to the release AI pipeline as the lone element
 // of the selected commit list.

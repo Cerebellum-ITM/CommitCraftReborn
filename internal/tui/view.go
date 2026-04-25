@@ -963,6 +963,9 @@ func (model *Model) View() tea.View {
 	case diffViewPopup:
 		ok = true
 		popupView = popupModel.View()
+	case versionPopupModel:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}

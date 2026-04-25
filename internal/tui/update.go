@@ -83,6 +83,24 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeDiffViewPopupMsg:
 		model.popup = nil
 		return model, nil
+	case closeVersionPopupMsg:
+		model.popup = nil
+		return model, nil
+	case versionUpdatedMsg:
+		model.popup = nil
+		if msg.err != nil {
+			model.log.Error("Error updating release version", "error", msg.err)
+			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.err)
+			model.WritingStatusBar.Level = statusbar.LevelError
+			return model, nil
+		}
+		model.globalConfig.ReleaseConfig.Version = msg.version
+		statusCmd := model.WritingStatusBar.ShowMessageForDuration(
+			fmt.Sprintf("Release version set to %s", msg.version),
+			statusbar.LevelSuccess,
+			2*time.Second,
+		)
+		return model, statusCmd
 	case diffFetchedMsg:
 		if msg.err != nil {
 			model.WritingStatusBar.Content = fmt.Sprintf("Error loading diff: %s", msg.err)
@@ -366,6 +384,27 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var popupCmd tea.Cmd
 			model.popup, popupCmd = model.popup.Update(msg)
 			return model, popupCmd
+		}
+		if key.Matches(msg, versionPopupKey) {
+			tag, tErr := GetLastGitTag()
+			if tErr != nil {
+				model.log.Error("Error reading last git tag", "error", tErr)
+			}
+			w := model.width / 2
+			if w < 50 {
+				w = 60
+			}
+			h := model.height / 2
+			if h < 12 {
+				h = 14
+			}
+			model.popup = newVersionPopup(
+				w, h,
+				model.globalConfig.ReleaseConfig.Version,
+				tag,
+				model.Theme,
+			)
+			return model, nil
 		}
 		switch {
 		case key.Matches(msg, model.keys.GlobalQuit):
