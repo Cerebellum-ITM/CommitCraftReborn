@@ -51,3 +51,11 @@ Module cache: `~/go/pkg/mod/`
 ## Versioning
 
 - Bump `version` in `cmd/cli/main.go` on every change (semver: patch for fixes, minor for features, major for breaking changes).
+
+## Changelog
+
+- Maintain `CHANGELOG.md` at the repo root. Every change that bumps the version must add an entry there.
+- Write all entries in **English**, regardless of the conversation language.
+- Format: `## vX.Y.Z — YYYY-MM-DD` heading, then a short summary paragraph of what changed, then a `### Usage` subsection explaining how to use any newly added or modified feature (keys, flags, config knobs). Skip the usage subsection only for pure internal refactors with no user-visible surface.
+- Keep entries terse: bullet points for facts, no marketing prose.
+- Newest version goes at the top.
