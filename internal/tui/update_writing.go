@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/tui/statusbar"
 
@@ -65,7 +66,25 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "@" && model.focusedElement == focusMsgInput {
+		// Per-section key handling. These run before the global shortcut
+		// handlers below so the meaning of arrow / x / e / enter changes
+		// based on the currently focused section.
+		switch model.focusedElement {
+		case focusComposeType:
+			if handled, m, c := handleTypeSectionKey(model, msg); handled {
+				return m, c
+			}
+		case focusComposeScope:
+			if handled, m, c := handleScopeSectionKey(model, msg); handled {
+				return m, c
+			}
+		case focusComposeKeypoints:
+			if handled, m, c := handleKeypointsSectionKey(model, msg); handled {
+				return m, c
+			}
+		}
+
+		if msg.String() == "@" && model.focusedElement == focusComposeSummary {
 			files, err := git.GetGitDiffNameStatus()
 			if err == nil && len(files) > 0 {
 				fileList := make([]string, 0, len(files))
@@ -78,81 +97,33 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 		}
 		switch {
-		case key.Matches(msg, model.keys.SwitchTab):
-			if model.activeTab == 0 {
-				model.activeTab = 1
-				model.focusedElement = focusPipelineDiffList
-				model.commitsKeysInput.Blur()
-				model.keys.RerunStage1.SetEnabled(true)
-				model.keys.RerunStage2.SetEnabled(true)
-				model.keys.RerunStage3.SetEnabled(true)
-			} else {
-				model.activeTab = 0
-				model.activePipelineStage = 0
-				model.focusedElement = focusMsgInput
-				model.keys.RerunStage1.SetEnabled(false)
-				model.keys.RerunStage2.SetEnabled(false)
-				model.keys.RerunStage3.SetEnabled(false)
-				return model, model.commitsKeysInput.Focus()
-			}
+		case key.Matches(msg, keyTypePopup):
+			w := max(40, model.width/2)
+			h := max(12, model.height*2/3)
+			model.popup = newCommitTypePopup(
+				model.finalCommitTypes,
+				model.globalConfig.CommitFormat.TypeFormat,
+				w, h, model.Theme,
+			)
 			return model, nil
-		case key.Matches(msg, model.keys.RerunStage1):
-			if model.iaSummaryOutput != "" {
-				model.WritingStatusBar.Level = statusbar.LevelWarning
-				model.WritingStatusBar.Content = "Re-running from Stage 1..."
-				spinnerCmd := model.WritingStatusBar.StartSpinner()
-				return model, tea.Batch(spinnerCmd, callIaSummaryCmd(model))
+		case key.Matches(msg, keyScopePopup):
+			startPwd := model.gitStatusData.Root
+			if startPwd == "" {
+				startPwd = model.pwd
 			}
-			return model, nil
-		case key.Matches(msg, model.keys.RerunStage2):
-			if model.iaSummaryOutput != "" {
-				model.WritingStatusBar.Level = statusbar.LevelWarning
-				model.WritingStatusBar.Content = "Re-running from Stage 2..."
-				spinnerCmd := model.WritingStatusBar.StartSpinner()
-				return model, tea.Batch(spinnerCmd, callIaCommitBuilderStage2Cmd(model))
-			}
-			return model, nil
-		case key.Matches(msg, model.keys.RerunStage3):
-			if model.iaCommitRawOutput != "" {
-				model.WritingStatusBar.Level = statusbar.LevelWarning
-				model.WritingStatusBar.Content = "Re-running Stage 3..."
-				spinnerCmd := model.WritingStatusBar.StartSpinner()
-				return model, tea.Batch(spinnerCmd, callIaOutputFormatCmd(model))
-			}
+			w := max(50, model.width*2/3)
+			h := max(18, model.height*2/3)
+			model.popup = newScopePopup(
+				startPwd,
+				model.gitStatusData,
+				model.globalConfig.TUI.UseNerdFonts,
+				w, h, model.Theme,
+			)
 			return model, nil
 		case key.Matches(msg, model.keys.NextField):
-			if model.activeTab == 1 {
-				switch model.focusedElement {
-				case focusPipelineDiffList:
-					model.focusedElement = focusPipelineViewport
-					model.activePipelineStage = 0
-				case focusPipelineViewport:
-					if model.activePipelineStage < 2 {
-						model.activePipelineStage++
-					} else {
-						model.activePipelineStage = 0
-						model.focusedElement = focusPipelineDiffList
-					}
-				}
-				return model, nil
-			}
 			cmd = switchFocusElement(model)
 			return model, cmd
 		case key.Matches(msg, model.keys.PrevField):
-			if model.activeTab == 1 {
-				switch model.focusedElement {
-				case focusPipelineDiffList:
-					model.focusedElement = focusPipelineViewport
-					model.activePipelineStage = 2
-				case focusPipelineViewport:
-					if model.activePipelineStage > 0 {
-						model.activePipelineStage--
-					} else {
-						model.focusedElement = focusPipelineDiffList
-					}
-				}
-				return model, nil
-			}
 			cmd = switchFocusElement(model)
 			return model, cmd
 		case key.Matches(msg, model.keys.SaveDraft):
@@ -188,14 +159,8 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.msgEdit.SetValue(model.commitTranslate)
 			return model, nil
 		case key.Matches(msg, model.keys.Esc):
-			return model.cancelProcess(stateChoosingScope)
+			return model.cancelProcess(stateChoosingCommit)
 		case key.Matches(msg, model.keys.Enter):
-			if model.focusedElement == focusPipelineDiffList && model.activeTab == 1 {
-				if item, ok := model.pipelineDiffList.SelectedItem().(DiffFileItem); ok {
-					return model, fetchDiffCmd(item.FilePath)
-				}
-				return model, nil
-			}
 			if model.commitTranslate != "" {
 				_, cmd := createCommit(model)
 				model.useDbCommmit = false
@@ -221,34 +186,118 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			iaBuilderCmd := callIaCommitBuilderCmd(model)
 			return model, tea.Batch(spinnerCmd, iaBuilderCmd)
 		case key.Matches(msg, model.keys.PgUp):
-			if model.focusedElement == focusMsgInput {
+			if model.focusedElement == focusComposeSummary {
 				model.commitsKeysViewport, cmd = model.commitsKeysViewport.Update(msg)
 				return model, cmd
 			}
 		case key.Matches(msg, model.keys.PgDown):
-			if model.focusedElement == focusMsgInput {
+			if model.focusedElement == focusComposeSummary {
 				model.commitsKeysViewport, cmd = model.commitsKeysViewport.Update(msg)
 				return model, cmd
 			}
 		}
 	}
 	switch model.focusedElement {
-	case focusMsgInput:
+	case focusComposeSummary, focusMsgInput:
 		model.commitsKeysInput, cmd = model.commitsKeysInput.Update(msg)
-	case focusAIResponse:
+	case focusComposeAISuggestion, focusAIResponse:
 		model.iaViewport, cmd = model.iaViewport.Update(msg)
-	case focusPipelineDiffList:
-		model.pipelineDiffList, cmd = model.pipelineDiffList.Update(msg)
-	case focusPipelineViewport:
-		switch model.activePipelineStage {
-		case 0:
-			model.pipelineViewport1, cmd = model.pipelineViewport1.Update(msg)
-		case 1:
-			model.pipelineViewport2, cmd = model.pipelineViewport2.Update(msg)
-		case 2:
-			model.pipelineViewport3, cmd = model.pipelineViewport3.Update(msg)
-		}
 	}
 	return model, cmd
+}
+
+// handleTypeSectionKey applies the keys that are only meaningful while
+// the commit-type section has focus: ←/→ to cycle through types and
+// digits 1-9 as a quick jump. Returns handled=true if the key was used.
+func handleTypeSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	if len(model.finalCommitTypes) == 0 {
+		return false, model, nil
+	}
+	switch msg.String() {
+	case "left", "h":
+		i := indexOfCommitType(model.finalCommitTypes, model.commitType)
+		i = (i - 1 + len(model.finalCommitTypes)) % len(model.finalCommitTypes)
+		ct := model.finalCommitTypes[i]
+		model.commitType = ct.Tag
+		model.commitTypeColor = ct.Color
+		return true, model, nil
+	case "right", "l":
+		i := indexOfCommitType(model.finalCommitTypes, model.commitType)
+		i = (i + 1) % len(model.finalCommitTypes)
+		ct := model.finalCommitTypes[i]
+		model.commitType = ct.Tag
+		model.commitTypeColor = ct.Color
+		return true, model, nil
+	}
+	return false, model, nil
+}
+
+// handleScopeSectionKey applies the keys that are only meaningful while
+// the scope section has focus. Scope is single-value, so navigation keys
+// are no-ops; e/Enter opens the picker and x clears the current scope.
+func handleScopeSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "x", "backspace", "delete":
+		model.resetScopes()
+		return true, model, nil
+	case "e", "enter":
+		startPwd := model.gitStatusData.Root
+		if startPwd == "" {
+			startPwd = model.pwd
+		}
+		w := max(50, model.width*2/3)
+		h := max(18, model.height*2/3)
+		model.popup = newScopePopup(
+			startPwd,
+			model.gitStatusData,
+			model.globalConfig.TUI.UseNerdFonts,
+			w, h, model.Theme,
+		)
+		return true, model, nil
+	}
+	return false, model, nil
+}
+
+// handleKeypointsSectionKey applies inline navigation/removal of saved
+// key points without leaving the compose view. ↑/↓ and ←/→ both move the
+// cursor; x/delete/backspace remove the highlighted point.
+func handleKeypointsSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	if len(model.keyPoints) == 0 {
+		return false, model, nil
+	}
+	switch msg.String() {
+	case "up", "k", "left", "h":
+		model.keypointIndex = (model.keypointIndex - 1 + len(model.keyPoints)) %
+			len(model.keyPoints)
+		return true, model, nil
+	case "down", "j", "right", "l":
+		model.keypointIndex = (model.keypointIndex + 1) % len(model.keyPoints)
+		return true, model, nil
+	case "x", "backspace", "delete":
+		i := model.keypointIndex
+		if i < 0 || i >= len(model.keyPoints) {
+			return true, model, nil
+		}
+		model.keyPoints = append(model.keyPoints[:i], model.keyPoints[i+1:]...)
+		if len(model.keyPoints) == 0 {
+			model.keypointIndex = 0
+		} else if model.keypointIndex >= len(model.keyPoints) {
+			model.keypointIndex = len(model.keyPoints) - 1
+		}
+		return true, model, nil
+	}
+	return false, model, nil
+}
+
+// indexOfCommitType finds the index of the type matching tag in the
+// configured list, or 0 when the tag is missing/empty so wrapping always
+// returns a valid item.
+func indexOfCommitType(types []commit.CommitType, tag string) int {
+	for i, ct := range types {
+		if ct.Tag == tag {
+			return i
+		}
+	}
+	return 0
 }
 

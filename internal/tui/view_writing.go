@@ -175,133 +175,149 @@ func (model *Model) buildPipelineViewCompact(
 }
 
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
-	var (
-		glamourContent             string
-		iaViewHeaderContent        string
-		userInputViewHeaderContent string
-		iaViewFooterContent        string
-		userInputiewFooterContent  string
-		formattedLines             []string
-	)
-
 	const glamourGutter = 3
+
 	statusBarContent := model.WritingStatusBar.Render()
-	tabBar := model.buildTabBar(model.width)
-	tabBarHeight := lipgloss.Height(tabBar + VerticalSpace)
 
-	currentIaViewportStyle := model.iaViewport.Style
-	switch model.focusedElement {
-	case focusMsgInput:
-		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(
-			model.Theme.FocusableElement,
-		)
-		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(
-			model.Theme.BorderFocus,
-		)
-
-		iaViewHeaderContent = model.iaHeaderView("blur")
-		iaViewFooterContent = model.iaFooterView("blur")
-
-		userInputViewHeaderContent = model.userInputHeaderView("focus")
-		userInputiewFooterContent = model.userInputFooterView("focus")
-	case focusAIResponse:
-		currentIaViewportStyle = currentIaViewportStyle.BorderForeground(model.Theme.BorderFocus)
-		model.commitsKeysViewport.Style = model.commitsKeysViewport.Style.BorderForeground(
-			model.Theme.FocusableElement,
-		)
-
-		iaViewHeaderContent = model.iaHeaderView("focus")
-		iaViewFooterContent = model.iaFooterView("focus")
-
-		userInputViewHeaderContent = model.userInputHeaderView("blur")
-		userInputiewFooterContent = model.userInputFooterView("blur")
-	case focusPipelineViewport:
-		userInputViewHeaderContent = model.userInputHeaderView("blur")
-		userInputiewFooterContent = model.userInputFooterView("blur")
-		iaViewHeaderContent = model.iaHeaderView("blur")
-		iaViewFooterContent = model.iaFooterView("blur")
-	}
-
-	statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
+	statusBarHeight := lipgloss.Height(statusBarContent)
 	verticalSpaceHeight := lipgloss.Height(VerticalSpace)
 	helpViewHeight := lipgloss.Height(model.help.View(model.keys))
-	iaHeaderH := lipgloss.Height(iaViewHeaderContent)
-	iaFooterH := lipgloss.Height(iaViewFooterContent)
-	userInputViewHeaderH := lipgloss.Height(userInputViewHeaderContent)
-	userInputViewFooterH := lipgloss.Height(userInputiewFooterContent)
-	iaVerticalMarginHeight := iaHeaderH + iaFooterH
-	userInputViewVerticalMarginHeight := userInputViewHeaderH + userInputViewFooterH
-	totalAvailableContentHeight := model.height - appStyle.GetVerticalPadding() - helpViewHeight - statusBarHeight - verticalSpaceHeight - tabBarHeight - 2
+	totalAvailableContentHeight := model.height -
+		appStyle.GetVerticalPadding() -
+		helpViewHeight -
+		statusBarHeight -
+		verticalSpaceHeight -
+		2
 
-	iaViewportContentHeight := totalAvailableContentHeight - iaVerticalMarginHeight
-	userInputVContenHeight := totalAvailableContentHeight - userInputViewVerticalMarginHeight
-	model.commitsKeysInput.SetWidth(model.width / 2)
-	model.iaViewport.SetWidth(model.width / 2)
-	model.commitsKeysViewport.SetWidth(model.width / 2)
-	inputH := lipgloss.Height(model.commitsKeysInput.View())
-	model.commitsKeysViewport.SetHeight(userInputVContenHeight - inputH - 2)
-	model.iaViewport.SetHeight(iaViewportContentHeight)
+	// 45/55 split for the two titled panels — slightly favours the AI
+	// suggestion side because that's where the rendered markdown lives.
+	leftW := max(40, model.width*45/100)
+	rightW := max(30, model.width-leftW-1)
+	panelH := max(15, totalAvailableContentHeight)
 
-	model.iaViewport.Style = currentIaViewportStyle
-	glamourRenderWidth := model.iaViewport.Width() - model.iaViewport.Style.GetHorizontalFrameSize() - glamourGutter
-	glamourStyle := styles.TokyoNightStyleConfig
+	chromeCols, chromeRows := titledPanelChrome()
+	innerLeftW := max(1, leftW-chromeCols-2)   // 2 = 1 char padding on each side
+	innerLeftH := max(1, panelH-chromeRows-1)  // 1 row of internal top padding
+	innerRightW := max(1, rightW-chromeCols-2)
+	innerRightH := max(1, panelH-chromeRows-1)
+
+	model.commitsKeysInput.SetWidth(innerLeftW)
+
+	// Drive the right-pane viewport so the AI text wraps to the panel.
+	model.iaViewport.SetWidth(innerRightW)
+	model.iaViewport.SetHeight(innerRightH)
+	glamourRenderWidth := max(10, innerRightW-glamourGutter)
 	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithStyles(glamourStyle),
+		glamour.WithStyles(styles.TokyoNightStyleConfig),
 		glamour.WithWordWrap(glamourRenderWidth),
 	)
-	if model.commitTranslate == "" {
-		glamourContent = defaultTranslatedContentPrompt
+	if model.commitTranslate != "" {
+		rendered, _ := renderer.Render(model.commitTranslate)
+		model.iaViewport.SetContent(rendered)
 	} else {
-		glamourContent = model.commitTranslate
+		model.iaViewport.SetContent("")
 	}
 
-	glamourContentStr, _ := renderer.Render(glamourContent)
-	translatedView := glamourContentStr
-	model.iaViewport.SetContent(translatedView)
-
-	for i, point := range model.keyPoints {
-		formattedLine := fmt.Sprintf("%d. %s", i+1, point)
-		formattedLines = append(formattedLines, formattedLine)
+	leftFocus := isComposeFocus(model.focusedElement)
+	leftBorder := model.Theme.Subtle
+	if leftFocus {
+		leftBorder = model.Theme.Primary
 	}
-	keyPointsOutput := strings.Join(formattedLines, "\n")
-	glamourContentStrCommitsKeys, _ := renderer.Render(keyPointsOutput)
-	model.commitsKeysViewport.SetContent(glamourContentStrCommitsKeys)
-
-	leftTranslatedContent := lipgloss.JoinVertical(lipgloss.Left,
-		userInputViewHeaderContent,
-		VerticalSpace,
-		model.commitsKeysInput.View(),
-		model.commitsKeysViewport.View(),
-		VerticalSpace,
-		userInputiewFooterContent,
-	)
-
-	var leftContent string
-	var rightContent string
-	if model.activeTab == 0 {
-		leftContent = leftTranslatedContent
-		rightContent = lipgloss.JoinVertical(lipgloss.Left,
-			iaViewHeaderContent,
-			model.iaViewport.View(),
-			iaViewFooterContent,
-		)
-	} else {
-		leftContent = model.buildPipelineDiffListView(model.width/2, totalAvailableContentHeight)
-		rightContent = model.buildPipelineView(model.width/2, totalAvailableContentHeight)
+	rightFocus := model.focusedElement == focusComposeAISuggestion ||
+		model.focusedElement == focusAIResponse
+	rightBorder := model.Theme.Subtle
+	if rightFocus {
+		rightBorder = model.Theme.Primary
 	}
 
-	uiElements := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		leftContent,
-		rightContent,
-	)
+	// Left panel content: 5 stacked sections separated by blank lines.
+	leftBody := model.assembleComposeLeftBody(innerLeftW, innerLeftH)
+
+	leftPanel := renderTitledPanel(titledPanelOpts{
+		icon:        "⚑",
+		title:       "summary",
+		hintRight:   "press Tab",
+		content:     leftBody,
+		width:       leftW,
+		height:      panelH,
+		borderColor: leftBorder,
+		titleColor:  model.Theme.FG,
+		hintColor:   model.Theme.Muted,
+	})
+
+	rightBody := model.renderAISuggestionContent(innerRightW, innerRightH)
+	rightPanel := renderTitledPanel(titledPanelOpts{
+		icon:        "✦",
+		title:       "ai suggestion",
+		hintRight:   "press ^W to generate",
+		content:     rightBody,
+		width:       rightW,
+		height:      panelH,
+		borderColor: rightBorder,
+		titleColor:  model.Theme.FG,
+		hintColor:   model.Theme.Muted,
+	})
+
+	uiElements := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, " ", rightPanel)
+	bottomBar := model.renderComposeBottomBar(model.width)
+
 	return lipgloss.JoinVertical(lipgloss.Left,
 		statusBarContent,
 		VerticalSpace,
-		tabBar,
-		VerticalSpace,
 		uiElements,
+		VerticalSpace,
+		bottomBar,
 	)
+}
+
+// assembleComposeLeftBody stacks the 5 sections inside the left panel and
+// returns the joined string ready to feed renderTitledPanel.
+func (model *Model) assembleComposeLeftBody(innerW, innerH int) string {
+	// Render each section once and let JoinVertical handle the spacing.
+	typeRow := model.renderComposeTypeRow(innerW, model.focusedElement == focusComposeType)
+	scopeRow := model.renderComposeScopeRow(innerW, model.focusedElement == focusComposeScope)
+	summary := model.renderComposeSummaryArea(innerW, model.focusedElement == focusComposeSummary)
+	pipelineModels := model.renderComposePipelineModelsArea(innerW, model.focusedElement == focusComposePipelineModels)
+
+	// Reserve a chunk for keypoints and let it grow with the panel.
+	usedH := lipgloss.Height(typeRow) +
+		lipgloss.Height(scopeRow) +
+		lipgloss.Height(summary) +
+		lipgloss.Height(pipelineModels) +
+		8 // accumulated blank-line separators
+	keypointsH := max(3, innerH-usedH)
+	keypoints := model.renderComposeKeypointsArea(innerW, keypointsH, model.focusedElement == focusComposeKeypoints)
+
+	divider := model.renderComposeDivider(innerW)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		typeRow,
+		"",
+		scopeRow,
+		"",
+		divider,
+		"",
+		summary,
+		"",
+		keypoints,
+		"",
+		pipelineModels,
+	)
+}
+
+// isComposeFocus reports whether the given focus enum belongs to the
+// left-side compose sections, used to pick the panel border color.
+func isComposeFocus(f focusableElement) bool {
+	switch f {
+	case focusComposeType,
+		focusComposeScope,
+		focusComposeSummary,
+		focusComposeKeypoints,
+		focusComposePipelineModels,
+		focusMsgInput:
+		return true
+	}
+	return false
 }
 
 func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {

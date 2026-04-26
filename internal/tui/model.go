@@ -37,8 +37,15 @@ const (
 	focusAIResponse                         // 1
 	focusListElement
 	focusViewportElement
-	focusPipelineViewport  // 4 — active viewport in pipeline tab
-	focusPipelineDiffList  // 5 — left file list in pipeline tab
+	focusPipelineViewport // 4 — active viewport in pipeline tab
+	focusPipelineDiffList // 5 — left file list in pipeline tab
+	// New compose sections (Tab cycles through these in stateWritingMessage)
+	focusComposeType
+	focusComposeScope
+	focusComposeSummary
+	focusComposeKeypoints
+	focusComposePipelineModels
+	focusComposeAISuggestion
 )
 
 // We use iota to create an "enum" for our application states.
@@ -104,6 +111,7 @@ const (
 	stateReleaseMainMenu
 	stateRewordSelectCommit
 	stateDone
+	statePipeline
 )
 
 // model is the main struct that holds the entire application state.
@@ -149,6 +157,16 @@ type Model struct {
 	commitType              string
 	commitTypeColor         string
 	commitScope             string
+	// commitScopes is the multi-value scope list shown as chips in the
+	// compose view. commitScope is the joined representation kept in sync
+	// for db persistence and AI prompts.
+	commitScopes []string
+	// scopeChipIndex is the cursor inside the scope chip row when the
+	// scope section has focus. Used so x/delete removes the right chip.
+	scopeChipIndex int
+	// keypointIndex is the cursor inside the key-points list when the
+	// keypoints section has focus, used by the per-section delete keys.
+	keypointIndex int
 	commitMsg               string
 	commitTranslate         string
 	diffCode                string
@@ -168,6 +186,14 @@ type Model struct {
 	// pendingRewordHash holds the resolved hash passed via -w until the user
 	// picks a mode in the startup chooser popup. Cleared after the choice.
 	pendingRewordHash string
+	// topTab is the persistent top-level tab the user is on. Different from
+	// model.activeTab (which is the inner editor/pipeline tab inside the
+	// writing-message view).
+	topTab TabID
+	// lastStatePerTab remembers the last appState the user was on inside
+	// each top-level tab so switching back resumes there instead of always
+	// landing on the tab's default state.
+	lastStatePerTab map[TabID]appState
 	// pendingReleaseUpload, when non-nil, is the release the user has just
 	// asked to publish on GitHub. We pop the version editor first and only
 	// fire execUploadRelease after the user confirms the tag.
@@ -365,6 +391,7 @@ func NewModel(
 	m := &Model{
 		AppMode:                 appMode,
 		ToolsInfo:               toolInfo,
+		finalCommitTypes:        finalCommitTypes,
 		log:                     log,
 		pwd:                     pwd,
 		db:                      database,
@@ -401,6 +428,12 @@ func NewModel(
 		useDbCommmit:            false,
 		OutputDirect:            outputDirect,
 		Version:                 version,
+		topTab:                  tabForState(initalState),
+		lastStatePerTab:         map[TabID]appState{},
+	}
+	if len(finalCommitTypes) > 0 {
+		m.commitType = finalCommitTypes[0].Tag
+		m.commitTypeColor = finalCommitTypes[0].Color
 	}
 	return m, nil
 }

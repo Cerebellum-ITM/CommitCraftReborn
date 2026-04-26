@@ -98,7 +98,25 @@ func (model *Model) View() tea.View {
 		return tea.NewView("Error: " + model.err.Error())
 	}
 	statusBarContent := model.WritingStatusBar.Render()
-	helpView := lipgloss.NewStyle().Padding(0, 2).SetString(model.help.View(model.keys)).String()
+	var helpView string
+	if model.state == stateWritingMessage {
+		helpView = lipgloss.NewStyle().Padding(0, 2).SetString(model.renderComposeHelpLine()).String()
+	} else {
+		helpView = lipgloss.NewStyle().Padding(0, 2).SetString(model.renderStateHelpLine()).String()
+	}
+
+	// Header breadcrumb + persistent tab bar live above everything. Both
+	// hide on the API-key bootstrap so it stays a focused single-step
+	// screen.
+	var headerContent, tabBarContent string
+	headerH, tabBarH := 0, 0
+	if model.shouldShowTabBar() {
+		headerContent = model.renderHeader(model.width)
+		tabBarContent = model.renderTabBar(model.width)
+		headerH = lipgloss.Height(headerContent)
+		tabBarH = lipgloss.Height(tabBarContent)
+	}
+
 	contentHeight := model.height
 	helpViewH := lipgloss.Height(helpView)
 	availableWidthForMainContent := max(0, model.width-appStyle.GetHorizontalFrameSize()-appStyle.
@@ -108,7 +126,7 @@ func (model *Model) View() tea.View {
 	}
 	statusBarH := lipgloss.Height(statusBarContent)
 	VerticalSpaceH := 2 * lipgloss.Height(VerticalSpace)
-	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH - helpViewH
+	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH - helpViewH - tabBarH - headerH
 
 	switch model.state {
 	case stateSettingAPIKey:
@@ -194,6 +212,16 @@ func (model *Model) View() tea.View {
 		mainContent = model.buildEditingMessageView(appStyle)
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
+	case statePipeline:
+		dummy := model.buildPipelineDummyView(
+			availableWidthForMainContent,
+			availableHeightForMainContent,
+		)
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			statusBarContent,
+			VerticalSpace,
+			dummy,
+		)
 	case stateRewordSelectCommit:
 		rewordContent := model.buildRewordSelectView()
 		mainView := lipgloss.JoinVertical(lipgloss.Left,
@@ -206,11 +234,15 @@ func (model *Model) View() tea.View {
 		return finalView
 	}
 
-	mainView := lipgloss.JoinVertical(lipgloss.Left,
-		mainContent,
-		VerticalSpace,
-		helpView,
-	)
+	var stack []string
+	if headerContent != "" {
+		stack = append(stack, headerContent)
+	}
+	if tabBarContent != "" {
+		stack = append(stack, tabBarContent)
+	}
+	stack = append(stack, mainContent, VerticalSpace, helpView)
+	mainView := lipgloss.JoinVertical(lipgloss.Left, stack...)
 
 	if model.logViewVisible {
 		logsView := model.renderLogsPopup()
@@ -246,6 +278,12 @@ func (model *Model) View() tea.View {
 		ok = true
 		popupView = popupModel.View()
 	case versionPopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case commitTypePopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case scopePopupModel:
 		ok = true
 		popupView = popupModel.View()
 	default:

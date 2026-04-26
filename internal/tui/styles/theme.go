@@ -9,43 +9,46 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// Theme is the canonical color palette used across the TUI. The schema is
+// kept small on purpose: surfaces, brand colors, semantic colors, and a
+// dedicated diff palette. Per-component styles are exposed as methods so
+// every theme automatically gets the same vocabulary (pills, panels…).
+//
+// The fields under "Legacy" exist only so the older TUI panels keep
+// compiling while the new compose layout is rolled out. They are derived
+// in fillLegacy() and should not be set directly by new themes.
 type Theme struct {
 	Name   string
 	IsDark bool
 	Logo   color.Color
 
-	FgBase      color.Color
-	FgMuted     color.Color
-	FgHalfMuted color.Color
-	FgSubtle    color.Color
+	// Surfaces
+	BG      color.Color
+	Surface color.Color
+	FG      color.Color
+	Muted   color.Color
+	Subtle  color.Color
 
-	BorderFocus      color.Color
-	FillTextLine     color.Color
-	FocusableElement color.Color
-	Indicators       color.Color
-
-	BgOverlay color.Color
-	Input     color.Color
-	Output    color.Color
-
+	// Brand & semantic
 	Primary   color.Color
 	Secondary color.Color
-	Tertiary  color.Color
-	Accent    color.Color
-	Blur      color.Color
+	Success   color.Color
+	Warning   color.Color
+	Error     color.Color
 
-	Success color.Color
-	Error   color.Color
-	Warning color.Color
-	Info    color.Color
-	Fatal   color.Color
+	// Diff
+	Add   color.Color
+	Del   color.Color
+	Mod   color.Color
+	Scope color.Color
 
-	Yellow color.Color
-	Purple color.Color
-	White  color.Color
-	Red    color.Color
-	Green  color.Color
-	Black  color.Color
+	// === Legacy (derived; do not set in theme constructors) ===
+	FgBase, FgMuted, FgHalfMuted, FgSubtle                  color.Color
+	BorderFocus, FillTextLine, FocusableElement, Indicators color.Color
+	BgOverlay, Input, Output                                color.Color
+	Tertiary, Accent, Blur                                  color.Color
+	Info, Fatal                                             color.Color
+	Yellow, Purple, White, Red, Green, Black                color.Color
 
 	styles  *Styles
 	symbols *Symbols
@@ -90,6 +93,75 @@ func (t *Theme) AppStyles() *Styles {
 		t.styles = t.buildStyles()
 	}
 	return t.styles
+}
+
+// Pill renders a small inline badge with the brand primary as background.
+// Use it for the commit-type / scope chips in the compose panel.
+func (t *Theme) Pill() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(t.Primary).
+		Foreground(t.BG).
+		Padding(0, 1).
+		Bold(true)
+}
+
+// TypePill is the commit-type chip. It accepts a per-type color sourced from
+// the user's config so every commit type keeps its identity, while the
+// foreground stays readable against the theme background.
+func (t *Theme) TypePill(bg color.Color) lipgloss.Style {
+	if bg == nil {
+		bg = t.Primary
+	}
+	return lipgloss.NewStyle().
+		Background(bg).
+		Foreground(t.BG).
+		Padding(0, 1).
+		Bold(true)
+}
+
+// Panel is the default panel chrome (rounded border + subtle border color).
+func (t *Theme) Panel() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Subtle).
+		Padding(0, 1)
+}
+
+// PanelFocus mirrors Panel with the brand primary on the border so the
+// active panel pops in the layout.
+func (t *Theme) PanelFocus() lipgloss.Style {
+	return t.Panel().BorderForeground(t.Primary)
+}
+
+// fillLegacy derives the old field names from the new schema so the
+// existing TUI code keeps building unchanged. Remove field-by-field as
+// each panel is rewritten against the new schema.
+func (t *Theme) fillLegacy() {
+	t.FgBase = t.FG
+	t.FgMuted = t.Muted
+	t.FgHalfMuted = t.Muted
+	t.FgSubtle = t.Subtle
+	t.BorderFocus = t.Primary
+	t.FillTextLine = t.Subtle
+	t.FocusableElement = t.Subtle
+	t.Indicators = t.Primary
+	t.BgOverlay = t.Surface
+	t.Input = t.FG
+	t.Output = t.FG
+	t.Tertiary = t.Secondary
+	t.Accent = t.Primary
+	t.Blur = t.Muted
+	t.Info = t.Secondary
+	t.Fatal = t.Error
+	t.Yellow = t.Warning
+	t.Purple = t.Primary
+	t.White = t.FG
+	t.Red = t.Error
+	t.Green = t.Success
+	t.Black = t.BG
+	if t.Logo == nil {
+		t.Logo = t.Primary
+	}
 }
 
 func (t *Theme) buildStyles() *Styles {
@@ -142,4 +214,14 @@ func (t *Theme) buildStyles() *Styles {
 	s.KeyPointsInput.DotsBlurred = base.Foreground(t.Blur).SetString("::: ")
 
 	return s
+}
+
+// applySymbols selects the symbol set based on the user's nerd-font flag.
+// Called by every theme constructor to keep them DRY.
+func (t *Theme) applySymbols(useNerdFont bool) {
+	if useNerdFont {
+		t.symbols = NerdFontSymbols()
+	} else {
+		t.symbols = DefaultSymbols()
+	}
 }

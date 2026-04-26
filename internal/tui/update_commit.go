@@ -76,9 +76,9 @@ func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if item, ok := commitScopeSelected.(FileItem); ok {
 				model.WritingStatusBar.Level = statusbar.LevelInfo
 				model.WritingStatusBar.Content = "Craft your commit"
-				model.commitScope = item.Title()
+				model.addScope(item.Title())
 				model.state = stateWritingMessage
-				model.focusedElement = focusMsgInput
+				model.focusedElement = focusComposeSummary
 				model.keys = writingMessageKeys()
 				cmd = model.commitsKeysInput.Focus()
 				return model, cmd
@@ -147,11 +147,23 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, model.keys.AddCommit):
 				model.currentCommit = storage.Commit{}
 				model.keyPoints = nil
-				model.WritingStatusBar.Content = "Select a prefix for the commit"
-				model.state = stateChoosingType
-				model.keys = listKeys()
-				ResetAndActiveFilterOnList(&model.commitTypeList)
-				return model, nil
+				model.resetScopes()
+				if len(model.finalCommitTypes) > 0 {
+					model.commitType = model.finalCommitTypes[0].Tag
+					model.commitTypeColor = model.finalCommitTypes[0].Color
+				}
+				model.commitsKeysInput.SetValue("")
+				model.commitTranslate = ""
+				model.iaSummaryOutput = ""
+				model.iaCommitRawOutput = ""
+				model.iaTitleRawOutput = ""
+				model.WritingStatusBar.Content = "Craft your commit"
+				model.WritingStatusBar.Level = statusbar.LevelInfo
+				model.state = stateWritingMessage
+				model.keys = writingMessageKeys()
+				model.focusedElement = focusComposeSummary
+				cmd = model.commitsKeysInput.Focus()
+				return model, cmd
 			case key.Matches(msg, model.keys.ReleaseCommit):
 				model.WritingStatusBar.Content = "Select the commits to create a release"
 				model.state = stateReleaseChoosingCommits
@@ -168,7 +180,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				if commitItem, ok := selectedItem.(HistoryCommitItem); ok {
 					commit := commitItem.commit
 					model.currentCommit = commit
-					model.commitScope = commit.Scope
+					model.loadScopesFromString(commit.Scope)
 					model.commitType = commit.Type
 					model.diffCode = commit.Diff_code
 					model.commitMsg = strings.Join(commit.KeyPoints, "\n")
@@ -179,8 +191,12 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.useDbCommmit = true
 					model.keyPoints = commit.KeyPoints
 					model.state = stateWritingMessage
+					model.focusedElement = focusComposeSummary
 					model.iaViewport.SetContent(commit.MessageEN)
 					model.keys = writingMessageKeys()
+					if cmd := model.commitsKeysInput.Focus(); cmd != nil {
+						return model, cmd
+					}
 				}
 				return model, nil
 
@@ -204,15 +220,19 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.keyPoints = commit.KeyPoints
 					model.commitTranslate = commit.MessageEN
 					model.commitType = commit.Type
-					model.commitScope = commit.Scope
+					model.loadScopesFromString(commit.Scope)
 					model.diffCode = commit.Diff_code
 					model.iaSummaryOutput = commit.IaSummary
 					model.iaCommitRawOutput = commit.IaCommitRaw
 					model.iaTitleRawOutput = commit.IaTitle
 					model.state = stateWritingMessage
+					model.focusedElement = focusComposeSummary
 					model.iaViewport.SetContent(commit.MessageEN)
 					model.keys = writingMessageKeys()
 					model.WritingStatusBar.Content = "Continuing with draft..."
+					if cmd := model.commitsKeysInput.Focus(); cmd != nil {
+						return model, cmd
+					}
 					return model, nil
 				} else {
 					model.currentCommit = commit

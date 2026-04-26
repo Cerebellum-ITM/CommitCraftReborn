@@ -27,7 +27,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.commitMsg = ""
 		model.commitType = ""
 		model.commitTranslate = ""
-		model.commitScope = ""
+		model.resetScopes()
 		model.keyPoints = nil
 		model.iaSummaryOutput = ""
 		model.iaCommitRawOutput = ""
@@ -45,11 +45,11 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 	case stateChoosingType:
 		statusBarMessage = "Select a prefix for the commit"
 		model.commitType = ""
-		model.commitScope = ""
+		model.resetScopes()
 		model.keys = listKeys()
 	case stateChoosingScope:
 		statusBarMessage = "choose a file or folder for your commit"
-		model.commitScope = ""
+		model.resetScopes()
 		model.keys = fileListKeys()
 		model.commitsKeysInput.Blur()
 	case stateReleaseMainMenu:
@@ -156,6 +156,9 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 
 
 func switchFocusElement(model *Model) tea.Cmd {
+	if model.state == stateWritingMessage {
+		return cycleComposeFocus(model, true)
+	}
 	switch model.focusedElement {
 	case focusListElement:
 		model.keys = viewPortKeys()
@@ -176,6 +179,50 @@ func switchFocusElement(model *Model) tea.Cmd {
 		model.focusedElement = focusMsgInput
 		return model.commitsKeysInput.Focus()
 	}
+	return nil
+}
+
+// composeFocusOrder is the canonical Tab ordering for the compose view's
+// 6 focusable sections.
+var composeFocusOrder = []focusableElement{
+	focusComposeType,
+	focusComposeScope,
+	focusComposeSummary,
+	focusComposeKeypoints,
+	focusComposePipelineModels,
+	focusComposeAISuggestion,
+}
+
+// cycleComposeFocus advances focus to the next/previous compose section.
+// It also (un)focuses the underlying textarea so typed input only reaches
+// the summary section.
+func cycleComposeFocus(model *Model, forward bool) tea.Cmd {
+	cur := -1
+	for i, f := range composeFocusOrder {
+		if model.focusedElement == f {
+			cur = i
+			break
+		}
+	}
+	if cur == -1 {
+		if forward {
+			model.focusedElement = composeFocusOrder[0]
+		} else {
+			model.focusedElement = composeFocusOrder[len(composeFocusOrder)-1]
+		}
+	} else {
+		if forward {
+			cur = (cur + 1) % len(composeFocusOrder)
+		} else {
+			cur = (cur - 1 + len(composeFocusOrder)) % len(composeFocusOrder)
+		}
+		model.focusedElement = composeFocusOrder[cur]
+	}
+
+	if model.focusedElement == focusComposeSummary {
+		return model.commitsKeysInput.Focus()
+	}
+	model.commitsKeysInput.Blur()
 	return nil
 }
 

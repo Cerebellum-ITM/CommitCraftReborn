@@ -79,6 +79,21 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeDiffViewPopupMsg:
 		model.popup = nil
 		return model, nil
+	case closeTypePopupMsg:
+		model.popup = nil
+		return model, nil
+	case setCommitTypeMsg:
+		model.popup = nil
+		model.commitType = msg.tag
+		model.commitTypeColor = msg.color
+		return model, nil
+	case closeScopePopupMsg:
+		model.popup = nil
+		return model, nil
+	case setScopeMsg:
+		model.popup = nil
+		model.addScope(msg.scope)
+		return model, nil
 	case closeVersionPopupMsg:
 		model.popup = nil
 		if model.pendingReleaseUpload != nil {
@@ -407,6 +422,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.popup = openVersionEditor(model)
 			return model, nil
 		}
+		if model.shouldShowTabBar() {
+			switch msg.String() {
+			case "ctrl+1":
+				model.switchToTab(tabOrder[0])
+				return model, nil
+			case "ctrl+2":
+				model.switchToTab(tabOrder[1])
+				return model, nil
+			case "ctrl+3":
+				model.switchToTab(tabOrder[2])
+				return model, nil
+			}
+		}
 		switch {
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
@@ -441,11 +469,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateReleaseBuildingText(msg, model)
 	case stateReleaseMainMenu:
 		subModel, subCmd = updateReleaseMainMenu(msg, model)
+	case statePipeline:
+		// Dummy pipeline tab has no per-state handler yet; keys bubble up
+		// to the global tab-switching shortcuts.
+		subModel = model
 	case stateRewordSelectCommit:
 		subModel, subCmd = updateRewordSelectCommit(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)
+	// Keep the persistent tab indicator in sync with state transitions
+	// triggered via the regular flow (Esc/Enter), so the user never sees
+	// a "Compose" highlight while looking at the history list.
+	model.topTab = tabForState(model.state)
 	return subModel, tea.Batch(cmds...)
 }
 
