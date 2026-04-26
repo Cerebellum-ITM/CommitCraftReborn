@@ -185,6 +185,11 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.keyPoints = append(model.keyPoints, v)
 				model.commitsKeysInput.SetValue("")
 			}
+			if len(model.keyPoints) == 0 {
+				model.WritingStatusBar.Level = statusbar.LevelError
+				model.WritingStatusBar.Content = "At least one key point is required before requesting the AI."
+				return model, nil
+			}
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
 			spinnerCmd := model.WritingStatusBar.StartSpinner()

@@ -133,6 +133,11 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 		model.WritingStatusBar.Content = "Scope is required before requesting the AI. Add at least one scope."
 		return nil
 	}
+	if len(model.keyPoints) == 0 {
+		model.WritingStatusBar.Level = statusbar.LevelError
+		model.WritingStatusBar.Content = "At least one key point is required before requesting the AI."
+		return nil
+	}
 	model.pipeline.resetAll(time.Now())
 	model.commitTranslate = ""
 	model.iaSummaryOutput = ""
@@ -163,6 +168,11 @@ func (model *Model) pipelineRetryStage(from stageID) tea.Cmd {
 	if len(model.commitScopes) == 0 {
 		model.WritingStatusBar.Level = statusbar.LevelError
 		model.WritingStatusBar.Content = "Scope is required before requesting the AI. Add at least one scope."
+		return nil
+	}
+	if len(model.keyPoints) == 0 {
+		model.WritingStatusBar.Level = statusbar.LevelError
+		model.WritingStatusBar.Content = "At least one key point is required before requesting the AI."
 		return nil
 	}
 	model.pipeline.resetFrom(from, time.Now())

@@ -2,6 +2,17 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.5 — 2026-04-26
+
+Key points are now also mandatory before any AI request, alongside the scope guard introduced in v0.10.4.
+
+- **Compose tab (`Ctrl+W`).** After flushing the current input into `model.keyPoints`, the handler in `internal/tui/update_writing.go` checks `len(model.keyPoints) == 0` and surfaces `"At least one key point is required before requesting the AI."` in `WritingStatusBar` at `LevelError`.
+- **Pipeline tab (`r`, `1`/`2`/`3`).** Same guard added to `pipelineStartFullRun` and `pipelineRetryStage` in `internal/tui/pipeline_update.go`, after the scope check.
+
+### Usage
+
+Before pressing `Ctrl+W` (compose) or `r` / stage retries (pipeline), make sure you have at least one scope and at least one key point. Either is missing and the top status bar shows the red `ERROR` pill explaining what to add.
+
 ## v0.10.4 — 2026-04-26
 
 Scope is now mandatory before any AI request. Triggering generation without a scope short-circuits the call and surfaces an error in the top status bar.
