@@ -2,6 +2,13 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.6 — 2026-04-26
+
+Fix the trailing `…` that appeared on every row of the compose "summary" panel after running the AI flow.
+
+- Root cause was in `internal/tui/compose_sections.go::renderComposeKeypointsArea`: the spacer between text and `×` had a `max(1, …)` floor, so any key point whose text was wider than `width − 3` columns produced a row of `width + 1` columns, which `renderTitledPanel` (`compose_panel.go:122`) then truncated with `…`. With `innerLeftW ≈ 0.45*model.width − 4`, this fired for ~28+ char key points on a standard 80-col terminal, which is why it looked like "all rows" once the user populated the panel before pressing `Ctrl+W`.
+- Fix: pre-truncate each key point's text to `width − 4` with `ansi.Truncate(..., "…")` so the natural spacer stays ≥ 1 and the row never overflows the panel. Same guard added to the section header (`label … counter`) so it can never push the row past `width` either.
+
 ## v0.10.5 — 2026-04-26
 
 Key points are now also mandatory before any AI request, alongside the scope guard introduced in v0.10.4.

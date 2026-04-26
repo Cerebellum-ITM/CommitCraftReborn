@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // renderComposeTypeRow renders the "commit type" section: label on top,
@@ -198,9 +199,20 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 	counter := base.Foreground(theme.Muted).Render(
 		fmt.Sprintf("%d items", len(model.keyPoints)),
 	)
+	spacerW := width - lipgloss.Width(label) - lipgloss.Width(counter)
+	if spacerW < 1 {
+		overflow := 1 - spacerW
+		trimmed := ansi.Truncate(labelText, max(1, lipgloss.Width(label)-overflow), "…")
+		if focused {
+			label = base.Foreground(theme.Primary).Bold(true).Render(trimmed)
+		} else {
+			label = base.Foreground(theme.Muted).Render(trimmed)
+		}
+		spacerW = max(1, width-lipgloss.Width(label)-lipgloss.Width(counter))
+	}
 	header := lipgloss.JoinHorizontal(lipgloss.Top,
 		label,
-		strings.Repeat(" ", max(1, width-lipgloss.Width(label)-lipgloss.Width(counter))),
+		strings.Repeat(" ", spacerW),
 		counter,
 	)
 
@@ -215,8 +227,15 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 			removeColor = theme.Primary
 		}
 		marker := base.Foreground(markerColor).Render("▸")
-		text := base.Foreground(textColor).Render(kp)
 		remove := base.Foreground(removeColor).Render("×")
+
+		// 4 = marker(1) + space(1) + remove(1) + minimum 1-col gap.
+		maxTextW := max(1, width-4)
+		shown := kp
+		if ansi.StringWidth(shown) > maxTextW {
+			shown = ansi.Truncate(shown, maxTextW, "…")
+		}
+		text := base.Foreground(textColor).Render(shown)
 
 		left := marker + " " + text
 		spacer := strings.Repeat(" ",
