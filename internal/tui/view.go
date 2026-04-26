@@ -105,15 +105,12 @@ func (model *Model) View() tea.View {
 		helpView = lipgloss.NewStyle().Padding(0, 2).SetString(model.renderStateHelpLine()).String()
 	}
 
-	// Header breadcrumb + persistent tab bar live above everything. Both
-	// hide on the API-key bootstrap so it stays a focused single-step
-	// screen.
-	var headerContent, tabBarContent string
-	headerH, tabBarH := 0, 0
+	// Persistent tab bar lives above everything; it hides on the API-key
+	// bootstrap so it stays a focused single-step screen.
+	var tabBarContent string
+	tabBarH := 0
 	if model.shouldShowTabBar() {
-		headerContent = model.renderHeader(model.width)
 		tabBarContent = model.renderTabBar(model.width)
-		headerH = lipgloss.Height(headerContent)
 		tabBarH = lipgloss.Height(tabBarContent)
 	}
 
@@ -126,7 +123,7 @@ func (model *Model) View() tea.View {
 	}
 	statusBarH := lipgloss.Height(statusBarContent)
 	VerticalSpaceH := 2 * lipgloss.Height(VerticalSpace)
-	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH - helpViewH - tabBarH - headerH
+	availableHeightForMainContent := contentHeight - statusBarH - VerticalSpaceH - helpViewH - tabBarH
 
 	switch model.state {
 	case stateSettingAPIKey:
@@ -235,9 +232,6 @@ func (model *Model) View() tea.View {
 	}
 
 	var stack []string
-	if headerContent != "" {
-		stack = append(stack, headerContent)
-	}
 	if tabBarContent != "" {
 		stack = append(stack, tabBarContent)
 	}

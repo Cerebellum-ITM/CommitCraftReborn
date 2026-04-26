@@ -139,33 +139,53 @@ func (model *Model) shouldShowTabBar() bool {
 }
 
 // renderTabBar draws the persistent tab strip across the top of the TUI.
-// Left side: the three tab labels with a vertical-bar marker in front of
-// the active one. Right side: the keyboard shortcut hints (^1/^2/^3).
+// Each tab is wrapped by `│` separators. The two `│`s flanking the active
+// tab and its label render in `theme.Primary` + bold to mark the
+// selection; the remaining separators stay in `theme.Subtle` and inactive
+// labels in `theme.Muted`. The right side keeps the keyboard shortcut
+// hints (^1/^2/^3).
 //
-//	│ Compose  │ History  │ Pipeline                ^1 compose  ^2 history …
+//	│ History │ Compose │ Pipeline │           ^1 history  ^2 compose …
 func (model *Model) renderTabBar(width int) string {
 	theme := model.Theme
 	base := theme.AppStyles().Base
 
 	muted := base.Foreground(theme.Muted)
 	activeLabel := base.Foreground(theme.FG).Bold(true)
-	separator := muted.Render("│")
-	marker := base.Foreground(theme.Primary).Render("│")
+	sepActive := base.Foreground(theme.Primary).Bold(true).Render("│")
+	sepInactive := base.Foreground(theme.Subtle).Render("│")
 
-	tabCells := make([]string, 0, len(tabOrder)*3)
-	for i, tab := range tabOrder {
-		var cell string
-		if tab == model.topTab {
-			cell = marker + " " + activeLabel.Render(tabLabel(tab))
-		} else {
-			cell = "  " + muted.Render(tabLabel(tab))
+	// Each slot between adjacent tabs is "active" if either of its two
+	// neighbours is the selected tab. The leading separator (before the
+	// first tab) and the trailing one (after the last tab) follow the
+	// same rule against their single neighbour.
+	sepFor := func(leftIdx, rightIdx int) string {
+		var leftTab, rightTab TabID
+		if leftIdx >= 0 {
+			leftTab = tabOrder[leftIdx]
 		}
-		tabCells = append(tabCells, cell)
-		if i < len(tabOrder)-1 {
-			tabCells = append(tabCells, " ", separator)
+		if rightIdx < len(tabOrder) {
+			rightTab = tabOrder[rightIdx]
 		}
+		if (leftIdx >= 0 && leftTab == model.topTab) ||
+			(rightIdx < len(tabOrder) && rightTab == model.topTab) {
+			return sepActive
+		}
+		return sepInactive
 	}
-	leftBar := lipgloss.JoinHorizontal(lipgloss.Top, tabCells...)
+
+	parts := make([]string, 0, len(tabOrder)*4+1)
+	parts = append(parts, sepFor(-1, 0))
+	for i, tab := range tabOrder {
+		var label string
+		if tab == model.topTab {
+			label = activeLabel.Render(tabLabel(tab))
+		} else {
+			label = muted.Render(tabLabel(tab))
+		}
+		parts = append(parts, " ", label, " ", sepFor(i, i+1))
+	}
+	leftBar := lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 
 	// Right-aligned shortcut hints: "^1 compose · ^2 history · ^3 pipeline"
 	hintCells := make([]string, 0, len(tabOrder)*3)

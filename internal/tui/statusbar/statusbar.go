@@ -98,8 +98,10 @@ func (sb StatusBar) Render() string {
 	}
 
 	logo := sb.theme.AppStyles().Base.
-		Background(sb.theme.Logo).
-		Padding(0, 1).SetString("CommitCraft")
+		Background(sb.theme.Primary).
+		Foreground(sb.theme.BG).
+		Bold(true).
+		Padding(0, 1).SetString("⌘ CommitCraft")
 
 	version := sb.theme.AppStyles().Base.
 		Background(sb.theme.Black).

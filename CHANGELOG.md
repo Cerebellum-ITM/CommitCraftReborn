@@ -2,6 +2,19 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.9.2 — 2026-04-26
+
+Removed the duplicated top breadcrumb header, refreshed the status-bar logo, and reworked the tab-bar selection cue.
+
+- The standalone top header (the `commitCraft / <tab> · <pwd>` breadcrumb with the green app pill on the right) is gone. The `WritingStatusBar` (the bar with the `INFO` / `WARN` / `ERROR` level prefix that already lives at the top of every screen) is now the single status surface.
+- The `CommitCraft` logo embedded inside that status bar now reads `⌘ CommitCraft` with `theme.Primary` as background and `theme.BG` as foreground (instead of the legacy `theme.Logo` background). The Mac command symbol is preserved as part of the brand mark.
+- Tab bar redesign: the visual `│ History │ Compose │ Pipeline │` separators are kept, but the two `│`s flanking the active tab now render in `theme.Primary` (bold) while the rest stay in `theme.Subtle`. The active tab's label uses `theme.FG` bold; inactive labels use `theme.Muted`. This produces a clearly framed selection without relying on background fills.
+
+### Usage
+
+- No new keybindings.
+- Theme authors: the active-tab cue reads from `theme.Primary` (active separators + bold) and `theme.Subtle` (idle separators). The status-bar logo reads from `theme.Primary` (background) and `theme.BG` (foreground).
+
 ## v0.9.1 — 2026-04-26
 
 Streamlined the new-commit flow and fixed the commit-type pills not loading.
