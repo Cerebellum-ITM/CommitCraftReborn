@@ -425,14 +425,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if model.shouldShowTabBar() {
 			switch msg.String() {
 			case "ctrl+1":
-				model.switchToTab(tabOrder[0])
-				return model, nil
+				_, _, tabCmd := model.switchToTab(tabOrder[0])
+				return model, tabCmd
 			case "ctrl+2":
-				model.switchToTab(tabOrder[1])
-				return model, nil
+				_, _, tabCmd := model.switchToTab(tabOrder[1])
+				return model, tabCmd
 			case "ctrl+3":
-				model.switchToTab(tabOrder[2])
-				return model, nil
+				_, _, tabCmd := model.switchToTab(tabOrder[2])
+				return model, tabCmd
 			}
 		}
 		switch {

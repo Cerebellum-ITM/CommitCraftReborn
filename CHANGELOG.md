@@ -2,6 +2,18 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.9.5 — 2026-04-26
+
+Fixed `Ctrl+2` (Compose tab) routing into the deprecated step-by-step flow instead of the new multi-section compose view.
+
+- `defaultStateForTab(TabCompose)` now returns `stateWritingMessage` (the new flow) instead of the legacy `stateChoosingType`.
+- `switchToTab` now also returns a `tea.Cmd` so a fresh Compose entry can focus the summary input. A new `Model.initFreshCompose` helper resets the draft fields (mirroring the `AddCommit` shortcut on the history list) and focuses `commitsKeysInput`.
+- `Ctrl+1/2/3` callsites in `update.go` propagate the returned command.
+
+### Usage
+
+Press `Ctrl+2` from any tab to land directly on the new Compose view, ready to type the summary. The previous draft is preserved if you had already visited Compose during the session.
+
 ## v0.9.4 — 2026-04-26
 
 Status bar redesigned around a flat two-pill `TYPE  MESSAGE` scheme with a fixed dark palette per level.

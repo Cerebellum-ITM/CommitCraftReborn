@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"commit_craft_reborn/internal/storage"
+
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -62,7 +65,7 @@ func tabForState(s appState) TabID {
 func (model *Model) defaultStateForTab(t TabID) appState {
 	switch t {
 	case TabCompose:
-		return stateChoosingType
+		return stateWritingMessage
 	case TabPipeline:
 		return statePipeline
 	case TabHistory:
@@ -77,24 +80,49 @@ func (model *Model) defaultStateForTab(t TabID) appState {
 
 // switchToTab persists the current state under its tab and routes to the
 // target tab, restoring the last visited state there or its default.
-func (model *Model) switchToTab(target TabID) (*Model, bool) {
+func (model *Model) switchToTab(target TabID) (*Model, bool, tea.Cmd) {
 	current := tabForState(model.state)
 	if current == target {
-		return model, false
+		return model, false, nil
 	}
 	if model.lastStatePerTab == nil {
 		model.lastStatePerTab = map[TabID]appState{}
 	}
 	model.lastStatePerTab[current] = model.state
 
+	var cmd tea.Cmd
 	next, ok := model.lastStatePerTab[target]
 	if !ok {
 		next = model.defaultStateForTab(target)
+		if target == TabCompose && next == stateWritingMessage {
+			cmd = model.initFreshCompose()
+		}
 	}
 	model.state = next
 	model.topTab = target
 	model.keys = keysForState(next, model.AppMode)
-	return model, true
+	return model, true, cmd
+}
+
+// initFreshCompose resets compose-related fields to their initial values
+// so a tab switch into Compose lands on a clean draft (mirrors the setup
+// performed by the "AddCommit" shortcut on the history list).
+func (model *Model) initFreshCompose() tea.Cmd {
+	model.currentCommit = storage.Commit{}
+	model.keyPoints = nil
+	model.resetScopes()
+	if len(model.finalCommitTypes) > 0 {
+		model.commitType = model.finalCommitTypes[0].Tag
+		model.commitTypeColor = model.finalCommitTypes[0].Color
+	}
+	model.commitsKeysInput.SetValue("")
+	model.commitTranslate = ""
+	model.iaSummaryOutput = ""
+	model.iaCommitRawOutput = ""
+	model.iaTitleRawOutput = ""
+	model.focusedElement = focusComposeSummary
+	model.WritingStatusBar.Content = "Craft your commit"
+	return model.commitsKeysInput.Focus()
 }
 
 // keysForState picks the keymap that matches a state, used after a tab
