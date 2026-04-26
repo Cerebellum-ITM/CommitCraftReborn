@@ -24,9 +24,19 @@ type PromptsConfig struct {
 }
 
 type TUIConfig struct {
-	UseNerdFonts bool   `toml:"use_nerd_fonts"`
-	GroqAPIKey   string `toml:"-"`
-	IsAPIKeySet  bool   `toml:"-"`
+	UseNerdFonts bool                 `toml:"use_nerd_fonts"`
+	GroqAPIKey   string               `toml:"-"`
+	IsAPIKeySet  bool                 `toml:"-"`
+	Pipeline     PipelineLayoutConfig `toml:"pipeline,omitempty"`
+}
+
+// PipelineLayoutConfig controls the per-stage card heights on the
+// Pipeline tab. Heights count *body rows* (the inner content between
+// borders); the panel chrome adds 2 more rows on top.
+type PipelineLayoutConfig struct {
+	StageDefaultHeight int `toml:"stage_default_height"`
+	StageFocusedHeight int `toml:"stage_focused_height"`
+	DiffMinHeight      int `toml:"diff_min_height"`
 }
 
 type ReleaseConfig struct {
@@ -72,6 +82,11 @@ func NewDefaultConfig() Config {
 		},
 		TUI: TUIConfig{
 			UseNerdFonts: true,
+			Pipeline: PipelineLayoutConfig{
+				StageDefaultHeight: 4,
+				StageFocusedHeight: 8,
+				DiffMinHeight:      6,
+			},
 		},
 		Prompts: PromptsConfig{
 			ChangeAnalyzerPromptFile:        "prompts/change_analyzer.prompt",

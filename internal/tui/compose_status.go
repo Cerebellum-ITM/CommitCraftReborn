@@ -219,8 +219,11 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 		return []helpEntry{
 			{"r", "retry all"},
 			{"1/2/3", "retry stage"},
+			{"tab", "focus stage"},
+			{"pgup/pgdn", "scroll stage"},
+			{"↑↓", "scroll diff"},
+			{"j/k", "select file"},
 			{"↵", "accept"},
-			{"tab", "switch panel"},
 			{"esc", "cancel"},
 			{"^1/^2/^3", "switch tab"},
 			{"^x", "quit"},

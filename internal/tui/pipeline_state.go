@@ -3,6 +3,8 @@ package tui
 import (
 	"time"
 
+	"commit_craft_reborn/internal/git"
+
 	"charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/viewport"
@@ -31,15 +33,6 @@ const (
 	statusCancelled
 )
 
-// pipelineFocus tracks which of the two panels (changed-files vs stages)
-// is currently receiving keystrokes on the Pipeline tab.
-type pipelineFocus int
-
-const (
-	pipelineFocusFiles pipelineFocus = iota
-	pipelineFocusStages
-)
-
 // pipelineStage is the per-stage record displayed in the right panel.
 // flashExpiresAt holds the post-completion green-flash deadline; rendering
 // checks time.Now() against it. shakeFrame drives the failure shake (0 =
@@ -61,13 +54,22 @@ type pipelineStage struct {
 // main Model. It lives as a single embedded field so resets and animation
 // scheduling stay local to this file.
 type pipelineModel struct {
-	stages       [3]pipelineStage
-	progress     [3]progress.Model
-	spinner      spinner.Model
-	fileViewport viewport.Model
-	width        int
-	height       int
-	focus        pipelineFocus
+	stages   [3]pipelineStage
+	progress [3]progress.Model
+	spinner  spinner.Model
+	// diffViewport renders the current selected file's staged diff in the
+	// last sub-block of the right panel. Updated whenever the user moves
+	// the file cursor (j/k).
+	diffViewport viewport.Model
+	// numstat is the cached `git diff --staged --numstat` map keyed by
+	// path, refreshed on tab enter / pipeline re-run. Used by the file
+	// list rows and the footer totals.
+	numstat map[string]git.FileNumstat
+	width   int
+	height  int
+	// focusedStage tracks which of the 3 stage cards is currently grown
+	// (config.StageFocusedHeight). Tab cycles s1 → s2 → s3 → s1.
+	focusedStage stageID
 	cancelling   bool
 	// fadeFrame drives the final-commit fade-in. 0 = hidden, 1 = Muted,
 	// 2 = AcceptDim, 3 = Success (final). Reset on every full re-run.
@@ -82,7 +84,7 @@ type pipelineModel struct {
 // pipelineDiffList so it can share git status across views).
 func newPipelineModel() pipelineModel {
 	titles := [3]string{"Change Analyzer", "Commit Body", "Commit Title"}
-	pm := pipelineModel{focus: pipelineFocusStages}
+	pm := pipelineModel{focusedStage: stageSummary}
 	for i := 0; i < 3; i++ {
 		pm.stages[i] = pipelineStage{
 			ID:     stageID(i),
@@ -97,8 +99,14 @@ func newPipelineModel() pipelineModel {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	pm.spinner = sp
-	pm.fileViewport = viewport.New()
+	pm.diffViewport = viewport.New()
 	return pm
+}
+
+// cycleFocus advances the focused-stage cursor by one slot, wrapping at
+// the third stage. Triggered by `tab` on the Pipeline tab.
+func (pm *pipelineModel) cycleFocus() {
+	pm.focusedStage = stageID((int(pm.focusedStage) + 1) % 3)
 }
 
 // resetAll marks every stage as Running with progress 0 and clears

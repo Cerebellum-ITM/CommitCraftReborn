@@ -3,15 +3,25 @@ package tui
 import "charm.land/bubbles/v2/key"
 
 // pipelineKeys is the keymap active while the user is on the Pipeline tab.
-// `r` retries the full pipeline; `1`/`2`/`3` retry a single stage and
-// cascade re-runs to downstream stages where the existing AI runner does
-// so already (callIaSummaryCmd → all 3, callIaCommitBuilderStage2Cmd →
-// stages 2 + 3, callIaOutputFormatCmd → stage 3 only).
+//
+//   - `r`         — full pipeline retry
+//   - `1`/`2`/`3` — per-stage retry (cascades downstream where the runner
+//     supports it: 1 → all, 2 → 2+3, 3 → 3 only)
+//   - `tab`       — cycle the focused stage (s1 → s2 → s3 → s1)
+//   - `pgup/pgdn` — scroll the focused stage's viewport
+//   - `↑`/`↓`     — scroll the diff sub-block (always, regardless of focus)
+//   - `j`/`k`     — move the changed-files cursor (loads its diff)
+//   - `enter`     — accept the assembled commit (only when allDone)
+//   - `esc`       — cancel a running run
 func pipelineKeys() KeyMap {
 	return KeyMap{
-		Up:        key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:      key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		NextField: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel")),
+		Up:        key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "diff up")),
+		Down:      key.NewBinding(key.WithKeys("down"), key.WithHelp("↓", "diff down")),
+		PgUp:      key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "stage scroll up")),
+		PgDown:    key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "stage scroll down")),
+		FileUp:    key.NewBinding(key.WithKeys("k"), key.WithHelp("k", "prev file")),
+		FileDown:  key.NewBinding(key.WithKeys("j"), key.WithHelp("j", "next file")),
+		NextField: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "cycle stage focus")),
 		Enter:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept commit")),
 		Esc:       key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel / back")),
 		Toggle:    key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "retry pipeline")),

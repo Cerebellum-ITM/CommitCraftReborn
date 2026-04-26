@@ -52,6 +52,8 @@ type KeyMap struct {
 	RerunStage1 key.Binding
 	RerunStage2 key.Binding
 	RerunStage3 key.Binding
+	FileUp      key.Binding
+	FileDown    key.Binding
 }
 
 func writingMessageKeys() KeyMap {

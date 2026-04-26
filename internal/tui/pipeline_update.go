@@ -29,12 +29,38 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, model.pipelineRetryStage(stageBody)
 		case key.Matches(m, model.keys.RerunStage3):
 			return model, model.pipelineRetryStage(stageTitle)
-		case key.Matches(m, model.keys.NextField):
-			if model.pipeline.focus == pipelineFocusStages {
-				model.pipeline.focus = pipelineFocusFiles
-			} else {
-				model.pipeline.focus = pipelineFocusStages
+		case key.Matches(m, model.keys.Up):
+			model.pipeline.diffViewport.ScrollUp(1)
+			return model, nil
+		case key.Matches(m, model.keys.Down):
+			model.pipeline.diffViewport.ScrollDown(1)
+			return model, nil
+		case key.Matches(m, model.keys.PgUp):
+			vp := model.stageViewportModel(model.pipeline.focusedStage)
+			if vp != nil {
+				vp.HalfPageUp()
 			}
+			return model, nil
+		case key.Matches(m, model.keys.PgDown):
+			vp := model.stageViewportModel(model.pipeline.focusedStage)
+			if vp != nil {
+				vp.HalfPageDown()
+			}
+			return model, nil
+		case key.Matches(m, model.keys.FileUp):
+			if len(model.pipelineDiffList.Items()) > 0 {
+				model.pipelineDiffList.CursorUp()
+				setDiffFromSelectedFile(model)
+			}
+			return model, nil
+		case key.Matches(m, model.keys.FileDown):
+			if len(model.pipelineDiffList.Items()) > 0 {
+				model.pipelineDiffList.CursorDown()
+				setDiffFromSelectedFile(model)
+			}
+			return model, nil
+		case key.Matches(m, model.keys.NextField):
+			model.pipeline.cycleFocus()
 			return model, nil
 		case key.Matches(m, model.keys.Esc):
 			if model.pipeline.anyRunning() {
@@ -48,12 +74,6 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return createCommit(model)
 			}
 			return model, nil
-		}
-		// Files panel navigation.
-		if model.pipeline.focus == pipelineFocusFiles {
-			var listCmd tea.Cmd
-			model.pipelineDiffList, listCmd = model.pipelineDiffList.Update(msg)
-			cmds = append(cmds, listCmd)
 		}
 
 	case spinner.TickMsg:
@@ -113,6 +133,11 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 	model.iaSummaryOutput = ""
 	model.iaCommitRawOutput = ""
 	model.iaTitleRawOutput = ""
+	model.pipelineViewport1.SetContent("")
+	model.pipelineViewport2.SetContent("")
+	model.pipelineViewport3.SetContent("")
+	refreshPipelineNumstat(model)
+	applyPipelineFilesDelegate(model)
 
 	model.WritingStatusBar.Content = "pipeline started · stage 1/3"
 	model.WritingStatusBar.Level = statusbar.LevelInfo
@@ -193,7 +218,9 @@ func (model *Model) pipelineCancel() tea.Cmd {
 
 // applyPipelineResult synchronises the pipeline view's per-stage status
 // when one of the existing IaXxxResultMsg arrives. Called from update.go
-// alongside the existing Compose-side handlers.
+// alongside the existing Compose-side handlers. Also pushes the freshly
+// produced output into the per-stage viewport so the user can scroll
+// through the full text right after the run.
 func (model *Model) applyPipelineResult(touched []stageID, err error) tea.Cmd {
 	now := time.Now()
 	cmds := make([]tea.Cmd, 0, len(touched)+2)
@@ -214,6 +241,18 @@ func (model *Model) applyPipelineResult(touched []stageID, err error) tea.Cmd {
 		st.flashExpiresAt = now.Add(400 * time.Millisecond)
 		cmds = append(cmds, model.pipeline.progress[id].SetPercent(1))
 		cmds = append(cmds, tickFlash(id, 400*time.Millisecond))
+
+		if vp := model.stageViewportModel(id); vp != nil {
+			switch id {
+			case stageSummary:
+				vp.SetContent(model.iaSummaryOutput)
+			case stageBody:
+				vp.SetContent(model.iaCommitRawOutput)
+			case stageTitle:
+				vp.SetContent(model.iaTitleRawOutput)
+			}
+			vp.GotoTop()
+		}
 	}
 	if err == nil && model.pipeline.allDone() {
 		cmds = append(cmds, tickFade(1))

@@ -440,6 +440,9 @@ func NewModel(
 	m.pipeline.stages[stageSummary].Model = config.Prompts.ChangeAnalyzerPromptModel
 	m.pipeline.stages[stageBody].Model = config.Prompts.CommitBodyGeneratorPromptModel
 	m.pipeline.stages[stageTitle].Model = config.Prompts.CommitTitleGeneratorPromptModel
+	refreshPipelineNumstat(m)
+	applyPipelineFilesDelegate(m)
+	setDiffFromSelectedFile(m)
 	return m, nil
 }
 

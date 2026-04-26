@@ -157,6 +157,47 @@ func GetGitDiffNameStatus() (map[string]string, error) {
 	return statusMap, nil
 }
 
+// FileNumstat captures the per-file `+N -M` counts produced by
+// `git diff --staged --numstat`. Binary files report Adds = Dels = -1.
+type FileNumstat struct {
+	Adds int
+	Dels int
+}
+
+// GetStagedNumstat parses `git diff --staged --numstat` into a map keyed
+// by file path. Used by the Pipeline tab to render `+N -M` next to each
+// changed file and aggregate totals at the bottom.
+func GetStagedNumstat() (map[string]FileNumstat, error) {
+	cmd := exec.Command("git", "diff", "--staged", "--numstat")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get numstat: %w", err)
+	}
+	result := map[string]FileNumstat{}
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		var ns FileNumstat
+		if parts[0] == "-" {
+			ns.Adds = -1
+		} else {
+			fmt.Sscanf(parts[0], "%d", &ns.Adds)
+		}
+		if parts[1] == "-" {
+			ns.Dels = -1
+		} else {
+			fmt.Sscanf(parts[1], "%d", &ns.Dels)
+		}
+		result[parts[2]] = ns
+	}
+	return result, nil
+}
+
 // GetStagedFileDiff returns the staged diff for a single file with --unified=4
 // context. Used by the diff popup.
 func GetStagedFileDiff(filePath string) (string, error) {

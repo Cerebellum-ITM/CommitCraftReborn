@@ -20,6 +20,14 @@ type titledPanelOpts struct {
 	borderColor color.Color
 	titleColor  color.Color
 	hintColor   color.Color
+	// iconColor, when non-nil, paints the icon with a different color than
+	// the title. Used by the Pipeline tab so the per-stage status dot can
+	// stay green/red regardless of the title color.
+	iconColor color.Color
+	// hintRaw, when true, skips the outer hint style so callers can pass
+	// pre-styled content (e.g. statusbar pills). The Pipeline tab uses
+	// this to embed the per-stage status pill in the top edge.
+	hintRaw bool
 }
 
 // renderTitledPanel draws a rounded-border panel with the title embedded
@@ -43,21 +51,38 @@ func renderTitledPanel(o titledPanelOpts) string {
 	titleStyle := lipgloss.NewStyle().Foreground(o.titleColor).Bold(true)
 	hintStyle := lipgloss.NewStyle().Foreground(o.hintColor)
 
-	titleText := strings.TrimSpace(o.title)
-	if o.icon != "" {
-		titleText = o.icon + " " + titleText
-	}
 	titleRendered := ""
 	titleW := 0
-	if titleText != "" {
+	titleText := strings.TrimSpace(o.title)
+	switch {
+	case o.icon != "" && titleText != "":
+		iconColor := o.iconColor
+		if iconColor == nil {
+			iconColor = o.titleColor
+		}
+		iconRendered := lipgloss.NewStyle().Foreground(iconColor).Bold(true).Render(o.icon)
+		titleRendered = " " + iconRendered + " " + titleStyle.Render(titleText) + " "
+		titleW = lipgloss.Width(titleRendered)
+	case titleText != "":
 		titleRendered = titleStyle.Render(" " + titleText + " ")
+		titleW = lipgloss.Width(titleRendered)
+	case o.icon != "":
+		iconColor := o.iconColor
+		if iconColor == nil {
+			iconColor = o.titleColor
+		}
+		titleRendered = " " + lipgloss.NewStyle().Foreground(iconColor).Bold(true).Render(o.icon) + " "
 		titleW = lipgloss.Width(titleRendered)
 	}
 
 	hintRendered := ""
 	hintW := 0
 	if o.hintRight != "" {
-		hintRendered = hintStyle.Render(" " + o.hintRight + " ")
+		if o.hintRaw {
+			hintRendered = " " + o.hintRight + " "
+		} else {
+			hintRendered = hintStyle.Render(" " + o.hintRight + " ")
+		}
 		hintW = lipgloss.Width(hintRendered)
 	}
 

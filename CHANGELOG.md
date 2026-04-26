@@ -2,6 +2,48 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.2 — 2026-04-26
+
+Pipeline tab restored to the two-column layout from the original spec, with per-stage scrollable viewports and the diff moved into a dedicated sub-block inside the right panel.
+
+- Restored outer 2-column layout: `changed files` panel on the left + `pipeline · 3 stages` panel on the right. Stacks vertically when `width < 90`.
+- Each stage card now uses one of the existing `pipelineViewport1/2/3` instances as its body, so long AI outputs are scrollable. The focused stage grows to `tui.pipeline.stage_focused_height`; the others stay at `tui.pipeline.stage_default_height`.
+- Diff lives as the last sub-block inside the right panel (`diff · <path> · +N -M`), driven by a fresh `pipeline.diffViewport`. Updates whenever the file cursor moves.
+- Left files panel uses a 2-row delegate (`pipelineFilesDelegate`) showing status letter + path on row 1 and `+N -M` (or `+bin -bin` for binaries) on row 2. Footer renders the totals (`5 files +250 -17`). Numstat data comes from a new `git.GetStagedNumstat()` helper, cached on the Model and refreshed on tab open / pipeline re-run.
+- Key reservations:
+  - `↑` / `↓` always scroll the diff sub-block.
+  - `pgup` / `pgdn` scroll the focused stage's viewport.
+  - `tab` cycles focused stage (s1 → s2 → s3 → s1).
+  - `j` / `k` move the file cursor (loads its diff into the sub-block).
+- `applyPipelineResult` now also pushes the freshly produced output into the relevant per-stage viewport so the user can scroll through the full text immediately after the run.
+- Configurable heights (defaults shown):
+
+```toml
+[tui.pipeline]
+stage_default_height = 4
+stage_focused_height = 8
+diff_min_height      = 6
+```
+
+### Usage
+
+Press `Ctrl+3` to enter the Pipeline tab. Use `j`/`k` to scrub through changed files and `↑`/`↓` to scroll the diff. `tab` cycles which stage is focused (the focused card grows); `pgup`/`pgdn` scroll inside that stage. `r` retries everything, `1`/`2`/`3` retry a specific stage (cascading downstream where supported), `↵` accepts when all stages are Done, `esc` cancels a run.
+
+## v0.10.1 — 2026-04-26
+
+Pipeline tab redesigned to a vertical stack of full-width stage cards so the panel actually uses the full content area and matches the reference mock.
+
+- Dropped the two-column layout. Each stage is now its own rounded card spanning the available width, with: top-edge dot+title (icon coloured per status) and `done`/`running`/etc. pill on the right; 2 lines of stage output as the body; a thick coloured underline at the bottom (`━` characters in `Success`/`AI`/`Error`/`Warning` per status). While running, the underline animates as a pulsing fill in `theme.AI` over a `theme.Subtle` track.
+- Replaced `bubbles/v2/progress` with a hand-drawn line so the bar is always visible without threading `progress.FrameMsg` through `View()`. The `progress` import + state remain available for future smoothing.
+- Final-commit card collapsed to a 4-row block ("● final commit ready · ⏎ accept & commit") that shows up only when all 3 stages are Done.
+- New "selected file + diff" footer renders below the cards: header (`selected file <path> · <status> (n/m)`) plus a colour-aware diff preview pulled from `git.GetStagedFileDiff`. Arrow keys (`↑`/`↓`) cycle through the changed-files list, replacing the broken left-sidebar.
+- `renderTitledPanel` extended with `iconColor` (so the status dot can be green while the title stays white) and `hintRaw` (so pre-styled pills/buttons embed in the top edge without being re-painted by the panel's hint style).
+- Help line on Pipeline tab updated: `r · 1/2/3 · ↑↓ · ↵ · esc · ^1/^2/^3 · ^x`.
+
+### Usage
+
+Same shortcuts as v0.10.0 plus arrow keys to scrub through changed files. The currently selected file's diff is rendered live at the bottom of the tab.
+
 ## v0.10.0 — 2026-04-26
 
 Pipeline tab promoted from placeholder to a real animated 3-stage inspector. Reuses the existing synchronous AI runner — token streaming is intentionally deferred for a follow-up.
