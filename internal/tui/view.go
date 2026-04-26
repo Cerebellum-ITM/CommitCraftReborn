@@ -181,7 +181,7 @@ func (model *Model) View() tea.View {
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
 	case statePipeline:
-		mainContent = model.buildPipelineDummyView(
+		mainContent = model.viewPipeline(
 			availableWidthForMainContent,
 			availableHeightForMainContent,
 		)

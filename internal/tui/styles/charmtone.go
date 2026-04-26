@@ -1,6 +1,10 @@
 package styles
 
-import "github.com/charmbracelet/x/exp/charmtone"
+import (
+	"github.com/charmbracelet/x/exp/charmtone"
+
+	"charm.land/lipgloss/v2"
+)
 
 func NerdFontSymbols() *Symbols {
 	return &Symbols{
@@ -57,6 +61,10 @@ func NewCharmtoneTheme(useNerdFont bool) *Theme {
 		Del:   charmtone.Coral,
 		Mod:   charmtone.Mustard,
 		Scope: charmtone.Dolly,
+
+		AI:         lipgloss.Color("#b08cff"),
+		SuccessDim: lipgloss.Color("#5d7a3a"),
+		AcceptDim:  lipgloss.Color("#888a96"),
 	}
 	t.fillLegacy()
 	t.applySymbols(useNerdFont)

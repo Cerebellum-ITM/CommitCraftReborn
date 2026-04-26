@@ -149,10 +149,7 @@ func keysForState(s appState, mode appMode) KeyMap {
 	case stateSettingAPIKey:
 		return textInputKeys()
 	case statePipeline:
-		if mode == ReleaseMode {
-			return releaseMainListKeys()
-		}
-		return mainListKeys()
+		return pipelineKeys()
 	}
 	return mainListKeys()
 }
@@ -235,24 +232,3 @@ func (model *Model) renderTabBar(width int) string {
 	return leftBar + spacer + rightBar
 }
 
-// buildPipelineDummyView is the placeholder content for the Pipeline tab
-// until the actual pipeline inspector is rebuilt against the new layout.
-func (model *Model) buildPipelineDummyView(width, height int) string {
-	theme := model.Theme
-	body := lipgloss.JoinVertical(
-		lipgloss.Center,
-		theme.AppStyles().Base.
-			Foreground(theme.Secondary).
-			Bold(true).
-			Render("Pipeline"),
-		"",
-		theme.AppStyles().Base.
-			Foreground(theme.Muted).
-			Render("AI pipeline inspector — coming soon."),
-	)
-	return lipgloss.Place(
-		width, height,
-		lipgloss.Center, lipgloss.Center,
-		body,
-	)
-}

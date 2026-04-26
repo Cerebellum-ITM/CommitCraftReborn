@@ -178,6 +178,7 @@ type Model struct {
 	pipelineViewport1       viewport.Model
 	pipelineViewport2       viewport.Model
 	pipelineViewport3       viewport.Model
+	pipeline                pipelineModel
 	useDbCommmit            bool
 	FinalMessage            string
 	RewordHash              string
@@ -425,6 +426,7 @@ func NewModel(
 		pipelineViewport1:       pvp1,
 		pipelineViewport2:       pvp2,
 		pipelineViewport3:       pvp3,
+		pipeline:                newPipelineModel(),
 		useDbCommmit:            false,
 		OutputDirect:            outputDirect,
 		Version:                 version,
@@ -435,6 +437,9 @@ func NewModel(
 		m.commitType = finalCommitTypes[0].Tag
 		m.commitTypeColor = finalCommitTypes[0].Color
 	}
+	m.pipeline.stages[stageSummary].Model = config.Prompts.ChangeAnalyzerPromptModel
+	m.pipeline.stages[stageBody].Model = config.Prompts.CommitBodyGeneratorPromptModel
+	m.pipeline.stages[stageTitle].Model = config.Prompts.CommitTitleGeneratorPromptModel
 	return m, nil
 }
 

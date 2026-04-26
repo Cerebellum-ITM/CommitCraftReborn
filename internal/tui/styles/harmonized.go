@@ -26,6 +26,10 @@ func NewHarmonizedTheme(useNerdFont bool) *Theme {
 		Del:   lipgloss.Color("#d07070"),
 		Mod:   lipgloss.Color("#c9a265"),
 		Scope: lipgloss.Color("#7ea2d8"),
+
+		AI:         lipgloss.Color("#c5a3ff"),
+		SuccessDim: lipgloss.Color("#689683"),
+		AcceptDim:  lipgloss.Color("#9fa3ac"),
 	}
 	t.fillLegacy()
 	t.applySymbols(useNerdFont)

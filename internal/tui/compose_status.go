@@ -217,6 +217,11 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 		}
 	case statePipeline:
 		return []helpEntry{
+			{"r", "retry all"},
+			{"1/2/3", "retry stage"},
+			{"↵", "accept"},
+			{"tab", "switch panel"},
+			{"esc", "cancel"},
 			{"^1/^2/^3", "switch tab"},
 			{"^x", "quit"},
 		}

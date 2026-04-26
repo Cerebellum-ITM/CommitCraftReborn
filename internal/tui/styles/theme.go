@@ -36,6 +36,14 @@ type Theme struct {
 	Warning   color.Color
 	Error     color.Color
 
+	// Pipeline accents: AI highlights running stages and AI-driven UI
+	// elements; SuccessDim is the muted green used for the post-completion
+	// row flash; AcceptDim is the mid-tone used as the second frame of the
+	// final-commit fade-in (Muted → AcceptDim → Success).
+	AI         color.Color
+	SuccessDim color.Color
+	AcceptDim  color.Color
+
 	// Diff
 	Add   color.Color
 	Del   color.Color
@@ -161,6 +169,15 @@ func (t *Theme) fillLegacy() {
 	t.Black = t.BG
 	if t.Logo == nil {
 		t.Logo = t.Primary
+	}
+	if t.AI == nil {
+		t.AI = t.Secondary
+	}
+	if t.SuccessDim == nil {
+		t.SuccessDim = t.Success
+	}
+	if t.AcceptDim == nil {
+		t.AcceptDim = t.Muted
 	}
 }
 

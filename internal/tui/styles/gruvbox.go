@@ -25,6 +25,10 @@ func NewGruvboxDarkTheme(useNerdFont bool) *Theme {
 		Del:   lipgloss.Color("#fb4934"),
 		Mod:   lipgloss.Color("#fabd2f"),
 		Scope: lipgloss.Color("#8ec07c"),
+
+		AI:         lipgloss.Color("#d3869b"),
+		SuccessDim: lipgloss.Color("#949626"),
+		AcceptDim:  lipgloss.Color("#beaf93"),
 	}
 	t.fillLegacy()
 	t.applySymbols(useNerdFont)

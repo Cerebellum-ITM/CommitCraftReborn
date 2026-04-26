@@ -2,6 +2,22 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.0 — 2026-04-26
+
+Pipeline tab promoted from placeholder to a real animated 3-stage inspector. Reuses the existing synchronous AI runner — token streaming is intentionally deferred for a follow-up.
+
+- New theme tokens `AI`, `SuccessDim`, `AcceptDim` on `styles.Theme`, populated in `tokyonight`, `gruvbox`, `harmonized`, and `charmtone`. Defaults set in `fillLegacy` so future themes don't break.
+- New per-tab state on `Model.pipeline` (`pipeline_state.go`): three `pipelineStage` records with `Status`, `Progress`, `Latency`, `Err`, `flashExpiresAt`, plus a shared spinner and three `bubbles/v2/progress` bars. Stage models hydrate from `config.Prompts.*` so the Pipeline view shows the actual Groq model id per stage.
+- Two-pane view (`pipeline_view.go`): left `changed files` panel reuses the existing `pipelineDiffList`; right `pipeline` panel renders three rows (`stage N/3 · <Title>`) with icon + status pill + model id + progress bar + percent / latency. Auto-stacks vertically when `width < 90`.
+- Update handler (`pipeline_update.go`) wires `r` (full retry), `1`/`2`/`3` (per-stage retry, cascading downstream), `tab` (panel switch), `enter` (accept commit when all done) and `esc` (cancel running run). Routes spinner ticks, progress frames, and the new pulse / flash / fade / shake messages.
+- Animations (`pipeline_animations.go`): indeterminate progress pulse driven at 80ms, post-completion flash window (400ms), three-frame final-commit fade-in (Muted → AcceptDim → Success), and a 3-frame failure shake.
+- Existing `Ia*ResultMsg` handlers in `update.go` now also call `applyPipelineResult` so a run started from Compose (Ctrl+W) or from Pipeline (`r`/`1`/`2`/`3`) updates both surfaces consistently.
+- Help line on the Pipeline tab now lists `r · 1/2/3 · ↵ · tab · esc`.
+
+### Usage
+
+Press `Ctrl+3` to enter the Pipeline tab. If the AI ran from Compose recently, the tab opens with all three stages already marked Done. Press `r` to re-run everything against the current Compose draft, `1` / `2` / `3` to re-run a specific stage (1 cascades through 2 and 3, 2 cascades through 3, 3 retries only the title), `tab` to focus the changed-files panel, `↵` to accept the assembled commit once every stage is Done, and `esc` to cancel a running pipeline.
+
 ## v0.9.5 — 2026-04-26
 
 Fixed `Ctrl+2` (Compose tab) routing into the deprecated step-by-step flow instead of the new multi-section compose view.

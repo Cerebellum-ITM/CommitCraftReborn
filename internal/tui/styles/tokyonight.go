@@ -25,6 +25,10 @@ func NewTokyoNightTheme(useNerdFont bool) *Theme {
 		Del:   lipgloss.Color("#f7768e"),
 		Mod:   lipgloss.Color("#e0af68"),
 		Scope: lipgloss.Color("#7dcfff"),
+
+		AI:         lipgloss.Color("#bb9af7"),
+		SuccessDim: lipgloss.Color("#7da159"),
+		AcceptDim:  lipgloss.Color("#8b94bf"),
 	}
 	t.fillLegacy()
 	t.applySymbols(useNerdFont)

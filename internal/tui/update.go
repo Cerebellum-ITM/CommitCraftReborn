@@ -320,7 +320,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "AI commit message ready!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		model.state = stateWritingMessage
+		cmds = append(cmds, model.applyPipelineResult(
+			[]stageID{stageSummary, stageBody, stageTitle}, msg.Err,
+		))
+		if model.state != statePipeline {
+			model.state = stateWritingMessage
+		}
 		return model, tea.Batch(cmds...)
 
 	case IaSummaryResultMsg:
@@ -332,7 +337,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "Pipeline re-run complete!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		model.state = stateWritingMessage
+		cmds = append(cmds, model.applyPipelineResult(
+			[]stageID{stageSummary, stageBody, stageTitle}, msg.Err,
+		))
+		if model.state != statePipeline {
+			model.state = stateWritingMessage
+		}
 		return model, tea.Batch(cmds...)
 
 	case IaCommitRawResultMsg:
@@ -344,7 +354,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "Stages 2+3 re-run complete!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		model.state = stateWritingMessage
+		cmds = append(cmds, model.applyPipelineResult(
+			[]stageID{stageBody, stageTitle}, msg.Err,
+		))
+		if model.state != statePipeline {
+			model.state = stateWritingMessage
+		}
 		return model, tea.Batch(cmds...)
 
 	case IaOutputFormatResultMsg:
@@ -356,7 +371,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "Stage 3 re-run complete!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		model.state = stateWritingMessage
+		cmds = append(cmds, model.applyPipelineResult(
+			[]stageID{stageTitle}, msg.Err,
+		))
+		if model.state != statePipeline {
+			model.state = stateWritingMessage
+		}
 		return model, tea.Batch(cmds...)
 
 	case IaResleaseBuilderResultMsg:
@@ -470,9 +490,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stateReleaseMainMenu:
 		subModel, subCmd = updateReleaseMainMenu(msg, model)
 	case statePipeline:
-		// Dummy pipeline tab has no per-state handler yet; keys bubble up
-		// to the global tab-switching shortcuts.
-		subModel = model
+		subModel, subCmd = updatePipeline(msg, model)
 	case stateRewordSelectCommit:
 		subModel, subCmd = updateRewordSelectCommit(msg, model)
 	}
