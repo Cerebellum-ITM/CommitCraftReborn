@@ -2,6 +2,18 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.3 — 2026-04-26
+
+Three Pipeline-tab fixes covering surface size, diff visibility, and the final commit card content.
+
+- **Full terminal surface.** The shared `availableWidthForMainContent` / `availableHeightForMainContent` calc in `view.go` was double-subtracting horizontal padding (the `appStyle` it accounts for is never applied to mainContent) and shaving 20% off the height for unclear historical reasons. The Pipeline tab now bypasses both: it receives `model.width` directly and a height equal to `model.height − statusBar − tabBar − help − VerticalSpace`, so the right panel actually spans the full terminal width and stretches all the way to the help line.
+- **Diff sub-block always renders.** Layout math in `renderPipelinePanel` was reserving stage card heights first (including focused-stage growth) and *then* trying to fit the diff with the leftover, which collapsed to 0 once the final-commit card appeared. Order reversed: stages-at-default + `DiffMinHeight` are reserved up front; only the *leftover* is spent on focused-stage growth. Diff now keeps a guaranteed floor (default 6 rows) even after the AI flow finishes.
+- **Final card shows the full assembled commit.** `renderFinalCommitCard` was previously rendering only the first line of `commitTranslate` (just the title from stage 3). It now wraps the full `title\n\nbody` into a multi-line viewport sized by `computeFinalBodyRows` (3-8 rows depending on body length), with the title bolded in the fade-in colour and the body underneath in `theme.FG`.
+
+### Usage
+
+No new shortcuts. Just open the Pipeline tab (`Ctrl+3`), trigger a run with `r`, and the final card now displays the full commit (stage 2 body + stage 3 title combined) while the diff sub-block stays visible below it.
+
 ## v0.10.2 — 2026-04-26
 
 Pipeline tab restored to the two-column layout from the original spec, with per-stage scrollable viewports and the diff moved into a dedicated sub-block inside the right panel.

@@ -114,8 +114,10 @@ func (model *Model) renderFilesPanel(width, height int) string {
 }
 
 // renderPipelinePanel draws the right column: 3 stage cards (focused one
-// is taller), an optional final-commit card, and the diff sub-block as
-// the last child.
+// can grow), an optional final-commit card, and the diff sub-block as
+// the last child. Layout is computed so the diff always gets at least
+// `DiffMinHeight` rows; focused-stage growth only consumes extra space
+// when there's leftover after both stages and diff are satisfied.
 func (model *Model) renderPipelinePanel(width, height int) string {
 	theme := model.Theme
 	cw, _ := titledPanelChrome()
@@ -135,35 +137,55 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 		diffMin = 6
 	}
 
-	// Total card height = body rows + 2 borders + 1 underline row + 1
-	// blank spacer between body and underline = body + 4.
+	// Each stage card = body rows + 2 borders + 1 underline + 1 spacer.
 	cardH := func(body int) int { return body + 4 }
-	defaultCardH := cardH(defaultBody)
-	focusedCardH := cardH(focusedBody)
 	gap := 1
 
-	stagesH := defaultCardH*2 + focusedCardH + gap*2
-	finalCardH := 0
+	innerH := max(1, height-2)
+
 	showFinal := model.pipeline.allDone() && strings.TrimSpace(model.commitTranslate) != ""
+	finalBodyRows := 0
+	finalCardH := 0
 	if showFinal {
-		finalCardH = pipelineFinalCardH
-		stagesH += gap + finalCardH
+		finalBodyRows = computeFinalBodyRows(model.commitTranslate, innerW)
+		// final card = body + 2 borders.
+		finalCardH = finalBodyRows + 2
 	}
 
-	innerH := max(1, height-2)
-	diffH := max(diffMin, innerH-stagesH-gap)
-	if diffH > innerH-stagesH-gap {
-		diffH = innerH - stagesH - gap
+	// Step 1: reserve all stages at default height + the diff floor.
+	stagesAtDefault := cardH(defaultBody)*3 + gap*2
+	overhead := stagesAtDefault + diffMin + gap
+	if showFinal {
+		overhead += gap + finalCardH
 	}
-	if diffH < 0 {
-		diffH = 0
+
+	// Step 2: distribute leftover space: first to focused-stage growth,
+	// then to the diff. Both are clamped so we never go negative.
+	leftover := innerH - overhead
+	growth := focusedBody - defaultBody
+	if leftover < 0 {
+		leftover = 0
+		growth = 0
+	} else if leftover < growth {
+		growth = leftover
+		leftover = 0
+	} else {
+		leftover -= growth
+	}
+	diffH := diffMin + leftover
+
+	// Final safety: if even the floor doesn't fit, shrink diff before
+	// dropping cards. The diff sub-block needs at least 3 rows to be
+	// useful (1 body row + 2 borders).
+	if innerH < overhead {
+		diffH = max(0, innerH-stagesAtDefault-gap-(map[bool]int{true: gap + finalCardH}[showFinal]))
 	}
 
 	parts := make([]string, 0, 8)
 	for i := 0; i < 3; i++ {
 		body := defaultBody
 		if model.pipeline.focusedStage == stageID(i) {
-			body = focusedBody
+			body = defaultBody + growth
 		}
 		parts = append(parts, model.renderStageCard(i, innerW, cardH(body), body))
 		if i < 2 {
@@ -172,7 +194,7 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	}
 
 	if showFinal {
-		parts = append(parts, "", model.renderFinalCommitCard(innerW))
+		parts = append(parts, "", model.renderFinalCommitCard(innerW, finalBodyRows))
 	}
 
 	if diffH >= 3 {
@@ -190,6 +212,22 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 		titleColor:  theme.AI,
 		hintColor:   theme.Muted,
 	})
+}
+
+// computeFinalBodyRows decides how tall the final-commit card's body
+// should be. It wraps `commitTranslate` to `innerW`, counts the lines,
+// and clamps to a sensible range so the card grows for multi-paragraph
+// commits without crowding the diff.
+func computeFinalBodyRows(commitMsg string, innerW int) int {
+	lines := wrapToLines(commitMsg, innerW, 12)
+	rows := len(lines)
+	if rows < 3 {
+		rows = 3
+	}
+	if rows > 8 {
+		rows = 8
+	}
+	return rows
 }
 
 // renderStageCard draws one stage card. bodyRows controls how many lines
@@ -253,15 +291,14 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 	})
 }
 
-const pipelineFinalCardH = 4
-
-func (model *Model) renderFinalCommitCard(width int) string {
+// renderFinalCommitCard renders the assembled commit (title + body) as
+// the last sub-block before the diff. bodyRows is the inner row budget
+// computed by renderPipelinePanel; the title line is bolded and the
+// body lines fade in via theme.AcceptDim → theme.Success on completion.
+func (model *Model) renderFinalCommitCard(width, bodyRows int) string {
 	theme := model.Theme
 	cw, _ := titledPanelChrome()
 	innerW := max(1, width-cw-2)
-
-	first := strings.TrimSpace(strings.SplitN(model.commitTranslate, "\n", 2)[0])
-	first = ansi.Truncate(first, innerW, "…")
 
 	var fg color.Color
 	switch model.pipeline.fadeFrame {
@@ -273,7 +310,25 @@ func (model *Model) renderFinalCommitCard(width int) string {
 		fg = theme.Success
 	}
 
-	body := lipgloss.NewStyle().Foreground(fg).Bold(true).Render(first)
+	lines := wrapToLines(strings.TrimSpace(model.commitTranslate), innerW, bodyRows)
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+	titleStyle := lipgloss.NewStyle().Foreground(fg).Bold(true)
+	bodyStyle := lipgloss.NewStyle().Foreground(theme.FG)
+
+	rendered := make([]string, 0, bodyRows)
+	for i, line := range lines {
+		if i == 0 {
+			rendered = append(rendered, titleStyle.Render(line))
+		} else {
+			rendered = append(rendered, bodyStyle.Render(line))
+		}
+	}
+	for len(rendered) < bodyRows {
+		rendered = append(rendered, "")
+	}
+
 	hint := lipgloss.NewStyle().Foreground(theme.AI).Bold(true).Render("⏎ accept & commit")
 
 	return renderTitledPanel(titledPanelOpts{
@@ -282,13 +337,47 @@ func (model *Model) renderFinalCommitCard(width int) string {
 		title:       "final commit ready",
 		hintRight:   hint,
 		hintRaw:     true,
-		content:     body,
+		content:     strings.Join(rendered, "\n"),
 		width:       width,
-		height:      pipelineFinalCardH,
+		height:      bodyRows + 2,
 		borderColor: theme.Success,
 		titleColor:  theme.FG,
 		hintColor:   theme.AI,
 	})
+}
+
+// wrapToLines hard-wraps text into at most maxRows lines fitting within
+// width columns. Truncates with an ellipsis on the last line when the
+// content overflows.
+func wrapToLines(text string, width, maxRows int) []string {
+	if width <= 0 || maxRows <= 0 {
+		return nil
+	}
+	out := make([]string, 0, maxRows)
+	for _, raw := range strings.Split(text, "\n") {
+		if len(out) >= maxRows {
+			break
+		}
+		if raw == "" {
+			out = append(out, "")
+			continue
+		}
+		for ansi.StringWidth(raw) > width && len(out) < maxRows-1 {
+			cut := width
+			if cut > len(raw) {
+				cut = len(raw)
+			}
+			out = append(out, raw[:cut])
+			raw = raw[cut:]
+		}
+		if len(out) < maxRows {
+			if ansi.StringWidth(raw) > width {
+				raw = ansi.Truncate(raw, width, "…")
+			}
+			out = append(out, raw)
+		}
+	}
+	return out
 }
 
 // renderDiffSubBlock draws the bottom diff card inside the right panel.

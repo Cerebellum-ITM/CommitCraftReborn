@@ -181,10 +181,14 @@ func (model *Model) View() tea.View {
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
 	case statePipeline:
-		mainContent = model.viewPipeline(
-			availableWidthForMainContent,
-			availableHeightForMainContent,
-		)
+		// The shared availableWidth/Height calc subtracts paddings that
+		// aren't actually applied to mainContent (mainView is composed
+		// without appStyle) and shaves 20% off the height for unclear
+		// reasons. The Pipeline tab is densely packed; give it the real
+		// remaining surface so its panels can fill the terminal.
+		pipeW := model.width
+		pipeH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
+		mainContent = model.viewPipeline(pipeW, pipeH)
 	case stateRewordSelectCommit:
 		mainContent = model.buildRewordSelectView()
 	}
