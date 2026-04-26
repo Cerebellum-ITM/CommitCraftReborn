@@ -176,6 +176,11 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, model.keys.CreateIaCommit):
+			if len(model.commitScopes) == 0 {
+				model.WritingStatusBar.Level = statusbar.LevelError
+				model.WritingStatusBar.Content = "Scope is required before requesting the AI. Add at least one scope."
+				return model, nil
+			}
 			if v := model.commitsKeysInput.Value(); v != "" {
 				model.keyPoints = append(model.keyPoints, v)
 				model.commitsKeysInput.SetValue("")

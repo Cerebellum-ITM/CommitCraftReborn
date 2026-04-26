@@ -2,6 +2,17 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.4 — 2026-04-26
+
+Scope is now mandatory before any AI request. Triggering generation without a scope short-circuits the call and surfaces an error in the top status bar.
+
+- **Compose tab (`Ctrl+W`).** `CreateIaCommit` handler in `internal/tui/update_writing.go` now checks `len(model.commitScopes) == 0` and writes `"Scope is required before requesting the AI. Add at least one scope."` to `WritingStatusBar` at `LevelError`, returning before the spinner / API command starts.
+- **Pipeline tab (`r`, `1`/`2`/`3` retries).** Same guard added to `pipelineStartFullRun` and `pipelineRetryStage` in `internal/tui/pipeline_update.go`. The two-pill ERROR style from `internal/tui/statusbar/statusbar.go` is what the user sees.
+
+### Usage
+
+Add a scope (focus the scope section in compose, press `e` / `Enter` to pick one) before pressing `Ctrl+W` or starting/retrying a Pipeline stage. If you forget, the top status bar will show the red `ERROR` pill telling you to add one.
+
 ## v0.10.3 — 2026-04-26
 
 Three Pipeline-tab fixes covering surface size, diff visibility, and the final commit card content.

@@ -128,6 +128,11 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 // pipelineStartFullRun resets every stage and kicks off the regular
 // commit-builder command (same one Ctrl+W uses on Compose).
 func (model *Model) pipelineStartFullRun() tea.Cmd {
+	if len(model.commitScopes) == 0 {
+		model.WritingStatusBar.Level = statusbar.LevelError
+		model.WritingStatusBar.Content = "Scope is required before requesting the AI. Add at least one scope."
+		return nil
+	}
 	model.pipeline.resetAll(time.Now())
 	model.commitTranslate = ""
 	model.iaSummaryOutput = ""
@@ -155,6 +160,11 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 // runner already does (stage 1 redoes everything, stage 2 redoes 2+3,
 // stage 3 redoes only itself).
 func (model *Model) pipelineRetryStage(from stageID) tea.Cmd {
+	if len(model.commitScopes) == 0 {
+		model.WritingStatusBar.Level = statusbar.LevelError
+		model.WritingStatusBar.Content = "Scope is required before requesting the AI. Add at least one scope."
+		return nil
+	}
 	model.pipeline.resetFrom(from, time.Now())
 	model.commitTranslate = ""
 
