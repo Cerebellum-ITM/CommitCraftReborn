@@ -20,7 +20,6 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 		viewportStyle           lipgloss.Style
 	)
 
-	statusBarContent := model.WritingStatusBar.Render()
 	statusBarHeight := lipgloss.Height(model.WritingStatusBar.Render())
 	verticalSpaceHeight := lipgloss.Height(VerticalSpace)
 	helpViewHeight := lipgloss.Height(model.help.View(model.keys))
@@ -91,11 +90,7 @@ func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 		rightTranslatedContent,
 	)
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		statusBarContent,
-		VerticalSpace,
-		uiElements,
-	)
+	return uiElements
 }
 
 func (model *Model) buildRewordSelectView() string {
@@ -183,24 +178,17 @@ func (model *Model) buildRewordSelectView() string {
 		BorderForeground(model.Theme.Primary).
 		Render(innerContent)
 
-	statusBarContent := model.WritingStatusBar.Render()
+	statusBarH := lipgloss.Height(model.WritingStatusBar.Render())
 	helpView := lipgloss.NewStyle().Padding(0, 2).SetString(model.help.View(model.keys)).String()
-	statusBarH := lipgloss.Height(statusBarContent)
 	helpH := lipgloss.Height(helpView)
 	vertSpaceSingle := lipgloss.Height(VerticalSpace)
 	availableH := max(1, model.height-statusBarH-helpH-vertSpaceSingle)
 
-	centeredPopup := lipgloss.Place(
+	return lipgloss.Place(
 		model.width,
 		availableH,
 		lipgloss.Center,
 		lipgloss.Center,
 		popupBox,
-	)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		statusBarContent,
-		VerticalSpace,
-		centeredPopup,
 	)
 }

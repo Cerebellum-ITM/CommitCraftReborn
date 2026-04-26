@@ -13,6 +13,10 @@ import (
 
 type clearStatusMsg struct{}
 
+// StatusBar holds the state of the top-of-screen status surface. Its
+// rendered output follows the "TYPE - message" two-pill scheme: a coloured
+// label pill on the left, the message body in a darker shade of the same
+// hue family next to it, and the version + ⌘ logo right-aligned.
 type StatusBar struct {
 	AppWith        int
 	showSpinner    bool
@@ -78,28 +82,17 @@ func (sb *StatusBar) Update(msg tea.Msg) (StatusBar, tea.Cmd) {
 	return *sb, cmd
 }
 
+// Render produces the full-width status row: TYPE pill + message body on
+// the left, spinner (when active) + version pill + logo pill right-aligned.
+// The right-side pills are theme-derived so they keep the brand mark
+// consistent with the rest of the UI; only the left "TYPE - message"
+// block uses the fixed dark palette per level.
 func (sb StatusBar) Render() string {
-	var (
-		prefixText       string
-		spinnerView      string
-		leftDashes       string
-		rightDashes      string
-		leftDashesCount  int
-		rightDashesCount int
-	)
-
-	if sb.showSpinner {
-		sb.spinner.Style = sb.spinner.Style.Foreground(sb.theme.Blur)
-		spinnerView = sb.theme.AppStyles().
-			Base.Background(sb.theme.FgBase).
-			Padding(0, 2).
-			SetString(sb.spinner.View()).
-			String()
-	}
+	left := RenderStatus(sb.Level, sb.Content)
 
 	logo := sb.theme.AppStyles().Base.
 		Background(sb.theme.Primary).
-		Foreground(sb.theme.BG).
+		Foreground(sb.theme.FG).
 		Bold(true).
 		Padding(0, 1).SetString("⌘ CommitCraft")
 
@@ -108,94 +101,94 @@ func (sb StatusBar) Render() string {
 		Foreground(sb.theme.White).
 		Padding(0, 1).SetString(sb.Version)
 
-	prefixStyle := sb.theme.AppStyles().Base.Padding(0, 2)
-	fillContent := sb.theme.AppStyles().Base
-	contentStyle := sb.theme.AppStyles().Base.Background(sb.theme.Blur)
-	horizontalSpace := sb.theme.AppStyles().
-		Base.
-		SetString("   ").
-		String()
+	rightParts := []string{}
+	if sb.showSpinner {
+		sb.spinner.Style = sb.spinner.Style.Foreground(sb.theme.Primary)
+		rightParts = append(rightParts, sb.spinner.View(), "  ")
+	}
+	rightParts = append(rightParts, version.String(), logo.String())
+	right := lipgloss.JoinHorizontal(lipgloss.Top, rightParts...)
 
-	switch sb.Level {
+	gap := sb.AppWith - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 1 {
+		gap = 1
+	}
+	return left + strings.Repeat(" ", gap) + right
+}
+
+// --- pill / body styles -------------------------------------------------
+
+var pillStyle = lipgloss.NewStyle().
+	Padding(0, 1).
+	Bold(true)
+
+var msgStyle = lipgloss.NewStyle().
+	Padding(0, 1)
+
+var (
+	pillInfo = pillStyle.Background(lipgloss.Color("#2c4360")).Foreground(lipgloss.Color("#d6e4f4"))
+	msgInfo  = msgStyle.Background(lipgloss.Color("#182230")).Foreground(lipgloss.Color("#b8c5d4"))
+
+	pillOK = pillStyle.Background(lipgloss.Color("#2b3f34")).Foreground(lipgloss.Color("#d1ead9"))
+	msgOK  = msgStyle.Background(lipgloss.Color("#182219")).Foreground(lipgloss.Color("#b9d2bf"))
+
+	pillWarn = pillStyle.Background(lipgloss.Color("#4a3a25")).Foreground(lipgloss.Color("#ecd9b5"))
+	msgWarn  = msgStyle.Background(lipgloss.Color("#2a2014")).Foreground(lipgloss.Color("#d4bf95"))
+
+	pillErr = pillStyle.Background(lipgloss.Color("#4a2729")).Foreground(lipgloss.Color("#f4cdcf"))
+	msgErr  = msgStyle.Background(lipgloss.Color("#2a1416")).Foreground(lipgloss.Color("#d4a8aa"))
+
+	pillAI = pillStyle.Background(lipgloss.Color("#3e3268")).Foreground(lipgloss.Color("#e9e0ff"))
+	msgAI  = msgStyle.Background(lipgloss.Color("#1d1830")).Foreground(lipgloss.Color("#c8bce0"))
+
+	pillRun = pillStyle.Background(lipgloss.Color("#2c4f5e")).Foreground(lipgloss.Color("#c4e0ec"))
+	msgRun  = msgStyle.Background(lipgloss.Color("#16252e")).Foreground(lipgloss.Color("#a4c4d2"))
+
+	pillDebug = pillStyle.Background(lipgloss.Color("#2a2d36")).
+			Foreground(lipgloss.Color("#b8bcc4"))
+	msgDebug = msgStyle.Background(lipgloss.Color("#14161c")).Foreground(lipgloss.Color("#8a8e98"))
+
+	ctxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6f7480"))
+)
+
+// stylesFor maps a LogLevel to its (pill, body, label) triple.
+func stylesFor(level LogLevel) (lipgloss.Style, lipgloss.Style, string) {
+	switch level {
 	case LevelInfo:
-		prefixText = prefixStyle.Background(sb.theme.Info).SetString(sb.Level.String()).String()
+		return pillInfo, msgInfo, "INFO"
 	case LevelSuccess:
-		contentStyle = contentStyle.Background(sb.theme.Success).
-			Foreground(sb.theme.Black)
-
-		prefixText = prefixStyle.Background(sb.theme.Green).
-			Foreground(sb.theme.White).
-			SetString(sb.Level.String()).
-			String()
-
+		return pillOK, msgOK, "OK"
 	case LevelWarning:
-		contentStyle = contentStyle.Background(sb.theme.Warning).
-			Foreground(sb.theme.BgOverlay)
-
-		prefixText = prefixStyle.Background(sb.theme.Yellow).
-			Foreground(sb.theme.BgOverlay).
-			SetString(sb.Level.String()).
-			String()
-	case LevelError:
-		contentStyle = contentStyle.Background(sb.theme.Red).
-			Foreground(sb.theme.White)
-
-		prefixText = prefixStyle.Background(sb.theme.Error).
-			Foreground(sb.theme.White).
-			SetString(sb.Level.String()).
-			String()
-	case LevelFatal:
-		contentStyle = contentStyle.Background(sb.theme.Fatal).
-			Foreground(sb.theme.White)
-
-		prefixText = prefixStyle.Background(sb.theme.Purple).
-			Foreground(sb.theme.White).
-			SetString(sb.Level.String()).
-			String()
-
-	default:
-		return contentStyle.Render(sb.Content)
+		return pillWarn, msgWarn, "WARN"
+	case LevelError, LevelFatal:
+		return pillErr, msgErr, "ERROR"
+	case LevelAI:
+		return pillAI, msgAI, "AI"
+	case LevelRun:
+		return pillRun, msgRun, "RUN"
+	case LevelDebug:
+		return pillDebug, msgDebug, "DEBUG"
 	}
+	return pillInfo, msgInfo, "INFO"
+}
 
-	renderedContent := contentStyle.Render(" " + sb.Content + " ")
-	finalContent := prefixText + contentStyle.SetString("  »").
-		String() +
-		renderedContent + spinnerView
-	statusBarSpace := lipgloss.Width(logo.String()) +
-		lipgloss.Width(finalContent) +
-		2*lipgloss.Width(horizontalSpace) +
-		lipgloss.Width(version.String())
+// RenderStatus draws "TYPE - message" as two adjacent flat-rectangle pills.
+func RenderStatus(level LogLevel, msg string) string {
+	pill, body, label := stylesFor(level)
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		pill.Render(label),
+		body.Render(msg),
+	)
+}
 
-	effectiveWidth := max(0, sb.AppWith)
-	if statusBarSpace >= effectiveWidth {
-		leftDashes = ""
-		rightDashes = ""
-		leftDashesCount = 0
-		rightDashesCount = 0
-	} else {
-		remainingSpaceForDashes := effectiveWidth - statusBarSpace
-		remainingSpaceForDashes = max(0, remainingSpaceForDashes)
-
-		leftDashesCount = max(0, remainingSpaceForDashes)
-		rightDashesCount = max(0, remainingSpaceForDashes-leftDashesCount)
-
-		leftDashes = fillContent.SetString(strings.Repeat("─", leftDashesCount)).String()
-		rightDashes = fillContent.SetString(strings.Repeat("─", rightDashesCount)).String()
+// RenderStatusFull stretches the bar to width, with a right-aligned ctx
+// (typically version, request stats, or other metadata).
+func RenderStatusFull(level LogLevel, msg, ctx string, width int) string {
+	left := RenderStatus(level, msg)
+	right := ctxStyle.Render(ctx)
+	gap := width - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 1 {
+		gap = 1
 	}
-	_ = rightDashes
-
-	centralBlock := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		finalContent,
-		horizontalSpace,
-		leftDashes,
-	)
-
-	return lipgloss.JoinHorizontal(
-		lipgloss.Center,
-		centralBlock,
-		horizontalSpace,
-		version.String(),
-		logo.String(),
-	)
+	return left + strings.Repeat(" ", gap) + right
 }

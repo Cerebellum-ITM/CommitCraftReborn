@@ -152,56 +152,27 @@ func (model *Model) View() tea.View {
 		}
 		boxContent := lipgloss.JoinVertical(lipgloss.Center, contentLines...)
 		renderedBox := boxStyle.Render(boxContent)
-		actualContentHeightForCenteringBox := max(
-			0,
-			contentHeight-lipgloss.Height(statusBarContent)-lipgloss.
-				Height(VerticalSpace),
-		)
 		centeredBox := lipgloss.Place(
 			availableWidthForMainContent,
-			actualContentHeightForCenteringBox,
+			availableHeightForMainContent,
 			lipgloss.Center,
 			lipgloss.Center,
 			renderedBox,
 		)
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			centeredBox,
-		)
+		mainContent = centeredBox
 	case stateChoosingCommit:
 		model.mainList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
-		uiElements := model.mainList.View()
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			uiElements,
-		)
+		mainContent = model.mainList.View()
 	case stateReleaseMainMenu:
 		model.releaseMainList.SetSize(availableWidthForMainContent/2, availableHeightForMainContent)
-		uiElements := model.releaseMainList.View()
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			uiElements,
-		)
+		mainContent = model.releaseMainList.View()
 	case stateChoosingType:
 		model.commitTypeList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
-		uiElements := model.commitTypeList.View()
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			uiElements,
-		)
+		mainContent = model.commitTypeList.View()
 
 	case stateChoosingScope:
 		model.fileList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
-		uiElements := model.fileList.View()
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			uiElements,
-		)
+		mainContent = model.fileList.View()
 
 	case stateWritingMessage:
 		mainContent = model.buildWritingMessageView(appStyle)
@@ -210,28 +181,19 @@ func (model *Model) View() tea.View {
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
 	case statePipeline:
-		dummy := model.buildPipelineDummyView(
+		mainContent = model.buildPipelineDummyView(
 			availableWidthForMainContent,
 			availableHeightForMainContent,
 		)
-		mainContent = lipgloss.JoinVertical(lipgloss.Left,
-			statusBarContent,
-			VerticalSpace,
-			dummy,
-		)
 	case stateRewordSelectCommit:
-		rewordContent := model.buildRewordSelectView()
-		mainView := lipgloss.JoinVertical(lipgloss.Left,
-			rewordContent,
-			VerticalSpace,
-			helpView,
-		)
-		finalView := tea.NewView(mainView)
-		finalView.AltScreen = true
-		return finalView
+		mainContent = model.buildRewordSelectView()
 	}
 
+	// Final layout: WritingStatusBar is the very first element, separated
+	// from the tab bar by a blank line, so the level-coloured status surface
+	// always stays at the top of the screen.
 	var stack []string
+	stack = append(stack, statusBarContent, VerticalSpace)
 	if tabBarContent != "" {
 		stack = append(stack, tabBarContent)
 	}

@@ -262,8 +262,6 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	bottomBar := model.renderComposeBottomBar(model.width)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
-		statusBarContent,
-		VerticalSpace,
 		uiElements,
 		VerticalSpace,
 		bottomBar,
@@ -330,7 +328,6 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 	)
 
 	const glamourGutter = 3
-	statusBarContent := model.WritingStatusBar.Render()
 	currentIaViewportStyle := model.iaViewport.Style
 	switch model.focusedElement {
 	case focusMsgInput:
@@ -409,9 +406,5 @@ func (model *Model) buildEditingMessageView(appStyle lipgloss.Style) string {
 		leftTranslatedContent,
 		rightTranslatedContent,
 	)
-	return lipgloss.JoinVertical(lipgloss.Left,
-		statusBarContent,
-		VerticalSpace,
-		uiElements,
-	)
+	return uiElements
 }
