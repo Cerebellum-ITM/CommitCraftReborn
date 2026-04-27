@@ -82,6 +82,10 @@ type pipelineModel struct {
 	// optional changelog refiner only counts when the project's CHANGELOG
 	// was detected at pipeline start. Defaults to 3.
 	activeStages int
+	// focusedFinal flips on when Tab cycles past the last stage onto the
+	// final-commit card slot. Only meaningful while the final card is
+	// visible (allDone + commitTranslate set).
+	focusedFinal bool
 }
 
 // newPipelineModel builds the Pipeline tab's initial state. It does not
@@ -108,15 +112,32 @@ func newPipelineModel() pipelineModel {
 	return pm
 }
 
-// cycleFocus advances the focused-stage cursor by one slot, wrapping at the
-// last *active* stage. When the optional changelog stage is inactive the
-// cursor wraps at stage 3, otherwise at stage 4.
-func (pm *pipelineModel) cycleFocus() {
+// cycleFocus advances the focus cursor by one slot, wrapping at the last
+// *active* stage and — when showFinal is true — also through the
+// final-commit card. The cycle order is: stage 1 → … → stage N → final →
+// stage 1.
+func (pm *pipelineModel) cycleFocus(showFinal bool) {
 	active := pm.activeStages
 	if active < 1 {
 		active = 1
 	}
-	pm.focusedStage = stageID((int(pm.focusedStage) + 1) % active)
+	total := active
+	if showFinal {
+		total++
+	}
+
+	current := int(pm.focusedStage)
+	if pm.focusedFinal {
+		current = active // virtual slot for the final card
+	}
+
+	next := (current + 1) % total
+	if next >= active {
+		pm.focusedFinal = true
+	} else {
+		pm.focusedFinal = false
+		pm.focusedStage = stageID(next)
+	}
 }
 
 // resetAll marks every stage as Running with progress 0 and clears
@@ -124,6 +145,7 @@ func (pm *pipelineModel) cycleFocus() {
 func (pm *pipelineModel) resetAll(now time.Time) {
 	pm.fadeFrame = 0
 	pm.cancelling = false
+	pm.focusedFinal = false
 	for i := range pm.stages {
 		if i >= pm.activeStages {
 			// Inactive stages (e.g. the changelog refiner when no

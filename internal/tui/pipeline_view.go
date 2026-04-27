@@ -136,13 +136,17 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	if diffMin < 3 {
 		diffMin = 6
 	}
+	// User-requested boost: the diff sub-block reserves an extra 20% of
+	// the right panel's inner height on top of whatever the config asked
+	// for, so reviewing the diff while the focused stage is expanded
+	// stays comfortable on tall and short terminals alike.
+	innerH := max(1, height-2)
+	diffMin += innerH * 20 / 100
 
 	// Card chrome = 2 borders + 1 underline + 1 spacer => +4 over body rows.
 	cardH := func(body int) int { return body + 4 }
 	gap := 1
 	collapsedRows := 1 // single-line summary per non-focused stage
-
-	innerH := max(1, height-2)
 
 	numStages := model.pipeline.activeStages
 	if numStages < 1 {
@@ -150,33 +154,58 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	}
 
 	showFinal := model.pipeline.allDone() && strings.TrimSpace(model.commitTranslate) != ""
-	finalBodyRows := 0
+	focusedFinal := model.pipeline.focusedFinal && showFinal
+
+	baseFinalBody := 0
 	finalCardH := 0
 	if showFinal {
-		finalBodyRows = computeFinalBodyRows(model.commitTranslate, innerW)
-		finalCardH = finalBodyRows + 2
+		baseFinalBody = computeFinalBodyRows(model.commitTranslate, innerW)
+		finalCardH = baseFinalBody + 2
 	}
 
-	// Reserved space that does not depend on the focused stage's body size.
-	collapsedTotal := collapsedRows * (numStages - 1)
+	// When a stage is focused, only N-1 stages collapse. When the final
+	// card is focused (or no card is focused), every stage collapses.
+	collapsedCount := numStages
+	if !focusedFinal {
+		collapsedCount = numStages - 1
+	}
+	collapsedTotal := collapsedRows * collapsedCount
 	gapsBetween := gap * (numStages - 1)
+
 	reserved := collapsedTotal + gapsBetween + diffMin + gap
 	if showFinal {
 		reserved += gap + finalCardH
 	}
 
-	// The focused stage gets everything not reserved. cardH(body) = body + 4
-	// so subtract chrome to obtain the body row count.
-	focusedCardH := max(cardH(defaultBody), innerH-reserved)
-	focusedBody := focusedCardH - 4
-	if focusedBody < defaultBody {
-		focusedBody = defaultBody
-		focusedCardH = cardH(focusedBody)
+	focusedCardH := 0
+	focusedBody := defaultBody
+	finalBodyRows := baseFinalBody
+
+	if focusedFinal {
+		// All stages collapsed; the freed slot grows the final card.
+		extra := innerH - reserved
+		if extra > 0 {
+			finalBodyRows = baseFinalBody + extra
+			finalCardH = finalBodyRows + 2
+		}
+	} else {
+		focusedCardH = innerH - reserved
+		if focusedCardH < cardH(defaultBody) {
+			focusedCardH = cardH(defaultBody)
+		}
+		focusedBody = focusedCardH - 4
+		if focusedBody < defaultBody {
+			focusedBody = defaultBody
+			focusedCardH = cardH(focusedBody)
+		}
 	}
 
-	// Diff size: keep the configured floor + any space left after the
-	// focused stage clamped to its minimum.
-	used := focusedCardH + collapsedTotal + gapsBetween + gap
+	// Diff size: configured floor + leftover when the focused card was
+	// clamped to its minimum.
+	used := collapsedTotal + gapsBetween + gap
+	if focusedCardH > 0 {
+		used += focusedCardH
+	}
 	if showFinal {
 		used += gap + finalCardH
 	}
@@ -187,8 +216,8 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 
 	parts := make([]string, 0, 8)
 	for i := 0; i < numStages; i++ {
-		isFocused := model.pipeline.focusedStage == stageID(i)
-		if isFocused {
+		isStageFocused := !focusedFinal && model.pipeline.focusedStage == stageID(i)
+		if isStageFocused {
 			parts = append(parts, model.renderStageCard(i, innerW, focusedCardH, focusedBody))
 		} else {
 			parts = append(parts, model.renderStageCardCollapsed(i, innerW))
@@ -199,7 +228,7 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	}
 
 	if showFinal {
-		parts = append(parts, "", model.renderFinalCommitCard(innerW, finalBodyRows))
+		parts = append(parts, "", model.renderFinalCommitCard(innerW, finalBodyRows, focusedFinal))
 	}
 
 	if diffH >= 3 {
@@ -334,7 +363,7 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 // the last sub-block before the diff. bodyRows is the inner row budget
 // computed by renderPipelinePanel; the title line is bolded and the
 // body lines fade in via theme.AcceptDim → theme.Success on completion.
-func (model *Model) renderFinalCommitCard(width, bodyRows int) string {
+func (model *Model) renderFinalCommitCard(width, bodyRows int, focused bool) string {
 	theme := model.Theme
 	cw, _ := titledPanelChrome()
 	innerW := max(1, width-cw-2)
@@ -370,6 +399,11 @@ func (model *Model) renderFinalCommitCard(width, bodyRows int) string {
 
 	hint := lipgloss.NewStyle().Foreground(theme.AI).Bold(true).Render("⏎ accept & commit")
 
+	borderColor := theme.Success
+	if focused {
+		borderColor = theme.Primary
+	}
+
 	return renderTitledPanel(titledPanelOpts{
 		icon:        "●",
 		iconColor:   theme.Success,
@@ -379,7 +413,7 @@ func (model *Model) renderFinalCommitCard(width, bodyRows int) string {
 		content:     strings.Join(rendered, "\n"),
 		width:       width,
 		height:      bodyRows + 2,
-		borderColor: theme.Success,
+		borderColor: borderColor,
 		titleColor:  theme.FG,
 		hintColor:   theme.AI,
 	})

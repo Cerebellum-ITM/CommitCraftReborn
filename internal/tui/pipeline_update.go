@@ -69,7 +69,8 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			return model, nil
 		case key.Matches(m, model.keys.NextField):
-			model.pipeline.cycleFocus()
+			showFinal := model.pipeline.allDone() && model.commitTranslate != ""
+			model.pipeline.cycleFocus(showFinal)
 			return model, nil
 		case key.Matches(m, model.keys.Esc):
 			if model.pipeline.anyRunning() {
