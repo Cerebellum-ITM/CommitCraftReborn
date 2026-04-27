@@ -211,6 +211,7 @@ type Model struct {
 	width, height           int
 	globalConfig            config.Config
 	Version                 string
+	themeName               string
 }
 
 // NewModel is the constructor for our model.
@@ -231,7 +232,11 @@ func NewModel(
 	var WritingStatusBar statusbar.StatusBar
 
 	apiKeyInput := textinput.New()
-	theme := styles.NewCharmtoneTheme(config.TUI.UseNerdFonts)
+	themeName := config.TUI.Theme
+	if themeName == "" {
+		themeName = styles.DefaultThemeName
+	}
+	theme := styles.GetTheme(themeName, config.TUI.UseNerdFonts)
 
 	commitsKeysInput := textarea.New()
 	commitsKeysInput.SetHeight(4)
@@ -426,6 +431,7 @@ func NewModel(
 		Version:                 version,
 		topTab:                  tabForState(initalState),
 		lastStatePerTab:         map[TabID]appState{},
+		themeName:               themeName,
 	}
 	if len(finalCommitTypes) > 0 {
 		m.commitType = finalCommitTypes[0].Tag

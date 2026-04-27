@@ -7,6 +7,7 @@ import (
 
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/tui/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -95,6 +96,31 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.addScope(msg.scope)
 		return model, nil
 	case closeEditMessagePopupMsg:
+		model.popup = nil
+		return model, nil
+	case themePreviewMsg:
+		model.Theme = styles.GetTheme(msg.name, model.globalConfig.TUI.UseNerdFonts)
+		return model, nil
+	case themeAppliedMsg:
+		model.Theme = styles.GetTheme(msg.name, model.globalConfig.TUI.UseNerdFonts)
+		model.themeName = msg.name
+		model.globalConfig.TUI.Theme = msg.name
+		model.popup = nil
+		if err := UpdateConfigTheme(msg.name); err != nil {
+			model.log.Error("Failed to persist theme", "error", err)
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("Theme applied (not saved: %s)", err),
+				statusbar.LevelWarning,
+				3*time.Second,
+			)
+		}
+		return model, model.WritingStatusBar.ShowMessageForDuration(
+			fmt.Sprintf("Theme set to %s", msg.name),
+			statusbar.LevelSuccess,
+			2*time.Second,
+		)
+	case closeConfigPopupMsg:
+		model.Theme = styles.GetTheme(model.themeName, model.globalConfig.TUI.UseNerdFonts)
 		model.popup = nil
 		return model, nil
 	case editMessageAppliedMsg:
@@ -450,6 +476,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if key.Matches(msg, versionPopupKey) {
 			model.popup = openVersionEditor(model)
+			return model, nil
+		}
+		if key.Matches(msg, openConfigPopupKey) {
+			w := model.width / 3
+			if w < 40 {
+				w = 40
+			}
+			h := model.height / 2
+			if h < 12 {
+				h = 12
+			}
+			popup := newConfigPopup(w, h, model.Theme, model.themeName)
+			model.popup = popup
 			return model, nil
 		}
 		if model.shouldShowTabBar() {

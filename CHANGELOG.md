@@ -2,6 +2,32 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.12.0 — 2026-04-26
+
+New configuration popup with a theme picker. The selected theme is applied
+live as you move through the list and persisted on confirm.
+
+- New `internal/tui/config_popup.go` (`configPopupModel`): list-style popup
+  built on `styles.AvailableThemes()`, emits `themePreviewMsg` on cursor
+  moves, `themeAppliedMsg` on Enter, and `closeConfigPopupMsg` on Esc
+  (which restores the original theme).
+- `Ctrl+,` is wired in `update.go` as a global shortcut (only when no other
+  popup is open).
+- `TUIConfig.Theme` (new TOML field `theme` under `[tui]`) is read at
+  startup via `styles.GetTheme(name, useNerdFonts)` in `model.go` and
+  written by `tui.UpdateConfigTheme` to the local `.commitcraft.toml`
+  when present, otherwise to the global `~/.config/CommitCraft/config.toml`.
+- `Model.themeName` tracks the active theme so previews can be reverted on
+  cancel.
+
+### Usage
+
+Press `Ctrl+,` from anywhere (no other popup open) to open the
+Configuration popup. Use `↑/↓` to preview each theme live in the TUI,
+`Enter` to save the selection (persists to `.commitcraft.toml` if it
+exists in the cwd, otherwise to `~/.config/CommitCraft/config.toml`), or
+`Esc` to discard the change and restore the previous theme.
+
 ## v0.11.1 — 2026-04-26
 
 After applying changes from the edit-message popup, the "Changes applied" status now flashes for 2 seconds via `WritingStatusBar.ShowMessageForDuration` and then restores the prior compose status, instead of sticking until the next user action.

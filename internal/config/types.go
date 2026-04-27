@@ -25,6 +25,7 @@ type PromptsConfig struct {
 
 type TUIConfig struct {
 	UseNerdFonts bool                 `toml:"use_nerd_fonts"`
+	Theme        string               `toml:"theme,omitempty"`
 	GroqAPIKey   string               `toml:"-"`
 	IsAPIKeySet  bool                 `toml:"-"`
 	Pipeline     PipelineLayoutConfig `toml:"pipeline,omitempty"`

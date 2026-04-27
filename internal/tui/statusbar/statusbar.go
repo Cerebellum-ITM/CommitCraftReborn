@@ -91,7 +91,7 @@ func (sb StatusBar) Render() string {
 	left := RenderStatus(sb.Level, sb.Content)
 
 	logo := sb.theme.AppStyles().Base.
-		Background(sb.theme.Primary).
+		Background(sb.theme.Logo).
 		Foreground(sb.theme.FG).
 		Bold(true).
 		Padding(0, 1).SetString("⌘ CommitCraft")

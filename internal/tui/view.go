@@ -247,6 +247,9 @@ func (model *Model) View() tea.View {
 	case editMessagePopupModel:
 		ok = true
 		popupView = popupModel.View()
+	case configPopupModel:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}
