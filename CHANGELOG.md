@@ -22,6 +22,12 @@ always-on.
   through to the per-state handler (which ignores non-key messages),
   so `filteredItems` never got updated and the typed query did not
   filter anything visible.
+- `internal/tui/type_popup.go` (Ctrl+T): same always-on filter
+  treatment as the scope popup. The list opens in `Filtering` state,
+  `AcceptWhileFiltering` / `CancelWhileFiltering` are cleared so `/`
+  and `enter` reach the popup, `↑/↓` are routed to `CursorUp`/
+  `CursorDown` directly, `enter` picks the highlighted commit type,
+  and `esc` clears the filter first then closes the popup.
 - `internal/tui/scope_popup.go` (Ctrl+P): the popup now opens already
   in `Filtering` state — `SetFilterText("")` followed by an explicit
   `SetFilterState(list.Filtering)` (necessary because `SetFilterText`

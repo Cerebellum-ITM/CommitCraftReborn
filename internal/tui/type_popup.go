@@ -41,6 +41,17 @@ func newCommitTypePopup(
 	l.SetShowHelp(false)
 	l.SetWidth(width)
 	l.SetHeight(height)
+	// The popup intercepts enter / esc / arrow keys directly; clear the
+	// list's accept/cancel bindings so "/" and "enter" are not consumed
+	// by the filter state machine.
+	l.KeyMap.AcceptWhileFiltering = key.NewBinding()
+	l.KeyMap.CancelWhileFiltering = key.NewBinding()
+	// Filter is always-on: SetFilterText empties the input and refreshes
+	// items; SetFilterState forces "Filtering" so handleFiltering routes
+	// keystrokes into FilterInput (SetFilterText alone leaves the list
+	// in FilterApplied where printables are ignored).
+	l.SetFilterText("")
+	l.SetFilterState(list.Filtering)
 	return commitTypePopupModel{
 		list:   l,
 		width:  width,
@@ -56,6 +67,12 @@ func (m commitTypePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch km.String() {
 		case "esc":
+			// First esc clears the filter; second esc closes the popup.
+			if m.list.FilterInput.Value() != "" {
+				m.list.SetFilterText("")
+				m.list.SetFilterState(list.Filtering)
+				return m, nil
+			}
 			return m, func() tea.Msg { return closeTypePopupMsg{} }
 		case "enter":
 			selected, ok := m.list.SelectedItem().(CommitTypeItem)
@@ -67,6 +84,14 @@ func (m commitTypePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				return setCommitTypeMsg{tag: tag, color: col}
 			}
+		case "up":
+			// In Filtering state bubbles/list forwards arrows to
+			// FilterInput, so drive the cursor manually here.
+			m.list.CursorUp()
+			return m, nil
+		case "down":
+			m.list.CursorDown()
+			return m, nil
 		}
 	}
 	var cmd tea.Cmd
