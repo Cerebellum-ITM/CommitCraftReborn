@@ -3,11 +3,47 @@ package tui
 import (
 	"fmt"
 	"image/color"
+	"regexp"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"commit_craft_reborn/internal/tui/statusbar"
 )
+
+// mentionRenderRegex matches `@token` chips (filename, path, identifier)
+// that should be highlighted with the success-pill palette inside any
+// surface we render ourselves: the saved key-points list and the
+// AI-suggestion panel. Liberal on the chars allowed inside the token so
+// it covers paths like `internal/tui/view.go` and snake_case names.
+var mentionRenderRegex = regexp.MustCompile(`@[\w./-]+`)
+
+// styleMentions wraps every `@token` substring of s with the success
+// pill, applying textStyle to the surrounding prose. Returns plain
+// textStyle.Render(s) when no mention is present.
+func styleMentions(s string, textStyle lipgloss.Style) string {
+	if s == "" {
+		return ""
+	}
+	matches := mentionRenderRegex.FindAllStringIndex(s, -1)
+	if len(matches) == 0 {
+		return textStyle.Render(s)
+	}
+	var b strings.Builder
+	cursor := 0
+	for _, m := range matches {
+		if m[0] > cursor {
+			b.WriteString(textStyle.Render(s[cursor:m[0]]))
+		}
+		b.WriteString(statusbar.RenderMentionPill(s[m[0]:m[1]]))
+		cursor = m[1]
+	}
+	if cursor < len(s) {
+		b.WriteString(textStyle.Render(s[cursor:]))
+	}
+	return b.String()
+}
 
 // renderComposeTypeRow renders the "commit type" section: label on top,
 // horizontal pills underneath that wrap to additional rows when they
@@ -225,11 +261,10 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 
 		// 4 = marker(1) + space(1) + remove(1) + minimum 1-col gap.
 		maxTextW := max(1, width-4)
-		shown := kp
-		if ansi.StringWidth(shown) > maxTextW {
-			shown = ansi.Truncate(shown, maxTextW, "…")
+		text := styleMentions(kp, base.Foreground(textColor))
+		if ansi.StringWidth(text) > maxTextW {
+			text = ansi.Truncate(text, maxTextW, "…")
 		}
-		text := base.Foreground(textColor).Render(shown)
 
 		left := marker + " " + text
 		spacer := strings.Repeat(" ",

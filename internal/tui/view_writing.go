@@ -9,14 +9,19 @@ import (
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/statusbar"
 )
 
-// identifierRegex matches code-like tokens that should be styled as inline
-// code even when the AI didn't wrap them in backticks. Order matters: the
-// first alternative that matches at a given position wins, so longer / more
-// specific patterns come first.
+// identifierRegex matches tokens that should be styled inline even when
+// the AI didn't wrap them in backticks. Order matters: the first
+// alternative that matches at a given position wins, so longer / more
+// specific patterns come first. The leading `@token` alternative gets
+// rendered as a success-coloured chip (mention pill); every other
+// alternative gets the neutral inline-code style.
 var identifierRegex = regexp.MustCompile(
-	`[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\(\)` + // pkg.Func()
+	`@[\w./-]+` + // @mention (must come first)
+		`|[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\(\)` + // pkg.Func()
 		`|[A-Za-z_]\w*\(\)` + // Func()
 		`|[A-Za-z0-9_.-]*/[A-Za-z0-9_./-]+` + // path/to/file
 		`|\b[\w-]+\.(?:go|toml|md|json|ya?ml|sh|txt|env)\b` + // file.ext
@@ -316,7 +321,12 @@ func styleIdentifiers(chunk string, textStyle, codeStyle lipgloss.Style) string 
 		if m[0] > cursor {
 			b.WriteString(textStyle.Render(chunk[cursor:m[0]]))
 		}
-		b.WriteString(codeStyle.Render(chunk[m[0]:m[1]]))
+		token := chunk[m[0]:m[1]]
+		if strings.HasPrefix(token, "@") {
+			b.WriteString(statusbar.RenderMentionPill(token))
+		} else {
+			b.WriteString(codeStyle.Render(token))
+		}
 		cursor = m[1]
 	}
 	if cursor < len(chunk) {

@@ -288,6 +288,14 @@ func RenderCwdPill(path string, maxWidth int) string {
 	)
 }
 
+// RenderMentionPill draws an inline `@<token>` chip using the success
+// palette. Used by callers that render commit input/output themselves
+// (key-points list, AI suggestion panel) so file references the user
+// typed with `@` stand out as a coloured chip rather than plain prose.
+func RenderMentionPill(token string) string {
+	return pillOK.Render(token)
+}
+
 // RenderStatus draws "TYPE - message" as two adjacent flat-rectangle pills.
 func RenderStatus(level LogLevel, msg string) string {
 	pill, body, label := stylesFor(level)

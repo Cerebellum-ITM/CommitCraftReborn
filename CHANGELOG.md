@@ -2,6 +2,50 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.14 — 2026-04-27
+
+Rework `@`-mentions on the Compose tab so the marker survives long
+enough to look like a real chip:
+
+- The `@` is no longer stripped when the user picks a file from the
+  mention popup, nor when they cancel it. The full `@<path>` token now
+  stays in the textarea buffer and any saved key point keeps it too.
+- Right before each AI prompt is built, every `@<path>` token is
+  flattened back to a bare path via `stripMentions` (regex pass over
+  the joined developer points). The AI keeps seeing clean file paths;
+  only the human-facing surfaces get the marker.
+- Saved key points and the AI-suggestion panel now render every
+  `@<path>` mention as a green chip using the existing success-pill
+  palette (`pillOK`). The chip styling is centralised in a new
+  `statusbar.RenderMentionPill`.
+- The live textarea (where the user types) keeps showing mentions as
+  plain text — Bubbles textarea v2 has no per-token style hook and a
+  custom widget would be a much larger change. Mentions become chips
+  the moment the key point is saved (or once the AI panel re-renders
+  the message).
+
+### Files
+
+- `internal/tui/statusbar/statusbar.go`: new `RenderMentionPill(token)`
+  reusing `pillOK`.
+- `internal/tui/update.go`: `mentionFileSelectedMsg` keeps the leading
+  `@`; `closeMentionPopupMsg` no longer rewrites the value.
+- `internal/tui/ai_pipeline.go`: `mentionStripRegex` + `stripMentions`,
+  applied to `developerPoints` in `iaCallChangeAnalyzer`.
+- `internal/tui/compose_sections.go`: new `styleMentions` helper;
+  `renderComposeKeypointsArea` runs each saved key point through it
+  before truncation.
+- `internal/tui/view_writing.go`: `identifierRegex` now matches
+  `@<token>` first; `styleIdentifiers` dispatches mention matches to
+  `statusbar.RenderMentionPill` and the rest to the inline-code style.
+
+### Usage
+
+Type `@` in the summary as before. Pick a file with the popup (or
+cancel to keep the bare `@`). Save the line with `Ctrl+A` — the chip
+appears in the key-points list. When the AI runs, the `@` is dropped
+internally so the prompt sees plain file paths.
+
 ## v0.15.13 — 2026-04-27
 
 In the key-points list, the active row (the one the keypoint cursor is on

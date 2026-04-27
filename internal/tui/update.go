@@ -198,17 +198,26 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.popup = nil
 		currentVal := model.commitsKeysInput.Value()
 		runes := []rune(currentVal)
-		newVal := string(runes[:model.mentionStart]) + msg.filename + " "
+		// Keep the leading `@` the user typed: replace from mentionStart+1
+		// (the char right after `@`) onwards with the picked filename. The
+		// `@` itself stays in the buffer so the mention is recognisable as
+		// a coloured chip when we render the value ourselves; the marker
+		// is stripped only just before the AI prompt is built.
+		head := string(runes[:model.mentionStart])
+		if model.mentionStart < len(runes) && runes[model.mentionStart] == '@' {
+			head = string(runes[:model.mentionStart+1])
+		} else {
+			head += "@"
+		}
+		newVal := head + msg.filename + " "
 		model.commitsKeysInput.SetValue(newVal)
 		cmd = model.commitsKeysInput.Focus()
 		return model, cmd
 	case closeMentionPopupMsg:
+		// Cancel: leave whatever the user already typed in place, including
+		// the `@`. The user explicitly opted to keep mention markers in the
+		// editable buffer, so the cancel path no longer rewrites the value.
 		model.popup = nil
-		currentVal := model.commitsKeysInput.Value()
-		runes := []rune(currentVal)
-		if model.mentionStart < len(runes) && runes[model.mentionStart] == '@' {
-			model.commitsKeysInput.SetValue(string(runes[:model.mentionStart]) + string(runes[model.mentionStart+1:]))
-		}
 		cmd = model.commitsKeysInput.Focus()
 		return model, cmd
 	case releaseAction:
