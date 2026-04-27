@@ -2,6 +2,52 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.12.5 — 2026-04-26
+
+Fix Nerd Font icons in the file picker and make the scope popup filter
+always-on.
+
+- `internal/tui/format.go::GetNerdFontIcon` had silently lost most of
+  its glyphs (the directory branch, `.py`, `.java`, `.rs`, `.yml`,
+  `.toml`, `.env`, `.md`, image extensions, `makefile`, `.gitignore`,
+  and the default fallback all returned the empty string). Repopulated
+  with proper Nerd Font codepoints written as `\u`/`\U` escapes so the
+  glyphs survive future re-saves in editors without the font.
+- Folders now render with ``; the default branch returns
+  `` so any unknown file type still gets a generic file icon
+  instead of nothing.
+- `internal/tui/update.go`: route `list.FilterMatchesMsg` to the active
+  popup. `bubbles/list` produces this message asynchronously when the
+  user types into `FilterInput`; without explicit forwarding it fell
+  through to the per-state handler (which ignores non-key messages),
+  so `filteredItems` never got updated and the typed query did not
+  filter anything visible.
+- `internal/tui/scope_popup.go` (Ctrl+P): the popup now opens already
+  in `Filtering` state — `SetFilterText("")` followed by an explicit
+  `SetFilterState(list.Filtering)` (necessary because `SetFilterText`
+  by itself transitions to `FilterApplied`, which routes keys back to
+  `handleBrowsing` where printables are ignored). The list's built-in
+  `AcceptWhileFiltering` / `CancelWhileFiltering` bindings are cleared
+  so `/` and `enter` are not consumed as filter accept/cancel — the
+  popup handles them. The `h`/`l` aliases for directory navigation
+  were removed; only `←`/`→` move between directories. `↑`/`↓` are
+  intercepted by the popup and call `list.CursorUp` / `CursorDown`
+  directly (during `Filtering` state `bubbles/list` would otherwise
+  forward arrows to `FilterInput` and never move the cursor through
+  items). `enter` picks the highlighted item, `esc` clears the filter
+  when present and closes the popup when the filter is already empty,
+  `ctrl+r` toggles modified-only. `refreshList` re-enters `Filtering`
+  state on directory changes so typing keeps feeding the filter.
+
+### Usage
+
+Open the scope picker with `Ctrl+P` from the Compose tab. Just type to
+fuzzy-search the current directory; `↑/↓` navigate items, `←/→`
+go up to the parent / enter the selected directory, `Ctrl+R` toggles
+"modified files only", `Enter` picks the highlighted entry, `Esc`
+clears the search (or closes the popup if the search is already
+empty).
+
 ## v0.12.4 — 2026-04-26
 
 Theme-aware inline `code` styling in the AI suggestion viewport.

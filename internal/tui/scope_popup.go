@@ -55,6 +55,18 @@ func newScopePopup(
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetShowPagination(false)
+	// The popup intercepts enter / esc / arrow keys directly, so disable
+	// the list's built-in accept/cancel bindings — otherwise typing "/"
+	// (a valid filename character) would be swallowed as accept.
+	l.KeyMap.AcceptWhileFiltering = key.NewBinding()
+	l.KeyMap.CancelWhileFiltering = key.NewBinding()
+	// Filter is always-on inside the popup: every printable key types
+	// into FilterInput. SetFilterText empties the input and refreshes
+	// items; SetFilterState then forces "Filtering" (instead of the
+	// FilterApplied that SetFilterText leaves behind) so handleFiltering
+	// routes keystrokes into FilterInput.
+	l.SetFilterText("")
+	l.SetFilterState(list.Filtering)
 	return scopePopupModel{
 		list:         l,
 		pwd:          pwd,
@@ -70,38 +82,45 @@ func (m scopePopupModel) Init() tea.Cmd { return nil }
 
 func (m scopePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if km, ok := msg.(tea.KeyMsg); ok {
-		// While typing in the filter the navigation arrows belong to the
-		// list (item filtering); only the textual hand-off (enter / esc)
-		// is intercepted by the popup itself.
-		filtering := m.list.FilterState() == list.Filtering
-
-		if !filtering {
-			switch km.String() {
-			case "esc":
-				return m, func() tea.Msg { return closeScopePopupMsg{} }
-			case "ctrl+r":
-				m.showOnlyMod = !m.showOnlyMod
-				m.refreshList()
-				return m, nil
-			case "left", "h":
-				if m.canGoUp() {
-					m.pwd = filepath.Dir(m.pwd)
-					m.refreshList()
-				}
-				return m, nil
-			case "right", "l":
-				if item, ok := m.list.SelectedItem().(FileItem); ok && item.IsDir() {
-					m.pwd = filepath.Join(m.pwd, item.Title())
-					m.refreshList()
-				}
-				return m, nil
-			}
-		}
-
-		if km.String() == "enter" && !filtering {
+		switch km.String() {
+		case "enter":
 			if item, ok := m.list.SelectedItem().(FileItem); ok {
 				return m, func() tea.Msg { return setScopeMsg{scope: item.Title()} }
 			}
+			return m, nil
+		case "esc":
+			// First esc clears the filter text; a second esc (with the
+			// filter already empty) closes the popup.
+			if m.list.FilterInput.Value() != "" {
+				m.list.SetFilterText("")
+				m.list.SetFilterState(list.Filtering)
+				return m, nil
+			}
+			return m, func() tea.Msg { return closeScopePopupMsg{} }
+		case "ctrl+r":
+			m.showOnlyMod = !m.showOnlyMod
+			m.refreshList()
+			return m, nil
+		case "left":
+			if m.canGoUp() {
+				m.pwd = filepath.Dir(m.pwd)
+				m.refreshList()
+			}
+			return m, nil
+		case "right":
+			if item, ok := m.list.SelectedItem().(FileItem); ok && item.IsDir() {
+				m.pwd = filepath.Join(m.pwd, item.Title())
+				m.refreshList()
+			}
+			return m, nil
+		case "up":
+			// While in Filtering state bubbles/list routes everything
+			// to FilterInput, so up/down would not move through items.
+			// Drive the cursor manually so navigation stays usable.
+			m.list.CursorUp()
+			return m, nil
+		case "down":
+			m.list.CursorDown()
 			return m, nil
 		}
 	}
@@ -129,7 +148,7 @@ func (m scopePopupModel) View() tea.View {
 	header := lipgloss.JoinHorizontal(lipgloss.Top, title, " ", pathLabel)
 
 	hint := base.Foreground(m.theme.Muted).Render(
-		"↑↓ nav · → enter dir · ← parent · ctrl+r modified-only · enter pick · esc cancel",
+		"type to filter · ↑↓ nav · ←/→ dirs · ctrl+r modified-only · enter pick · esc clear/close",
 	)
 
 	listH := max(3, innerH-lipgloss.Height(header)-lipgloss.Height(hint)-2)
@@ -162,10 +181,14 @@ func (m scopePopupModel) canGoUp() bool {
 }
 
 // refreshList rebuilds the list contents for the current pwd, honouring
-// the showOnlyMod toggle.
+// the showOnlyMod toggle. Resets the filter text so a search typed in
+// the previous directory does not silently hide entries here, and
+// re-enters Filtering state so typing keeps feeding the filter input.
 func (m *scopePopupModel) refreshList() {
 	updater := ChooseUpdateFileListFunction(m.showOnlyMod)
 	if err := updater(m.pwd, &m.list, m.gitData); err == nil {
+		m.list.SetFilterText("")
+		m.list.SetFilterState(list.Filtering)
 		m.list.Select(0)
 	}
 }

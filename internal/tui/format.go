@@ -99,7 +99,7 @@ func TruncateMessageLines(message string, width int) string {
 // extension, with a few special-cased basenames.
 func GetNerdFontIcon(filename string, isDir bool) string {
 	if isDir {
-		return ""
+		return ""
 	}
 
 	extension := strings.ToLower(filepath.Ext(filename))
@@ -109,17 +109,17 @@ func GetNerdFontIcon(filename string, isDir bool) string {
 	case ".go":
 		return "󰟓"
 	case ".py":
-		return ""
+		return ""
 	case ".js":
 		return "󰌞"
 	case ".ts":
 		return "󰛦"
 	case ".java":
-		return ""
+		return ""
 	case ".cs":
 		return "󰌛"
 	case ".rs":
-		return ""
+		return ""
 	case ".c":
 		return "󰙱"
 	case ".cpp", ".h":
@@ -127,19 +127,19 @@ func GetNerdFontIcon(filename string, isDir bool) string {
 	case ".json":
 		return "󰘦"
 	case ".yml", ".yaml":
-		return ""
+		return ""
 	case ".xml":
 		return "󰗀"
 	case ".toml":
-		return ""
+		return ""
 	case ".env":
-		return ""
+		return ""
 	case ".md", ".mdx":
-		return ""
+		return ""
 	case ".git":
-		return " Git"
+		return " Git"
 	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
-		return ""
+		return ""
 	case ".zip", ".tar", ".gz", ".rar":
 		return "󰿺"
 	default:
@@ -147,15 +147,15 @@ func GetNerdFontIcon(filename string, isDir bool) string {
 		case "docker-compose.yml", "dockerfile":
 			return "󰡨"
 		case "makefile":
-			return ""
+			return ""
 		case "readme.md":
 			return "󰂺"
 		case "license":
 			return "󰿃"
 		case ".gitignore":
-			return ""
+			return ""
 		}
-		return ""
+		return ""
 	}
 }
 

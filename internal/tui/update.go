@@ -46,6 +46,16 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.height = msg.Height
 		model.apiKeyInput.SetWidth(model.width)
 		model.WritingStatusBar.AppWith = model.width
+	case list.FilterMatchesMsg:
+		// Filter results are produced asynchronously by bubbles/list
+		// when the user types in a popup like the scope picker. The
+		// runtime delivers the msg here; route it back to the popup so
+		// its inner list can apply the filtered items.
+		if model.popup != nil {
+			var popupCmd tea.Cmd
+			model.popup, popupCmd = model.popup.Update(msg)
+			return model, popupCmd
+		}
 	case openPopupMsg:
 		switch msg.Type {
 		case Confirmation:
