@@ -50,9 +50,21 @@ func (model *Model) buildPipelineDiffListView(width, height int) string {
 	model.pipelineDiffList.SetWidth(width)
 	model.pipelineDiffList.SetHeight(height - 4)
 
-	header := model.buildStyledBorder(state, "Changed Files  [Enter] view diff  [Tab] switch panel", HeaderStyle, width, AlignHeader)
+	header := model.buildStyledBorder(
+		state,
+		"Changed Files  [Enter] view diff  [Tab] switch panel",
+		HeaderStyle,
+		width,
+		AlignHeader,
+	)
 	count := len(model.pipelineDiffList.Items())
-	footer := model.buildStyledBorder(state, fmt.Sprintf("%d file(s) modified", count), FooterStyle, width, AlignFooter)
+	footer := model.buildStyledBorder(
+		state,
+		fmt.Sprintf("%d file(s) modified", count),
+		FooterStyle,
+		width,
+		AlignFooter,
+	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, model.pipelineDiffList.View(), footer)
 }
@@ -125,13 +137,49 @@ func (model *Model) buildPipelineView(contentWidth, contentHeight int) string {
 		return "blur"
 	}
 
-	header1 := model.buildStyledBorder(stateOf(0), "Stage 1 — Summary  [1] re-run", HeaderStyle, contentWidth, AlignHeader)
-	header2 := model.buildStyledBorder(stateOf(1), "Stage 2 — Raw Commit  [2] re-run", HeaderStyle, contentWidth, AlignHeader)
-	header3 := model.buildStyledBorder(stateOf(2), "Stage 3 — Formatted  [3] re-run", HeaderStyle, contentWidth, AlignHeader)
+	header1 := model.buildStyledBorder(
+		stateOf(0),
+		"Stage 1 — Summary  [1] re-run",
+		HeaderStyle,
+		contentWidth,
+		AlignHeader,
+	)
+	header2 := model.buildStyledBorder(
+		stateOf(1),
+		"Stage 2 — Raw Commit  [2] re-run",
+		HeaderStyle,
+		contentWidth,
+		AlignHeader,
+	)
+	header3 := model.buildStyledBorder(
+		stateOf(2),
+		"Stage 3 — Formatted  [3] re-run",
+		HeaderStyle,
+		contentWidth,
+		AlignHeader,
+	)
 
-	footer1 := model.buildStyledBorder(stateOf(0), fmt.Sprintf("%3.f%%", model.pipelineViewport1.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
-	footer2 := model.buildStyledBorder(stateOf(1), fmt.Sprintf("%3.f%%", model.pipelineViewport2.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
-	footer3 := model.buildStyledBorder(stateOf(2), fmt.Sprintf("%3.f%%", model.pipelineViewport3.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
+	footer1 := model.buildStyledBorder(
+		stateOf(0),
+		fmt.Sprintf("%3.f%%", model.pipelineViewport1.ScrollPercent()*100),
+		FooterStyle,
+		contentWidth,
+		AlignFooter,
+	)
+	footer2 := model.buildStyledBorder(
+		stateOf(1),
+		fmt.Sprintf("%3.f%%", model.pipelineViewport2.ScrollPercent()*100),
+		FooterStyle,
+		contentWidth,
+		AlignFooter,
+	)
+	footer3 := model.buildStyledBorder(
+		stateOf(2),
+		fmt.Sprintf("%3.f%%", model.pipelineViewport3.ScrollPercent()*100),
+		FooterStyle,
+		contentWidth,
+		AlignFooter,
+	)
 
 	stage1 := lipgloss.JoinVertical(lipgloss.Left, header1, model.pipelineViewport1.View(), footer1)
 	stage2 := lipgloss.JoinVertical(lipgloss.Left, header2, model.pipelineViewport2.View(), footer2)
@@ -169,7 +217,13 @@ func (model *Model) buildPipelineViewCompact(
 
 	label := fmt.Sprintf("%s  ← → switch", pipelineStageLabels[active])
 	header := model.buildStyledBorder("focus", label, HeaderStyle, contentWidth, AlignHeader)
-	footer := model.buildStyledBorder("focus", fmt.Sprintf("%3.f%%", vp.ScrollPercent()*100), FooterStyle, contentWidth, AlignFooter)
+	footer := model.buildStyledBorder(
+		"focus",
+		fmt.Sprintf("%3.f%%", vp.ScrollPercent()*100),
+		FooterStyle,
+		contentWidth,
+		AlignFooter,
+	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, vp.View(), footer)
 }
@@ -251,8 +305,8 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	panelH := max(15, totalAvailableContentHeight)
 
 	chromeCols, chromeRows := titledPanelChrome()
-	innerLeftW := max(1, leftW-chromeCols-2)   // 2 = 1 char padding on each side
-	innerLeftH := max(1, panelH-chromeRows-1)  // 1 row of internal top padding
+	innerLeftW := max(1, leftW-chromeCols-2)  // 2 = 1 char padding on each side
+	innerLeftH := max(1, panelH-chromeRows-1) // 1 row of internal top padding
 	innerRightW := max(1, rightW-chromeCols-2)
 	innerRightH := max(1, panelH-chromeRows-1)
 
@@ -326,7 +380,10 @@ func (model *Model) assembleComposeLeftBody(innerW, innerH int) string {
 	typeRow := model.renderComposeTypeRow(innerW, model.focusedElement == focusComposeType)
 	scopeRow := model.renderComposeScopeRow(innerW, model.focusedElement == focusComposeScope)
 	summary := model.renderComposeSummaryArea(innerW, model.focusedElement == focusComposeSummary)
-	pipelineModels := model.renderComposePipelineModelsArea(innerW, model.focusedElement == focusComposePipelineModels)
+	pipelineModels := model.renderComposePipelineModelsArea(
+		innerW,
+		model.focusedElement == focusComposePipelineModels,
+	)
 
 	// Reserve a chunk for keypoints and let it grow with the panel.
 	usedH := lipgloss.Height(typeRow) +
@@ -335,7 +392,11 @@ func (model *Model) assembleComposeLeftBody(innerW, innerH int) string {
 		lipgloss.Height(pipelineModels) +
 		8 // accumulated blank-line separators
 	keypointsH := max(3, innerH-usedH)
-	keypoints := model.renderComposeKeypointsArea(innerW, keypointsH, model.focusedElement == focusComposeKeypoints)
+	keypoints := model.renderComposeKeypointsArea(
+		innerW,
+		keypointsH,
+		model.focusedElement == focusComposeKeypoints,
+	)
 
 	divider := model.renderComposeDivider(innerW)
 
@@ -368,4 +429,3 @@ func isComposeFocus(f focusableElement) bool {
 	}
 	return false
 }
-

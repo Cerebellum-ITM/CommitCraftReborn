@@ -145,7 +145,6 @@ func ia_commit_builder(model *Model) error {
 	return nil
 }
 
-
 func iaReleaseBuilder(model *Model) error {
 	var input strings.Builder
 	delimiter := "--- COMMIT SEPARATOR ---"
@@ -182,4 +181,3 @@ func iaReleaseBuilder(model *Model) error {
 	model.releaseText = iaResponse
 	return nil
 }
-

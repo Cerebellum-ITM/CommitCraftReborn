@@ -1,13 +1,13 @@
 package tui
 
 import (
-	"commit_craft_reborn/internal/commit"
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/commit"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // setCommitTypeMsg is fired by the type popup when the user picks a tag.

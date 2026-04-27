@@ -3,12 +3,12 @@ package tui
 import (
 	"fmt"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/statusbar"
-
-	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 )
 
 func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -87,7 +87,10 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 	model.RewordHash = hash
 	model.useDbCommmit = true
 
-	diff, dErr := git.GetCommitDiffSummary(hash, model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize)
+	diff, dErr := git.GetCommitDiffSummary(
+		hash,
+		model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize,
+	)
 	if dErr != nil {
 		model.log.Error("Error getting commit diff for reword", "error", dErr)
 	}

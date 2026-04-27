@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"commit_craft_reborn/internal/git"
-	"commit_craft_reborn/internal/storage"
-	"commit_craft_reborn/internal/tui/statusbar"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+
+	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/statusbar"
 )
 
 func updateChoosingScope(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -302,4 +302,3 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	model.mainList, cmd = model.mainList.Update(msg)
 	return model, cmd
 }
-

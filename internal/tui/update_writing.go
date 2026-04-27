@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+
 	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/tui/statusbar"
-
-	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 )
 
 func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -267,4 +267,3 @@ func indexOfCommitType(types []commit.CommitType, tag string) int {
 	}
 	return 0
 }
-

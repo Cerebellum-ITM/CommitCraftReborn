@@ -1,9 +1,8 @@
 package styles
 
 import (
-	"github.com/charmbracelet/x/exp/charmtone"
-
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/exp/charmtone"
 )
 
 func NerdFontSymbols() *Symbols {

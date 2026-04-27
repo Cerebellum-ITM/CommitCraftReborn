@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"commit_craft_reborn/internal/storage"
-
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/storage"
 )
 
 // TabID identifies one of the three persistent top-level tabs that are
@@ -228,4 +228,3 @@ func (model *Model) renderTabBar(width int) string {
 
 	return leftBar + spacer + rightBar
 }
-

@@ -5,12 +5,12 @@ import (
 	"image/color"
 	"strconv"
 
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 var DefaultPopupColor color.Color = lipgloss.Color("63")

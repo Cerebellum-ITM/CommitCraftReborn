@@ -3,12 +3,12 @@ package tui
 import (
 	"strings"
 
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // editMessageAppliedMsg carries the edited commit message back to the
@@ -24,7 +24,11 @@ type editMessagePopupModel struct {
 	theme         *styles.Theme
 }
 
-func newEditMessagePopup(width, height int, initial string, theme *styles.Theme) editMessagePopupModel {
+func newEditMessagePopup(
+	width, height int,
+	initial string,
+	theme *styles.Theme,
+) editMessagePopupModel {
 	ta := textarea.New()
 	ta.SetStyles(theme.AppStyles().TextArea)
 	ta.Prompt = "┃ "

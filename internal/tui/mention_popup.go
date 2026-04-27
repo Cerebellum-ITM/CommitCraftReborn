@@ -5,12 +5,12 @@ import (
 	"io"
 	"strings"
 
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 type mentionFileItem struct {
@@ -28,8 +28,8 @@ type mentionFileDelegate struct {
 	textStyle      lipgloss.Style
 }
 
-func (d mentionFileDelegate) Height() int                              { return 1 }
-func (d mentionFileDelegate) Spacing() int                             { return 0 }
+func (d mentionFileDelegate) Height() int                             { return 1 }
+func (d mentionFileDelegate) Spacing() int                            { return 0 }
 func (d mentionFileDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d mentionFileDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
@@ -62,10 +62,16 @@ type mentionFilePopupModel struct {
 	keys     KeyMap
 }
 
-type mentionFileSelectedMsg struct{ filename string }
-type closeMentionPopupMsg struct{}
+type (
+	mentionFileSelectedMsg struct{ filename string }
+	closeMentionPopupMsg   struct{}
+)
 
-func newMentionFilePopup(files []string, width, height int, theme *styles.Theme) mentionFilePopupModel {
+func newMentionFilePopup(
+	files []string,
+	width, height int,
+	theme *styles.Theme,
+) mentionFilePopupModel {
 	base := theme.AppStyles().Base
 	delegate := mentionFileDelegate{
 		theme:          theme,

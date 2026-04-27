@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io"
 
-	"commit_craft_reborn/internal/commit"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/commit"
 )
 
 type CommitTypeDelegate struct {

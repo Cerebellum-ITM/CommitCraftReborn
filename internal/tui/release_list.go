@@ -7,10 +7,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 type WorkspaceCommitItem struct {
@@ -121,7 +121,13 @@ func (d ReleaseListDelegate) Render(w io.Writer, m list.Model, index int, listIt
 
 	maxWith := max(
 		0,
-		m.Width()-hashLength-lipgloss.Width(item.Date)-lipgloss.Width(selected)-lipgloss.Width(tagString),
+		m.Width()-hashLength-lipgloss.Width(
+			item.Date,
+		)-lipgloss.Width(
+			selected,
+		)-lipgloss.Width(
+			tagString,
+		),
 	)
 	hashString := hashStyle.Render(TruncateString(item.Hash, hashLength))
 	subjetString := textStyle.Render(TruncateString(item.Subject, maxWith))

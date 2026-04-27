@@ -7,9 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"commit_craft_reborn/internal/git"
-	tuistyles "commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -19,6 +16,9 @@ import (
 	chromastyles "github.com/alecthomas/chroma/v2/styles"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
+
+	"commit_craft_reborn/internal/git"
+	tuistyles "commit_craft_reborn/internal/tui/styles"
 )
 
 // -------------------------------------------------------------------------

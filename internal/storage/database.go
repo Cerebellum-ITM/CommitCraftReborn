@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"commit_craft_reborn/internal/config"
-
 	"github.com/pkg/errors"
 	_ "modernc.org/sqlite"
+
+	"commit_craft_reborn/internal/config"
 )
 
 // DB is a wrapper for the sql.DB connection pool.

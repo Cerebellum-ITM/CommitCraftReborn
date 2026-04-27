@@ -71,7 +71,11 @@ func renderTitledPanel(o titledPanelOpts) string {
 		if iconColor == nil {
 			iconColor = o.titleColor
 		}
-		titleRendered = " " + lipgloss.NewStyle().Foreground(iconColor).Bold(true).Render(o.icon) + " "
+		titleRendered = " " + lipgloss.NewStyle().
+			Foreground(iconColor).
+			Bold(true).
+			Render(o.icon) +
+			" "
 		titleW = lipgloss.Width(titleRendered)
 	}
 

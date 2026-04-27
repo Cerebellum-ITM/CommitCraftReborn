@@ -39,4 +39,3 @@ func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	}
 	return model, cmd
 }
-

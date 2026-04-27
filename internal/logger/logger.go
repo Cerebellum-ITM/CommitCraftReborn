@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"commit_craft_reborn/internal/config"
-
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/charmbracelet/colorprofile"
+
+	"commit_craft_reborn/internal/config"
 )
 
 // ringBuffer keeps the last maxLines log lines in memory and fans out new lines

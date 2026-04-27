@@ -4,11 +4,11 @@ import (
 	"strings"
 	"time"
 
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 type clearStatusMsg struct{}

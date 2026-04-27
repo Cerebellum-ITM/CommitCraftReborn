@@ -3,11 +3,11 @@ package tui
 import (
 	"time"
 
-	"commit_craft_reborn/internal/git"
-
 	"charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/viewport"
+
+	"commit_craft_reborn/internal/git"
 )
 
 // stageID identifies one of the three AI stages displayed on the Pipeline

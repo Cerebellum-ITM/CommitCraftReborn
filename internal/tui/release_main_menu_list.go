@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/list"
+	"charm.land/lipgloss/v2"
+
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/styles"
-
-	"charm.land/bubbles/v2/list"
-	"charm.land/lipgloss/v2"
 )
 
 // HistoryReleaseItem

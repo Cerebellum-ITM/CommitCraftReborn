@@ -5,15 +5,14 @@ import (
 	"strings"
 	"time"
 
-	"commit_craft_reborn/internal/git"
-	"commit_craft_reborn/internal/tui/statusbar"
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
-
 	"github.com/atotto/clipboard"
+
+	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/tui/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 type releaseUpdloadResultMsg struct {
@@ -552,4 +551,3 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	model.topTab = tabForState(model.state)
 	return subModel, tea.Batch(cmds...)
 }
-

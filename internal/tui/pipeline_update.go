@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"commit_craft_reborn/internal/tui/statusbar"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+
+	"commit_craft_reborn/internal/tui/statusbar"
 )
 
 // updatePipeline is the Pipeline tab's per-state Update handler. It owns

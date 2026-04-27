@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"commit_craft_reborn/internal/git"
-
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/git"
 )
 
 type DiffFileItem struct {

@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"commit_craft_reborn/internal/git"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/git"
 )
 
 type FileItem struct {

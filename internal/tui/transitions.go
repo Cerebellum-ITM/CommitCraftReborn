@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/statusbar"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
@@ -67,7 +67,6 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 	return model, nil
 }
 
-
 func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	if v := model.commitsKeysInput.Value(); v != "" {
 		model.keyPoints = append(model.keyPoints, v)
@@ -114,7 +113,6 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	return model, cmd
 }
 
-
 func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	var commitList []string
 
@@ -153,7 +151,6 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	)
 	return model, cmd
 }
-
 
 func switchFocusElement(model *Model) tea.Cmd {
 	if model.state == stateWritingMessage {

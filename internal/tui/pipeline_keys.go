@@ -15,10 +15,13 @@ import "charm.land/bubbles/v2/key"
 //   - `esc`       — cancel a running run
 func pipelineKeys() KeyMap {
 	return KeyMap{
-		Up:        key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "diff up")),
-		Down:      key.NewBinding(key.WithKeys("down"), key.WithHelp("↓", "diff down")),
-		PgUp:      key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "stage scroll up")),
-		PgDown:    key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "stage scroll down")),
+		Up:   key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "diff up")),
+		Down: key.NewBinding(key.WithKeys("down"), key.WithHelp("↓", "diff down")),
+		PgUp: key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "stage scroll up")),
+		PgDown: key.NewBinding(
+			key.WithKeys("pgdown"),
+			key.WithHelp("pgdown", "stage scroll down"),
+		),
 		FileUp:    key.NewBinding(key.WithKeys("k"), key.WithHelp("k", "prev file")),
 		FileDown:  key.NewBinding(key.WithKeys("j"), key.WithHelp("j", "next file")),
 		NextField: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "cycle stage focus")),

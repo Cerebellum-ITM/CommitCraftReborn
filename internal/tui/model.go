@@ -4,14 +4,6 @@ import (
 	"fmt"
 	"image/color"
 
-	"commit_craft_reborn/internal/commit"
-	"commit_craft_reborn/internal/config"
-	"commit_craft_reborn/internal/git"
-	"commit_craft_reborn/internal/logger"
-	"commit_craft_reborn/internal/storage"
-	"commit_craft_reborn/internal/tui/statusbar"
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -21,6 +13,14 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/commit"
+	"commit_craft_reborn/internal/config"
+	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/logger"
+	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 type (

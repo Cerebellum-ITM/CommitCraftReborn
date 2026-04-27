@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"charm.land/bubbles/v2/list"
+
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
-
-	"charm.land/bubbles/v2/list"
 )
 
 // UpdateFileListFunc is the shape of a function that repopulates a

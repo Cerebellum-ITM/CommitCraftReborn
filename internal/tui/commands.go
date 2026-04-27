@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"commit_craft_reborn/internal/git"
-
 	tea "charm.land/bubbletea/v2"
+
+	"commit_craft_reborn/internal/git"
 )
 
 func callIaCommitBuilderCmd(model *Model) tea.Cmd {
@@ -56,7 +56,6 @@ func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
 		return IaResleaseBuilderResultMsg{Err: err}
 	}
 }
-
 
 func openVersionEditor(model *Model) versionPopupModel {
 	tag, err := git.GetLastGitTag()

@@ -91,11 +91,17 @@ func writingMessageKeys() KeyMap {
 			key.WithKeys("alt+tab", "insert"),
 			key.WithHelp("alt+tab or insert", "add new line"),
 		),
-		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		PgUp:       key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "Scroll keypoints up")),
-		PgDown:     key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "Scroll keypoints down")),
+		Esc:  key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		Up:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down: key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup"),
+			key.WithHelp("pgup", "Scroll keypoints up"),
+		),
+		PgDown: key.NewBinding(
+			key.WithKeys("pgdown"),
+			key.WithHelp("pgdown", "Scroll keypoints down"),
+		),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 		SwitchTab: key.NewBinding(
 			key.WithKeys("ctrl+t"),
@@ -280,9 +286,12 @@ func listKeys() KeyMap {
 
 func rewordSelectKeys() KeyMap {
 	return KeyMap{
-		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "Reword selected commit")),
+		Up:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down: key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Enter: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "Reword selected commit"),
+		),
 		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 	}

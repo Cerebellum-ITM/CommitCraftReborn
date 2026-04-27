@@ -3,12 +3,12 @@ package tui
 import (
 	"fmt"
 
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // versionUpdatedMsg is emitted after the local .commitcraft.toml has been

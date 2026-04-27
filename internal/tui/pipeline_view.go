@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"commit_craft_reborn/internal/tui/statusbar"
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"commit_craft_reborn/internal/tui/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // viewPipeline renders the Pipeline tab. Layout (top → bottom, two
@@ -463,7 +463,9 @@ func renderStageBar(theme *styles.Theme, st *pipelineStage, pulsePhase, idx, wid
 			filled = width
 		}
 		head := lipgloss.NewStyle().Foreground(theme.AI).Render(strings.Repeat(full, filled))
-		tail := lipgloss.NewStyle().Foreground(theme.Subtle).Render(strings.Repeat(full, width-filled))
+		tail := lipgloss.NewStyle().
+			Foreground(theme.Subtle).
+			Render(strings.Repeat(full, width-filled))
 		return head + tail
 	}
 	return lipgloss.NewStyle().Foreground(theme.Subtle).Render(strings.Repeat(full, width))

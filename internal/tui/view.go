@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"strings"
 
-	"charm.land/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -82,9 +82,6 @@ func (model *Model) setColorVariables(state string) (textColor, lineColor ansi.C
 	return textColor, lineColor
 }
 
-
-
-
 // View renders the UI based on the current state of the model.
 func (model *Model) View() tea.View {
 	var mainContent string
@@ -100,7 +97,10 @@ func (model *Model) View() tea.View {
 	statusBarContent := model.WritingStatusBar.Render()
 	var helpView string
 	if model.state == stateWritingMessage {
-		helpView = lipgloss.NewStyle().Padding(0, 2).SetString(model.renderComposeHelpLine()).String()
+		helpView = lipgloss.NewStyle().
+			Padding(0, 2).
+			SetString(model.renderComposeHelpLine()).
+			String()
 	} else {
 		helpView = lipgloss.NewStyle().Padding(0, 2).SetString(model.renderStateHelpLine()).String()
 	}

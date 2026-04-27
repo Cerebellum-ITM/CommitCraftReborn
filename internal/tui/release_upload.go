@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/logger"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // UploadReleaseToGithub publishes a release to GitHub using the `gh` CLI.

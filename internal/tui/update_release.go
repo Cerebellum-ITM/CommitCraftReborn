@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"commit_craft_reborn/internal/tui/statusbar"
-
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+
+	"commit_craft_reborn/internal/tui/statusbar"
 )
 
 func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -173,4 +173,3 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 
 	return model, cmd
 }
-

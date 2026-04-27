@@ -227,4 +227,3 @@ func (db *DB) FinalizeCommit(c Commit) error {
 	)
 	return errors.Wrap(err, "failed to finalize commit")
 }
-

@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"commit_craft_reborn/internal/git"
-	"commit_craft_reborn/internal/tui/styles"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // setScopeMsg is fired by the scope popup when the user accepts a value.

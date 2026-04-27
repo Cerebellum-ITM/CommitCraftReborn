@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
+
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 var version = "v0.12.4"

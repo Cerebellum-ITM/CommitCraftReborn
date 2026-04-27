@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"commit_craft_reborn/internal/commit"
-
 	"github.com/BurntSushi/toml"
 	"github.com/joho/godotenv"
+
+	"commit_craft_reborn/internal/commit"
 )
 
 const (
@@ -91,7 +91,10 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 func loadIaPrompts(
 	configDir string, globalConfig *Config,
 ) error {
-	changeAnalyzerPrompt, err := createOrLoadPromptFile(configDir, globalConfig.Prompts.ChangeAnalyzerPromptFile)
+	changeAnalyzerPrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.ChangeAnalyzerPromptFile,
+	)
 	if err != nil {
 		return err
 	}

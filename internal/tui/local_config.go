@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"commit_craft_reborn/internal/config"
-
 	"github.com/BurntSushi/toml"
+
+	"commit_craft_reborn/internal/config"
 )
 
 // CreateLocalConfigTomlTmpl writes a default `.commitcraft.toml` in the
