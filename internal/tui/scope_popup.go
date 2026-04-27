@@ -51,6 +51,10 @@ func newScopePopup(
 		// to an empty list rather than crash the popup.
 		l = list.New(nil, FileDelegate{UseNerdFonts: useNerdFonts}, 0, 0)
 	}
+	// Default to modified-only: the scope is almost always one of the
+	// files touched by the pending commit, so showing the full tree first
+	// is just noise. Ctrl+R still toggles back to the full listing.
+	_ = ChooseUpdateFileListFunction(true)(pwd, &l, gitData)
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
@@ -71,6 +75,7 @@ func newScopePopup(
 		list:         l,
 		pwd:          pwd,
 		gitData:      gitData,
+		showOnlyMod:  true,
 		useNerdFonts: useNerdFonts,
 		width:        width,
 		height:       height,

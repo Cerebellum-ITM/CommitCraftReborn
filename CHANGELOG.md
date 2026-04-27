@@ -2,6 +2,22 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.14.2 — 2026-04-27
+
+Scope file picker now opens with the modified-only filter enabled by
+default, since the scope is almost always one of the files touched by
+the pending commit.
+
+- `internal/tui/scope_popup.go`: initialize `showOnlyMod = true` and
+  apply `UpdateFileListWithFilterItems` right after `NewFileList` so
+  the popup's first frame already shows only changed paths.
+
+### Usage
+
+Open the scope picker as before (`Ctrl+P` from the writing state). It
+starts filtered to modified files/folders; press `Ctrl+R` to toggle
+back to the full directory listing.
+
 ## v0.14.1 — 2026-04-27
 
 Fix the changelog refiner not running when triggered from the Compose
