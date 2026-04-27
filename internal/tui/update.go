@@ -100,9 +100,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, nil
 	case themePreviewMsg:
 		model.Theme = styles.GetTheme(msg.name, model.globalConfig.TUI.UseNerdFonts)
+		model.WritingStatusBar.SetTheme(model.Theme)
 		return model, nil
 	case themeAppliedMsg:
 		model.Theme = styles.GetTheme(msg.name, model.globalConfig.TUI.UseNerdFonts)
+		model.WritingStatusBar.SetTheme(model.Theme)
 		model.themeName = msg.name
 		model.globalConfig.TUI.Theme = msg.name
 		model.popup = nil
@@ -121,6 +123,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 	case closeConfigPopupMsg:
 		model.Theme = styles.GetTheme(model.themeName, model.globalConfig.TUI.UseNerdFonts)
+		model.WritingStatusBar.SetTheme(model.Theme)
 		model.popup = nil
 		return model, nil
 	case editMessageAppliedMsg:

@@ -261,3 +261,12 @@ func ResolveReleaseConfig(
 ) {
 	globalCfg.ReleaseConfig = localCfg.ReleaseConfig
 }
+
+// ResolveTUIConfig merges the local TUI overrides on top of the global
+// config. Only fields explicitly set in the local file override the global
+// one — leaving zero values keeps the global default in place.
+func ResolveTUIConfig(globalCfg *Config, localCfg Config) {
+	if localCfg.TUI.Theme != "" {
+		globalCfg.TUI.Theme = localCfg.TUI.Theme
+	}
+}

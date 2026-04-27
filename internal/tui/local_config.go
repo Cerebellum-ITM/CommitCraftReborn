@@ -68,20 +68,11 @@ func UpdateLocalConfigVersion(version string) error {
 	return nil
 }
 
-// UpdateConfigTheme persists the chosen TUI theme. When a local
-// .commitcraft.toml exists in the current working directory, the value is
-// written there so it overrides the global one for this repo. Otherwise
-// it's written to the global ~/.config/CommitCraft/config.toml.
+// UpdateConfigTheme persists the chosen TUI theme to the global config
+// (~/.config/CommitCraft/config.toml). The theme is a user-level
+// preference; per-repo `.commitcraft.toml` files can still override it at
+// read time but are never modified here.
 func UpdateConfigTheme(theme string) error {
-	workDir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	localPath := filepath.Join(workDir, ".commitcraft.toml")
-	if _, err := os.Stat(localPath); err == nil {
-		return updateThemeInFile(localPath, theme)
-	}
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -91,15 +82,14 @@ func UpdateConfigTheme(theme string) error {
 	if err := os.MkdirAll(globalDir, 0o755); err != nil {
 		return err
 	}
-	return updateThemeInFile(globalPath, theme)
-}
 
-func updateThemeInFile(path, theme string) error {
 	var cfg config.Config
-	if _, err := os.Stat(path); err == nil {
-		if _, err := toml.DecodeFile(path, &cfg); err != nil {
-			return fmt.Errorf("decoding %s: %w", path, err)
+	if _, err := os.Stat(globalPath); err == nil {
+		if _, err := toml.DecodeFile(globalPath, &cfg); err != nil {
+			return fmt.Errorf("decoding %s: %w", globalPath, err)
 		}
+	} else {
+		cfg = config.GetDefaultConfigWithTypes()
 	}
 	cfg.TUI.Theme = theme
 
@@ -107,8 +97,8 @@ func updateThemeInFile(path, theme string) error {
 	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
 		return fmt.Errorf("encoding config: %w", err)
 	}
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
+	if err := os.WriteFile(globalPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", globalPath, err)
 	}
 	return nil
 }

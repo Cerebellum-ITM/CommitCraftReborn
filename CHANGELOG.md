@@ -2,6 +2,24 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.12.1 — 2026-04-26
+
+Fixes for the configuration popup theme flow.
+
+- Persistence inverted: `tui.UpdateConfigTheme` now always writes the
+  theme to the global `~/.config/CommitCraft/config.toml`. The local
+  `.commitcraft.toml` is no longer touched by the popup, so it doesn't
+  get polluted with unrelated TUI defaults (e.g. `use_nerd_fonts = false`).
+- Local override now actually applied at startup: new
+  `config.ResolveTUIConfig` merges `localCfg.TUI.Theme` over the global
+  one in `cmd/cli/main.go` so a per-repo `.commitcraft.toml` can still
+  override the user-wide theme.
+- Logo now follows the active theme: added
+  `statusbar.StatusBar.SetTheme` and call it from the `themePreviewMsg`
+  / `themeAppliedMsg` / `closeConfigPopupMsg` handlers in `update.go`,
+  so the `⌘ CommitCraft` pill picks up the new `Theme.Logo` (which
+  defaults to `Theme.Primary`) instead of staying on charmtone's blue.
+
 ## v0.12.0 — 2026-04-26
 
 New configuration popup with a theme picker. The selected theme is applied

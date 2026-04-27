@@ -14,7 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var version = "v0.12.0"
+var version = "v0.12.1"
 
 func main() {
 	log := logger.New()
@@ -45,6 +45,7 @@ func main() {
 	finalCommitTypes := config.ResolveCommitTypes(globalCfg, localCfg)
 	config.PopulateCommitTypeColors(&globalCfg, finalCommitTypes)
 	config.ResolveReleaseConfig(&globalCfg, localCfg)
+	config.ResolveTUIConfig(&globalCfg, localCfg)
 
 	pwd, err := os.Getwd()
 	if err != nil {

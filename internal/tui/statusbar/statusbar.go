@@ -43,6 +43,12 @@ func New(content string, level LogLevel, with int, theme *styles.Theme, version 
 	}
 }
 
+// SetTheme swaps the active theme so subsequent renders pick up the new
+// palette (logo background, spinner color, etc.).
+func (sb *StatusBar) SetTheme(t *styles.Theme) {
+	sb.theme = t
+}
+
 func (sb *StatusBar) StartSpinner() tea.Cmd {
 	sb.showSpinner = true
 	return sb.spinner.Tick
