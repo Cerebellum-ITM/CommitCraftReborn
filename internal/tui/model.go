@@ -360,20 +360,12 @@ func NewModel(
 	if config.TUI.IsAPIKeySet {
 		initalState = stateChoosingCommit
 		initialKeys = mainListKeys()
-		statusBarInitialMessage = fmt.Sprintf(
-			"choose, create, or edit a commit ::: %s",
-			theme.AppStyles().Base.Foreground(theme.Tertiary).SetString(workspaceCommitsList.Title),
-		)
+		statusBarInitialMessage = "choose, create, or edit a commit"
 
 		if appMode == ReleaseMode {
 			initalState = stateReleaseMainMenu
 			initialKeys = releaseMainListKeys()
-			statusBarInitialMessage = fmt.Sprintf(
-				"choose, create, or edit a release ::: %s",
-				theme.AppStyles().
-					Base.Foreground(theme.Tertiary).
-					SetString(workspaceCommitsList.Title),
-			)
+			statusBarInitialMessage = "choose, create, or edit a release"
 		}
 
 		WritingStatusBar = statusbar.New(

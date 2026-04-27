@@ -2,12 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/storage"
+	"commit_craft_reborn/internal/tui/statusbar"
 )
 
 // TabID identifies one of the three persistent top-level tabs that are
@@ -224,7 +226,43 @@ func (model *Model) renderTabBar(width int) string {
 	leftW := lipgloss.Width(leftBar)
 	rightW := lipgloss.Width(rightBar)
 	pad := max(2, width-leftW-rightW)
-	spacer := strings.Repeat(" ", pad)
 
+	// Render the persistent CWD pill centered inside the spacer between
+	// the tabs (left) and the keyboard-shortcut hints (right). The pill
+	// only appears when there's enough breathing room — at least 2 spaces
+	// of margin on each side — otherwise we keep the original plain
+	// spacer so narrow terminals don't crush the layout.
+	cwd := cwdDisplayPath(model.pwd)
+	const minMargin = 2
+	if pad >= minMargin*2+5 {
+		pillBudget := pad - minMargin*2
+		pill := statusbar.RenderCwdPill(cwd, pillBudget)
+		pillW := lipgloss.Width(pill)
+		// Center the pill across the available pad: equal-ish gaps on
+		// each side, with any odd leftover space going to the right.
+		leftGap := (pad - pillW) / 2
+		rightGap := pad - pillW - leftGap
+		spacer := strings.Repeat(" ", leftGap) + pill + strings.Repeat(" ", rightGap)
+		return leftBar + spacer + rightBar
+	}
+
+	spacer := strings.Repeat(" ", pad)
 	return leftBar + spacer + rightBar
+}
+
+// cwdDisplayPath collapses $HOME to "~" so the CWD pill stays compact on
+// the most common paths. Falls back to the raw path when $HOME can't be
+// resolved or doesn't prefix pwd.
+func cwdDisplayPath(pwd string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return pwd
+	}
+	switch {
+	case pwd == home:
+		return "~"
+	case strings.HasPrefix(pwd, home+string(os.PathSeparator)):
+		return "~" + strings.TrimPrefix(pwd, home)
+	}
+	return pwd
 }

@@ -261,6 +261,33 @@ func renderScopeStalePill(ind ScopeStaleIndicator) string {
 	return pillWarn.Render(icon)
 }
 
+// RenderCwdPill draws a persistent "CWD <path>" two-segment pill using the
+// debug palette (slate label + near-black body). It is rendered between the
+// main panels and the help line so the user always knows which working
+// directory CommitCraft is operating on.
+//
+// maxWidth caps the total pill width; when the path doesn't fit, it is
+// truncated from the LEFT with a leading "…" so the trailing path segments
+// (the most informative part) stay visible.
+func RenderCwdPill(path string, maxWidth int) string {
+	pill := pillDebug.Render("CWD")
+	pillW := lipgloss.Width(pill)
+	// msgDebug has Padding(0, 1) on each side — subtract 2 cells of chrome
+	// before deciding how much path text fits.
+	bodyAvail := maxWidth - pillW - 2
+	if bodyAvail < 3 {
+		bodyAvail = 3
+	}
+	runes := []rune(path)
+	if len(runes) > bodyAvail {
+		runes = append([]rune{'…'}, runes[len(runes)-bodyAvail+1:]...)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		pill,
+		msgDebug.Render(string(runes)),
+	)
+}
+
 // RenderStatus draws "TYPE - message" as two adjacent flat-rectangle pills.
 func RenderStatus(level LogLevel, msg string) string {
 	pill, body, label := stylesFor(level)

@@ -2,6 +2,43 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.10 — 2026-04-27
+
+Drop the working-directory suffix from the initial WritingStatusBar
+message now that the CWD pill in the tab bar is the canonical source of
+truth. The status bar message becomes a clean "choose, create, or edit a
+commit" / "…release" without the `::: Working directory: …` tail, so the
+two surfaces no longer duplicate each other.
+
+- `internal/tui/model.go`: simplify `statusBarInitialMessage` for both
+  CommitMode and ReleaseMode entry points.
+
+## v0.15.9 — 2026-04-27
+
+Persistent CWD breadcrumb: the working directory is now visible as a
+two-segment "CWD <path>" pill embedded in the top tab bar, horizontally
+centered between the tabs (`History | Compose | Pipeline`) on the left
+and the `^1/^2/^3` shortcut hints on the right. The pill uses the
+existing debug palette (slate label + near-black body) so it reads as
+ambient metadata, not a status alert. `$HOME` is collapsed to `~`, and
+long paths are truncated from the left with a leading `…` so the trailing
+segments (repo name, current subdir) stay visible on narrow terminals.
+On very narrow terminals the pill is dropped and the original plain
+spacer is used to keep the tab row from breaking.
+
+- `internal/tui/statusbar/statusbar.go`: new exported
+  `RenderCwdPill(path, maxWidth)` that reuses `pillDebug` / `msgDebug`
+  and handles rune-safe left-truncation.
+- `internal/tui/tabs.go`: `renderTabBar` now centers the CWD pill inside
+  the spacer between `leftBar` and `rightBar`; new `cwdDisplayPath`
+  helper collapses `$HOME` to `~`.
+
+### Usage
+
+The CWD pill is always on whenever the tab bar is visible; nothing to
+enable. It reflects the directory the binary was launched from (the same
+`pwd` already passed to the model).
+
 ## v0.15.8 — 2026-04-27
 
 Auto-highlight code-like tokens in the non-glamour panels (Compose AI
