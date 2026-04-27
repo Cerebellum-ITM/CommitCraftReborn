@@ -174,6 +174,61 @@ func (model *Model) buildPipelineViewCompact(
 	return lipgloss.JoinVertical(lipgloss.Left, header, vp.View(), footer)
 }
 
+// renderCommitMessage formats a commit message (title + body) as plain
+// text with the title bolded and inline `code` segments highlighted. We
+// bypass glamour because commit messages are not Markdown — running them
+// through a Markdown renderer collapses single newlines, mangles indented
+// bullets as code blocks, and treats lazy continuations as single
+// paragraphs. Width-wrapping is applied per line so the user's hand-typed
+// line breaks survive verbatim.
+func (model *Model) renderCommitMessage(msg string, width int) string {
+	if width < 1 {
+		width = 1
+	}
+	theme := model.Theme
+	base := theme.AppStyles().Base
+	titleStyle := base.Foreground(theme.Primary).Bold(true)
+	bodyStyle := base.Foreground(theme.FG)
+	codeStyle := base.
+		Foreground(theme.Secondary).
+		Background(theme.Surface)
+
+	parts := strings.SplitN(msg, "\n", 2)
+	rendered := renderCommitLine(parts[0], width, titleStyle, codeStyle)
+	if len(parts) == 2 {
+		bodyLines := strings.Split(parts[1], "\n")
+		for _, line := range bodyLines {
+			rendered += "\n" + renderCommitLine(line, width, bodyStyle, codeStyle)
+		}
+	}
+	return rendered
+}
+
+// renderCommitLine styles a single commit-message line: backtick-wrapped
+// segments use codeStyle, the rest uses textStyle. The whole line is then
+// width-bounded by textStyle so shorter lines pad and longer lines wrap
+// without splitting an inline-code segment.
+func renderCommitLine(line string, width int, textStyle, codeStyle lipgloss.Style) string {
+	if line == "" {
+		return textStyle.Width(width).Render("")
+	}
+	chunks := strings.Split(line, "`")
+	var b strings.Builder
+	for i, chunk := range chunks {
+		switch {
+		case i%2 == 1 && i < len(chunks)-1:
+			b.WriteString(codeStyle.Render(chunk))
+		case i%2 == 1:
+			// Unmatched trailing backtick — render as literal text so we
+			// don't swallow the user's content.
+			b.WriteString(textStyle.Render("`" + chunk))
+		default:
+			b.WriteString(textStyle.Render(chunk))
+		}
+	}
+	return textStyle.Width(width).Render(b.String())
+}
+
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	const glamourGutter = 3
 
@@ -206,14 +261,10 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	// Drive the right-pane viewport so the AI text wraps to the panel.
 	model.iaViewport.SetWidth(innerRightW)
 	model.iaViewport.SetHeight(innerRightH)
-	glamourRenderWidth := max(10, innerRightW-glamourGutter)
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithStyles(styles.TokyoNightStyleConfig),
-		glamour.WithWordWrap(glamourRenderWidth),
-	)
 	if model.commitTranslate != "" {
-		rendered, _ := renderer.Render(model.commitTranslate)
-		model.iaViewport.SetContent(rendered)
+		model.iaViewport.SetContent(
+			model.renderCommitMessage(model.commitTranslate, max(10, innerRightW-glamourGutter)),
+		)
 	} else {
 		model.iaViewport.SetContent("")
 	}

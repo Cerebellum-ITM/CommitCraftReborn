@@ -2,6 +2,53 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.12.4 — 2026-04-26
+
+Theme-aware inline `code` styling in the AI suggestion viewport.
+
+- `Model.renderCommitMessage` now highlights backtick-wrapped segments
+  (e.g. `` `SetTheme` ``) with `Theme.Secondary` foreground on
+  `Theme.Surface` background, so the styling follows the active theme.
+- New `renderCommitLine` helper does per-line splitting on backticks and
+  width-wraps with the line's text style so inline-code segments never
+  get torn across the wrap boundary. Unmatched trailing backticks are
+  rendered verbatim instead of swallowing the user's content.
+- Newlines from the original message are still preserved one-for-one
+  (no glamour, no Markdown semantics).
+
+## v0.12.3 — 2026-04-26
+
+Stop rendering the AI commit message through glamour on the Compose tab.
+
+- Commit messages are plain text, not Markdown. Running them through a
+  Markdown renderer mangled real-world bodies: lazy continuations folded
+  bullets back into the previous paragraph, lines indented with 4 spaces
+  became code blocks, and even the `preserveHardBreaks` workaround from
+  v0.12.2 didn't survive those interactions.
+- New `Model.renderCommitMessage(msg, width)` in `view_writing.go`:
+  bolds the title line in `Theme.Primary`, renders the body in
+  `Theme.FG`, and wraps both with `lipgloss.Style.Width` so every line
+  break the user typed is preserved verbatim.
+- The right-side viewport in `buildWritingMessageView` now uses this
+  helper instead of `glamour.Render`. The pipeline tab previews still
+  use glamour since their content is structured AI output.
+
+## v0.12.2 — 2026-04-26
+
+Fix line-break collapsing in the AI suggestion viewport on the Compose tab.
+
+- The right-side viewport renders `commitTranslate` through glamour, which
+  follows CommonMark and collapses single newlines inside a paragraph.
+  When the user manually edited the message via the edit-message popup
+  and added intra-paragraph line breaks, those breaks vanished on render.
+- New `preserveHardBreaks` helper in `view_writing.go`: splits the text
+  on `\n\n` and replaces remaining single `\n` with the Markdown hard
+  break `"  \n"` inside each paragraph. Paragraph separators are left
+  untouched so blank-line semantics still work.
+- Applied to the compose tab's AI suggestion render. The pipeline tab
+  previews still use the raw glamour render since they show structured
+  AI output that's already paragraph-shaped.
+
 ## v0.12.1 — 2026-04-26
 
 Fixes for the configuration popup theme flow.
