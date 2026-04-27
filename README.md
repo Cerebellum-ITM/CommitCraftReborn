@@ -206,6 +206,18 @@ CommitCraft allows you to save your work-in-progress commits as drafts so you ca
 
 Contributions are welcome! If you're interested in improving CommitCraft, please open an issue or submit a Pull Request.
 
+### Git hooks
+
+After cloning, run `make install-hooks` once to enable the versioned `pre-commit` hook that formats staged `.go` files and re-stages them. This keeps every commit pre-formatted so opening files in editors with format-on-save (Neovim, Helix, etc.) doesn't produce stray diffs.
+
+The hook mirrors the conform.nvim Go chain: `gofumpt` → `goimports-reviser` → `golines`, falling back to `gofmt` when none are installed. Install the chain with:
+
+```bash
+make install-fmt
+```
+
+That runs `go install` for each tool. Make sure `$(go env GOPATH)/bin` is on your `$PATH` so the hook can find them (Mason-installed binaries only live inside Neovim).
+
 ## 📄 License
 
 This project is under the [MIT License](LICENSE).

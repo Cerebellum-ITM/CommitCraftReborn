@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# say <level> <message> — prints with gum if installed, plain otherwise.
+# Levels match gum's: info, warn, error, debug.
+if command -v gum >/dev/null 2>&1; then
+  say() { gum log --structured --level "$1" --prefix "pre-commit" "$2" >&2; }
+else
+  say() { echo "[pre-commit][$1] $2" >&2; }
+fi
+
+existing=()
+while IFS= read -r f; do
+  [ -n "$f" ] && [ -f "$f" ] && existing+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+
+if [ "${#existing[@]}" -eq 0 ]; then
+  say info "no Go files staged, skipping"
+  exit 0
+fi
+
+# Mirror the conform.nvim chain so commits look identical to nvim's
+# format-on-save: gofumpt → goimports-reviser → golines. Falls back to
+# gofmt when none of the three is installed (the toolchain ships gofmt).
+ran_any=0
+
+if command -v gofumpt >/dev/null 2>&1; then
+  say info "gofumpt -w ${#existing[@]} file(s)"
+  gofumpt -w "${existing[@]}"
+  ran_any=1
+fi
+
+if command -v goimports-reviser >/dev/null 2>&1; then
+  say info "goimports-reviser ${#existing[@]} file(s)"
+  for f in "${existing[@]}"; do
+    goimports-reviser -output file "$f" >/dev/null
+  done
+  ran_any=1
+fi
+
+if command -v golines >/dev/null 2>&1; then
+  say info "golines -w ${#existing[@]} file(s)"
+  golines -w "${existing[@]}"
+  ran_any=1
+fi
+
+if [ "$ran_any" -eq 0 ]; then
+  say warn "none of gofumpt/goimports-reviser/golines installed, falling back to gofmt"
+  gofmt -w "${existing[@]}"
+fi
+
+git add "${existing[@]}"
