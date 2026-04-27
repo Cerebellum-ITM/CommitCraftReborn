@@ -116,11 +116,12 @@ func (model *Model) renderFilesPanel(width, height int) string {
 	})
 }
 
-// renderPipelinePanel draws the right column: 3 stage cards (focused one
-// can grow), an optional final-commit card, and the diff sub-block as
-// the last child. Layout is computed so the diff always gets at least
-// `DiffMinHeight` rows; focused-stage growth only consumes extra space
-// when there's leftover after both stages and diff are satisfied.
+// renderPipelinePanel draws the right column: stage cards (collapsed to one
+// line each except the focused one, which absorbs all remaining space),
+// an optional final-commit card, and the diff sub-block as the last child.
+// The diff keeps its configured floor + leftover behavior; the focused
+// stage takes whatever's left after collapsed siblings, diff, and final
+// card are accounted for.
 func (model *Model) renderPipelinePanel(width, height int) string {
 	theme := model.Theme
 	cw, _ := titledPanelChrome()
@@ -131,18 +132,15 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	if defaultBody < 2 {
 		defaultBody = 4
 	}
-	focusedBody := cfg.StageFocusedHeight
-	if focusedBody < defaultBody {
-		focusedBody = defaultBody + 4
-	}
 	diffMin := cfg.DiffMinHeight
 	if diffMin < 3 {
 		diffMin = 6
 	}
 
-	// Each stage card = body rows + 2 borders + 1 underline + 1 spacer.
+	// Card chrome = 2 borders + 1 underline + 1 spacer => +4 over body rows.
 	cardH := func(body int) int { return body + 4 }
 	gap := 1
+	collapsedRows := 1 // single-line summary per non-focused stage
 
 	innerH := max(1, height-2)
 
@@ -156,46 +154,45 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	finalCardH := 0
 	if showFinal {
 		finalBodyRows = computeFinalBodyRows(model.commitTranslate, innerW)
-		// final card = body + 2 borders.
 		finalCardH = finalBodyRows + 2
 	}
 
-	// Step 1: reserve all stages at default height + the diff floor.
-	stagesAtDefault := cardH(defaultBody)*numStages + gap*(numStages-1)
-	overhead := stagesAtDefault + diffMin + gap
+	// Reserved space that does not depend on the focused stage's body size.
+	collapsedTotal := collapsedRows * (numStages - 1)
+	gapsBetween := gap * (numStages - 1)
+	reserved := collapsedTotal + gapsBetween + diffMin + gap
 	if showFinal {
-		overhead += gap + finalCardH
+		reserved += gap + finalCardH
 	}
 
-	// Step 2: distribute leftover space: first to focused-stage growth,
-	// then to the diff. Both are clamped so we never go negative.
-	leftover := innerH - overhead
-	growth := focusedBody - defaultBody
-	if leftover < 0 {
-		leftover = 0
-		growth = 0
-	} else if leftover < growth {
-		growth = leftover
-		leftover = 0
-	} else {
-		leftover -= growth
+	// The focused stage gets everything not reserved. cardH(body) = body + 4
+	// so subtract chrome to obtain the body row count.
+	focusedCardH := max(cardH(defaultBody), innerH-reserved)
+	focusedBody := focusedCardH - 4
+	if focusedBody < defaultBody {
+		focusedBody = defaultBody
+		focusedCardH = cardH(focusedBody)
 	}
-	diffH := diffMin + leftover
 
-	// Final safety: if even the floor doesn't fit, shrink diff before
-	// dropping cards. The diff sub-block needs at least 3 rows to be
-	// useful (1 body row + 2 borders).
-	if innerH < overhead {
-		diffH = max(0, innerH-stagesAtDefault-gap-(map[bool]int{true: gap + finalCardH}[showFinal]))
+	// Diff size: keep the configured floor + any space left after the
+	// focused stage clamped to its minimum.
+	used := focusedCardH + collapsedTotal + gapsBetween + gap
+	if showFinal {
+		used += gap + finalCardH
+	}
+	diffH := innerH - used
+	if diffH < diffMin {
+		diffH = diffMin
 	}
 
 	parts := make([]string, 0, 8)
 	for i := 0; i < numStages; i++ {
-		body := defaultBody
-		if model.pipeline.focusedStage == stageID(i) {
-			body = defaultBody + growth
+		isFocused := model.pipeline.focusedStage == stageID(i)
+		if isFocused {
+			parts = append(parts, model.renderStageCard(i, innerW, focusedCardH, focusedBody))
+		} else {
+			parts = append(parts, model.renderStageCardCollapsed(i, innerW))
 		}
-		parts = append(parts, model.renderStageCard(i, innerW, cardH(body), body))
 		if i < numStages-1 {
 			parts = append(parts, "")
 		}
@@ -220,6 +217,40 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 		titleColor:  theme.AI,
 		hintColor:   theme.Muted,
 	})
+}
+
+// renderStageCardCollapsed draws the one-line summary used for non-focused
+// stages: status icon, "stage N · title", and the right-aligned status pill.
+// No borders, no body — just a compact row that fits exactly the panel
+// width so cycling focus only resizes the chosen card.
+func (model *Model) renderStageCardCollapsed(idx, width int) string {
+	theme := model.Theme
+	st := &model.pipeline.stages[idx]
+
+	icon := stageIcon(st.Status, model.pipeline.spinner.View())
+	iconStyled := lipgloss.NewStyle().
+		Foreground(stageIconColor(model, st.Status)).
+		Bold(true).
+		Render(icon)
+
+	titleText := fmt.Sprintf("stage %d · %s", idx+1, strings.ToLower(st.Title))
+	titleStyle := lipgloss.NewStyle().Foreground(theme.FG).Bold(true)
+	if st.Status == statusIdle {
+		titleStyle = titleStyle.Foreground(theme.Muted).Bold(false)
+	}
+	titleStyled := titleStyle.Render(titleText)
+
+	level, label := stageLevelLabel(st.Status)
+	pill := statusbar.RenderStatus(level, label)
+
+	left := iconStyled + "  " + titleStyled
+	leftW := lipgloss.Width(left)
+	pillW := lipgloss.Width(pill)
+	gap := width - leftW - pillW
+	if gap < 1 {
+		gap = 1
+	}
+	return left + strings.Repeat(" ", gap) + pill
 }
 
 // computeFinalBodyRows decides how tall the final-commit card's body
