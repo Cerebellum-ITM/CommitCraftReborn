@@ -2,12 +2,26 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
+)
+
+// identifierRegex matches code-like tokens that should be styled as inline
+// code even when the AI didn't wrap them in backticks. Order matters: the
+// first alternative that matches at a given position wins, so longer / more
+// specific patterns come first.
+var identifierRegex = regexp.MustCompile(
+	`[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\(\)` + // pkg.Func()
+		`|[A-Za-z_]\w*\(\)` + // Func()
+		`|[A-Za-z0-9_.-]*/[A-Za-z0-9_./-]+` + // path/to/file
+		`|\b[\w-]+\.(?:go|toml|md|json|ya?ml|sh|txt|env)\b` + // file.ext
+		`|\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b` + // snake / CONSTANT
+		`|\b[A-Za-z][a-z0-9]*[A-Z][A-Za-z0-9]*\b`, // camel / Pascal
 )
 
 func (model *Model) buildTabBar(totalWidth int) string {
@@ -275,12 +289,40 @@ func renderCommitLine(line string, width int, textStyle, codeStyle lipgloss.Styl
 		case i%2 == 1:
 			// Unmatched trailing backtick — render as literal text so we
 			// don't swallow the user's content.
-			b.WriteString(textStyle.Render("`" + chunk))
+			b.WriteString(styleIdentifiers("`"+chunk, textStyle, codeStyle))
 		default:
-			b.WriteString(textStyle.Render(chunk))
+			b.WriteString(styleIdentifiers(chunk, textStyle, codeStyle))
 		}
 	}
 	return textStyle.Width(width).Render(b.String())
+}
+
+// styleIdentifiers applies codeStyle to substrings of chunk that look like
+// code identifiers (camelCase, snake_case, file paths, function calls, …)
+// and textStyle to the surrounding prose. It is a heuristic — not a real
+// tokenizer — so it intentionally errs on the side of leaving plain English
+// alone.
+func styleIdentifiers(chunk string, textStyle, codeStyle lipgloss.Style) string {
+	if chunk == "" {
+		return ""
+	}
+	matches := identifierRegex.FindAllStringIndex(chunk, -1)
+	if len(matches) == 0 {
+		return textStyle.Render(chunk)
+	}
+	var b strings.Builder
+	cursor := 0
+	for _, m := range matches {
+		if m[0] > cursor {
+			b.WriteString(textStyle.Render(chunk[cursor:m[0]]))
+		}
+		b.WriteString(codeStyle.Render(chunk[m[0]:m[1]]))
+		cursor = m[1]
+	}
+	if cursor < len(chunk) {
+		b.WriteString(textStyle.Render(chunk[cursor:]))
+	}
+	return b.String()
 }
 
 func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {

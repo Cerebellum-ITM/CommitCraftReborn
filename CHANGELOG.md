@@ -2,6 +2,22 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.8 — 2026-04-27
+
+Auto-highlight code-like tokens in the non-glamour panels (Compose AI
+suggestion and pipeline stages 2-4). Identifiers that previously rendered
+as flat prose now get the same inline-code styling as backtick-wrapped
+segments, matching the visual density of the glamour-rendered Summary
+panel.
+
+- `internal/tui/view_writing.go`: add `identifierRegex` and
+  `styleIdentifiers`; `renderCommitLine` runs every non-backtick chunk
+  through it. Detects camelCase/PascalCase, snake_case/CONSTANT_CASE,
+  file paths, `file.ext` names, and `Func()` / `pkg.Func()` calls. Tokens
+  already inside backticks are left alone (single styling pass).
+- Glamour-rendered panels (release viewport, Summary stage) are not
+  affected.
+
 ## v0.15.7 — 2026-04-27
 
 Theme-tie the commit-type popup: the row cursor (`❯`) now uses
