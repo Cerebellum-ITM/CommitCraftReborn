@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.11.1 — 2026-04-26
+
+After applying changes from the edit-message popup, the "Changes applied" status now flashes for 2 seconds via `WritingStatusBar.ShowMessageForDuration` and then restores the prior compose status, instead of sticking until the next user action.
+
 ## v0.11.0 — 2026-04-26
 
 The "edit AI message" flow is now a popup instead of a separate full-screen state. Same shortcut (`Ctrl+E`), but only available once the AI has produced a response.

@@ -100,9 +100,10 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case editMessageAppliedMsg:
 		model.popup = nil
 		model.commitTranslate = msg.value
-		model.WritingStatusBar.Level = statusbar.LevelSuccess
-		model.WritingStatusBar.Content = "Changes applied"
-		return model, nil
+		cmd := model.WritingStatusBar.ShowMessageForDuration(
+			"Changes applied", statusbar.LevelSuccess, 2*time.Second,
+		)
+		return model, cmd
 	case closeVersionPopupMsg:
 		model.popup = nil
 		if model.pendingReleaseUpload != nil {
