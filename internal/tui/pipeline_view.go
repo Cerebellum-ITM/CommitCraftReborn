@@ -313,7 +313,24 @@ func (model *Model) renderStageCardCollapsed(idx, width int) string {
 	if gap < 1 {
 		gap = 1
 	}
-	return left + strings.Repeat(" ", gap) + pill
+	return left + renderStageCardDivider(theme, gap, st.Status) + pill
+}
+
+// renderStageCardDivider draws the decorative `─` filler between a
+// collapsed stage's title and its right-aligned status pill. It always
+// renders exactly `gap` cells so the pill column stays aligned across all
+// stages; only the visual treatment changes. Idle stages get a more
+// muted line so it doesn't compete with the active stage above.
+func renderStageCardDivider(theme *styles.Theme, gap int, status stageStatus) string {
+	if gap <= 4 {
+		return strings.Repeat(" ", max(1, gap))
+	}
+	color := theme.Subtle
+	if status == statusIdle {
+		color = theme.Muted
+	}
+	line := strings.Repeat("─", gap-2)
+	return " " + lipgloss.NewStyle().Foreground(color).Render(line) + " "
 }
 
 // computeFinalBodyRows decides how tall the final-commit card's body

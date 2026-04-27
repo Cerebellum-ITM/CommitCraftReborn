@@ -2,6 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.11 — 2026-04-27
+
+Compact pipeline cards now draw a decorative `─` line between the stage
+title (`stage N · …`) and the right-aligned status pill, matching the
+gray underline aesthetic used elsewhere in the TUI. Idle stages use the
+muted gray, active stages use the subtle gray, so the active row reads
+slightly louder. Total row width is preserved (1 space + N dashes + 1
+space = same gap as before), and very narrow widths fall back to the
+plain spacer so nothing overlaps.
+
+- `internal/tui/pipeline_view.go`: new `renderStageCardDivider` helper;
+  `renderStageCardCollapsed` now uses it instead of a plain space-padded
+  gap.
+
 ## v0.15.10 — 2026-04-27
 
 Drop the working-directory suffix from the initial WritingStatusBar
