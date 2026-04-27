@@ -2,6 +2,21 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.1 — 2026-04-27
+
+Restore `tab` / `shift+tab` as directory-navigation keys in the scope
+file picker popup, mirroring `→` / `←`.
+
+- `internal/tui/scope_popup.go`: extend the `left` / `right` cases in
+  the popup's Update to also match `shift+tab` / `tab`. Hint line
+  updated.
+
+### Usage
+
+In the scope popup (`Ctrl+P` from the writing state, or `e`/`Enter`
+on the scope section): `tab` enters the highlighted directory,
+`shift+tab` goes up — same effect as `→` / `←`.
+
 ## v0.15.0 — 2026-04-27
 
 Add a persistent warning pill on the status bar when a commit is loaded

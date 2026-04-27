@@ -106,13 +106,13 @@ func (m scopePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showOnlyMod = !m.showOnlyMod
 			m.refreshList()
 			return m, nil
-		case "left":
+		case "left", "shift+tab":
 			if m.canGoUp() {
 				m.pwd = filepath.Dir(m.pwd)
 				m.refreshList()
 			}
 			return m, nil
-		case "right":
+		case "right", "tab":
 			if item, ok := m.list.SelectedItem().(FileItem); ok && item.IsDir() {
 				m.pwd = filepath.Join(m.pwd, item.Title())
 				m.refreshList()
@@ -153,7 +153,7 @@ func (m scopePopupModel) View() tea.View {
 	header := lipgloss.JoinHorizontal(lipgloss.Top, title, " ", pathLabel)
 
 	hint := base.Foreground(m.theme.Muted).Render(
-		"type to filter · ↑↓ nav · ←/→ dirs · ctrl+r modified-only · enter pick · esc clear/close",
+		"type to filter · ↑↓ nav · ←/→ or tab/shift+tab dirs · ctrl+r modified-only · enter pick · esc clear/close",
 	)
 
 	listH := max(3, innerH-lipgloss.Height(header)-lipgloss.Height(hint)-2)
