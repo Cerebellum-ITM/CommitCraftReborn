@@ -164,29 +164,29 @@ type Model struct {
 	scopeChipIndex int
 	// keypointIndex is the cursor inside the key-points list when the
 	// keypoints section has focus, used by the per-section delete keys.
-	keypointIndex int
-	commitMsg               string
-	commitTranslate         string
-	diffCode                string
-	iaSummaryOutput         string
-	iaCommitRawOutput       string
-	iaTitleRawOutput        string
-	activeTab               int
-	activePipelineStage     int
-	pipelineViewport1       viewport.Model
-	pipelineViewport2       viewport.Model
-	pipelineViewport3       viewport.Model
-	pipeline                pipelineModel
-	useDbCommmit            bool
+	keypointIndex       int
+	commitMsg           string
+	commitTranslate     string
+	diffCode            string
+	iaSummaryOutput     string
+	iaCommitRawOutput   string
+	iaTitleRawOutput    string
+	activeTab           int
+	activePipelineStage int
+	pipelineViewport1   viewport.Model
+	pipelineViewport2   viewport.Model
+	pipelineViewport3   viewport.Model
+	pipeline            pipelineModel
+	useDbCommmit        bool
 	// dbFileDiffs holds per-file diff text parsed out of a DB-loaded
 	// commit's Diff_code so the Pipeline tab can render the changed-files
 	// list and per-file diff without going to `git diff --staged`. Empty
 	// when editing a fresh (non-DB) commit.
-	dbFileDiffs map[string]string
-	FinalMessage            string
-	RewordHash              string
-	OutputDirect            bool
-	commitAndReword         bool
+	dbFileDiffs     map[string]string
+	FinalMessage    string
+	RewordHash      string
+	OutputDirect    bool
+	commitAndReword bool
 	// pendingRewordHash holds the resolved hash passed via -w until the user
 	// picks a mode in the startup chooser popup. Cleared after the choice.
 	pendingRewordHash string
@@ -202,16 +202,16 @@ type Model struct {
 	// asked to publish on GitHub. We pop the version editor first and only
 	// fire execUploadRelease after the user confirms the tag.
 	pendingReleaseUpload *HistoryReleaseItem
-	currentCommit           storage.Commit
-	draftMode               bool
-	keys                    KeyMap
-	help                    help.Model
-	popup                   tea.Model
-	mentionStart            int
-	width, height           int
-	globalConfig            config.Config
-	Version                 string
-	themeName               string
+	currentCommit        storage.Commit
+	draftMode            bool
+	keys                 KeyMap
+	help                 help.Model
+	popup                tea.Model
+	mentionStart         int
+	width, height        int
+	globalConfig         config.Config
+	Version              string
+	themeName            string
 }
 
 // NewModel is the constructor for our model.
@@ -297,24 +297,20 @@ func NewModel(
 	// --- Component Initializations ---
 	ckiVp := viewport.New()
 	ckiVp.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.Border{Left: "┃"}).
 		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
 	vp := viewport.New()
 	vp.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.Border{Left: "┃"}).
 		BorderForeground(lipgloss.BrightWhite).
 		PaddingRight(2)
 
 	releaseViewport := viewport.New()
 	releaseViewport.Style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.Border{Left: "┃"}).
 		BorderForeground(theme.FocusableElement).
 		PaddingRight(2)
 
 	pipelineVpStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.Border{Left: "┃"}).
 		BorderForeground(theme.FocusableElement).
 		PaddingRight(2)
 	pvp1 := viewport.New()
