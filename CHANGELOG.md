@@ -2,6 +2,45 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.13 — 2026-04-27
+
+In the key-points list, the active row (the one the keypoint cursor is on
+while the section has focus) now uses `theme.Warning` instead of
+`theme.Primary` for its `▸` marker and `×` glyph. The amber tone pops
+harder against the secondary-coloured siblings, making the deletion
+target unmistakable.
+
+- `internal/tui/compose_sections.go`: swap `theme.Primary` →
+  `theme.Warning` in the `isActive` branch of the marker/remove colour
+  selection.
+
+## v0.15.12 — 2026-04-27
+
+Polish the key-points input on the Compose tab:
+
+- Saved items now use `theme.Secondary` for their `▸` marker (and the
+  trailing `×`) when the key-points section is blurred, so they read
+  louder than the surrounding muted prompts. When the section owns focus,
+  the highlighted row keeps the `theme.Primary` accent and the rest fall
+  back to muted so the active row stands alone.
+- The `commitsKeysInput` textarea cursor is now `theme.Primary`
+  (previously `theme.Secondary`). The override is local to this
+  textarea, so the edit-message popup and release-text editor keep their
+  current cursor colour.
+- Inline navigation/removal of saved key points was already wired:
+  `↑↓` / `←→` / `hjkl` to move the highlight, `x` / `backspace` /
+  `delete` to remove it (see the help line on the Key points section).
+  No code changes here; documenting it because the visual treatment
+  above makes the cursor row obvious.
+
+### Files
+
+- `internal/tui/model.go`: `kpiStyles.Cursor.Color = theme.Primary`
+  override for the compose textarea.
+- `internal/tui/compose_sections.go:204-228`: rework `markerColor` /
+  `removeColor` selection in `renderComposeKeypointsArea` to apply
+  Secondary-when-blurred / Primary-when-active / Muted-otherwise.
+
 ## v0.15.11 — 2026-04-27
 
 Compact pipeline cards now draw a decorative `─` line between the stage

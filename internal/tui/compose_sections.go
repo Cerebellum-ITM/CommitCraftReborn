@@ -203,12 +203,22 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 	listLines := make([]string, 0, len(model.keyPoints)+1)
 	for i, kp := range model.keyPoints {
 		isActive := focused && i == model.keypointIndex
-		markerColor := theme.Muted
+		// Saved items are always recognisable: the secondary brand colour
+		// when the section is blurred (so they pop against the muted
+		// neighbours), the primary colour when the section owns focus and
+		// the cursor is on this row, and a quieter muted tone for the
+		// remaining rows in the focused section so the active one stands
+		// out alone.
+		markerColor := theme.Secondary
 		textColor := theme.FG
-		removeColor := theme.Muted
-		if isActive {
-			markerColor = theme.Primary
-			removeColor = theme.Primary
+		removeColor := theme.Secondary
+		switch {
+		case isActive:
+			markerColor = theme.Warning
+			removeColor = theme.Warning
+		case focused:
+			markerColor = theme.Muted
+			removeColor = theme.Muted
 		}
 		marker := base.Foreground(markerColor).Render("▸")
 		remove := base.Foreground(removeColor).Render("×")

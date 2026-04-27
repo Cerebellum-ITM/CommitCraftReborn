@@ -278,6 +278,7 @@ func NewModel(
 	kpiStyles := theme.AppStyles().TextArea
 	kpiStyles.Focused.Placeholder = theme.AppStyles().Base.Foreground(theme.FgMuted)
 	kpiStyles.Cursor.Blink = true
+	kpiStyles.Cursor.Color = theme.Primary
 	commitsKeysInput.SetStyles(kpiStyles)
 	commitsKeysInput.SetPromptFunc(4, func(info textarea.PromptInfo) string {
 		s := theme.AppStyles().KeyPointsInput
