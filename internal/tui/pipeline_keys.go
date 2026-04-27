@@ -17,10 +17,13 @@ func pipelineKeys() KeyMap {
 	return KeyMap{
 		Up:   key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "diff up")),
 		Down: key.NewBinding(key.WithKeys("down"), key.WithHelp("↓", "diff down")),
-		PgUp: key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "stage scroll up")),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup", "ctrl+up"),
+			key.WithHelp("pgup/ctrl+↑", "stage scroll up"),
+		),
 		PgDown: key.NewBinding(
-			key.WithKeys("pgdown"),
-			key.WithHelp("pgdown", "stage scroll down"),
+			key.WithKeys("pgdown", "ctrl+down"),
+			key.WithHelp("pgdown/ctrl+↓", "stage scroll down"),
 		),
 		FileUp:    key.NewBinding(key.WithKeys("k"), key.WithHelp("k", "prev file")),
 		FileDown:  key.NewBinding(key.WithKeys("j"), key.WithHelp("j", "next file")),
