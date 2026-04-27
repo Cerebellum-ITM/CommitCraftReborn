@@ -176,8 +176,6 @@ func (model *Model) View() tea.View {
 
 	case stateWritingMessage:
 		mainContent = model.buildWritingMessageView(appStyle)
-	case stateEditMessage:
-		mainContent = model.buildEditingMessageView(appStyle)
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
 	case statePipeline:
@@ -244,6 +242,9 @@ func (model *Model) View() tea.View {
 		ok = true
 		popupView = popupModel.View()
 	case scopePopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case editMessagePopupModel:
 		ok = true
 		popupView = popupModel.View()
 	default:

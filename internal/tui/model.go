@@ -104,7 +104,6 @@ const (
 	stateShowLogs
 	stateChoosingScope
 	stateWritingMessage
-	stateEditMessage
 	stateConfirming
 	stateReleaseChoosingCommits
 	stateReleaseBuildingText
@@ -146,7 +145,6 @@ type Model struct {
 	pipelineDiffList        list.Model
 	currentUpdateFileListFn UpdateFileListFunc
 	gitStatusData           git.StatusData
-	msgEdit                 textarea.Model
 	spinner                 spinner.Model
 	iaViewport              viewport.Model
 	focusedElement          focusableElement
@@ -292,14 +290,6 @@ func NewModel(
 	}
 
 	// --- Component Initializations ---
-	msgEdit := textarea.New()
-	msgEdit.SetStyles(theme.AppStyles().TextArea)
-	msgEdit.Prompt = "┃ "
-	msgEdit.KeyMap.DeleteAfterCursor = key.NewBinding(key.WithKeys("ctrl+c"))
-	msgEdit.KeyMap.DeleteBeforeCursor = key.NewBinding(key.WithKeys("ctrl+z"))
-	msgEdit.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("insert", "alt+tab"))
-	msgEdit.Placeholder = "A short description of the changes..."
-
 	ckiVp := viewport.New()
 	ckiVp.Style = lipgloss.NewStyle().
 		BorderStyle(lipgloss.Border{Left: "┃"}).
@@ -419,7 +409,6 @@ func NewModel(
 		WritingStatusBar:        WritingStatusBar,
 		keyPoints:               []string{},
 		commitsKeysInput:        commitsKeysInput,
-		msgEdit:                 msgEdit,
 		spinner:                 spinner,
 		keys:                    initialKeys,
 		help:                    help,

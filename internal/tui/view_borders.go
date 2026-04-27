@@ -58,28 +58,6 @@ func (model *Model) userInputFooterView(state string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, leftContent, line, rightContent)
 }
 
-func (model *Model) msgEditHeaderView(state string) string {
-	title := "Write the modifications"
-	return model.buildStyledBorder(
-		state,
-		title,
-		HeaderStyle,
-		model.width/2,
-		AlignHeader,
-	)
-}
-
-func (model *Model) msgEditFooterView(state string) string {
-	info := fmt.Sprintf("Number of characters %d", lipgloss.Width(model.msgEdit.Value()))
-	return model.buildStyledBorder(
-		state,
-		info,
-		FooterStyle,
-		model.width/2,
-		AlignFooter,
-	)
-}
-
 func (model *Model) releaseHeaderView(state string) string {
 	title := "Commit list | Select at least one commit"
 	return model.buildStyledBorder(

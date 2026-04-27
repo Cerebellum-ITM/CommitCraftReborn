@@ -119,48 +119,6 @@ func writingMessageKeys() KeyMap {
 	}
 }
 
-func editingMessageKeys() KeyMap {
-	return KeyMap{
-		NextField: key.NewBinding(
-			key.WithKeys("tab"),
-			key.WithHelp("tab", "Switch Focus →"),
-		),
-		PrevField: key.NewBinding(
-			key.WithKeys("shift+tab"),
-			key.WithHelp("shift+tab", "Switch Focus ←"),
-		),
-		Edit: key.NewBinding(
-			key.WithKeys("ctrl+e"),
-			key.WithHelp("ctrl+e", "Return to Crafter"),
-		),
-		Enter: key.NewBinding(
-			key.WithKeys("enter"),
-			key.WithHelp("enter", "Apply changes And Return to Crafter"),
-		),
-		deleteForward: key.NewBinding(
-			key.WithKeys("ctrl+c"),
-			key.WithHelp("ctrl+c", "deletes forward from the cursor"),
-		),
-		deleteBackwards: key.NewBinding(
-			key.WithKeys("ctrl+z"),
-			key.WithHelp("ctrl+z", "deletes backwards from the cursor"),
-		),
-		insertLine: key.NewBinding(
-			key.WithKeys("alt+tab", "insert"),
-			key.WithHelp("alt+tab or insert", "add new line"),
-		),
-		delteLine: key.NewBinding(
-			key.WithKeys("ctrl+d"),
-			key.WithHelp("ctrl+d", "delete selected line"),
-		),
-
-		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
-	}
-}
-
 func fileListKeys() KeyMap {
 	return KeyMap{
 		Up:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),

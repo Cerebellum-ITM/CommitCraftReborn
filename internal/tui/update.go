@@ -94,6 +94,15 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.popup = nil
 		model.addScope(msg.scope)
 		return model, nil
+	case closeEditMessagePopupMsg:
+		model.popup = nil
+		return model, nil
+	case editMessageAppliedMsg:
+		model.popup = nil
+		model.commitTranslate = msg.value
+		model.WritingStatusBar.Level = statusbar.LevelSuccess
+		model.WritingStatusBar.Content = "Changes applied"
+		return model, nil
 	case closeVersionPopupMsg:
 		model.popup = nil
 		if model.pendingReleaseUpload != nil {
@@ -481,8 +490,6 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updateChoosingScope(msg, model)
 	case stateWritingMessage:
 		subModel, subCmd = updateWritingMessage(msg, model)
-	case stateEditMessage:
-		subModel, subCmd = updateEditingMessage(msg, model)
 	case stateReleaseChoosingCommits:
 		subModel, subCmd = updateReleaseChoosingCommits(msg, model)
 	case stateReleaseBuildingText:

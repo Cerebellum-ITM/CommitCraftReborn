@@ -47,7 +47,6 @@ func tabForState(s appState) TabID {
 	case stateChoosingType,
 		stateChoosingScope,
 		stateWritingMessage,
-		stateEditMessage,
 		stateConfirming:
 		return TabCompose
 	case statePipeline:
@@ -140,8 +139,6 @@ func keysForState(s appState, mode appMode) KeyMap {
 		return fileListKeys()
 	case stateWritingMessage:
 		return writingMessageKeys()
-	case stateEditMessage:
-		return editingMessageKeys()
 	case stateRewordSelectCommit:
 		return rewordSelectKeys()
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:

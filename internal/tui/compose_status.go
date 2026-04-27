@@ -191,12 +191,6 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 			{"/", "filter"},
 			{"esc", "back"},
 		}
-	case stateEditMessage:
-		return []helpEntry{
-			{"^d", "delete line"},
-			{"↵", "apply"},
-			{"esc", "cancel"},
-		}
 	case stateReleaseChoosingCommits, stateReleaseBuildingText:
 		return []helpEntry{
 			{"↑↓", "navigate"},

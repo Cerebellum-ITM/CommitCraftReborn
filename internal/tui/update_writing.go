@@ -13,54 +13,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func updateEditingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		model.log.Debug(msg.String())
-		switch {
-		case key.Matches(msg, model.keys.NextField):
-			cmd = switchFocusElement(model)
-			return model, cmd
-		case key.Matches(msg, model.keys.PrevField):
-			cmd = switchFocusElement(model)
-			return model, cmd
-		case key.Matches(msg, model.keys.delteLine):
-			lineToDelete := model.msgEdit.Line()
-			lines := strings.Split(model.msgEdit.Value(), "\n")
-			lines = append(lines[:lineToDelete], lines[lineToDelete+1:]...)
-			model.msgEdit.SetValue(strings.Join(lines, "\n"))
-
-			for model.msgEdit.Line() > lineToDelete {
-				model.msgEdit.CursorUp()
-			}
-
-			return model, nil
-		case key.Matches(msg, model.keys.Edit):
-			model.state = stateWritingMessage
-			model.keys = writingMessageKeys()
-			model.WritingStatusBar.Level = statusbar.LevelInfo
-			model.WritingStatusBar.Content = "No change was applied"
-
-		case key.Matches(msg, model.keys.Enter):
-			model.commitTranslate = model.msgEdit.Value()
-			model.WritingStatusBar.Level = statusbar.LevelSuccess
-			model.WritingStatusBar.Content = "Changes applied"
-			model.keys = writingMessageKeys()
-			model.state = stateWritingMessage
-			return model, nil
-		}
-	}
-	switch model.focusedElement {
-	case focusMsgInput:
-		model.msgEdit, cmd = model.msgEdit.Update(msg)
-	case focusAIResponse:
-		model.iaViewport, cmd = model.iaViewport.Update(msg)
-	}
-	return model, cmd
-}
-
 func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -152,11 +104,16 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			cmd = model.commitsKeysInput.Focus()
 			return model, cmd
 		case key.Matches(msg, model.keys.Edit):
-			model.WritingStatusBar.Content = "You are making modifications to the AI's response"
+			if strings.TrimSpace(model.commitTranslate) == "" {
+				model.WritingStatusBar.Level = statusbar.LevelError
+				model.WritingStatusBar.Content = "There is no AI response yet. Run the AI before editing the message."
+				return model, nil
+			}
+			w := max(60, model.width*2/3)
+			h := max(20, model.height*2/3)
+			model.popup = newEditMessagePopup(w, h, model.commitTranslate, model.Theme)
 			model.WritingStatusBar.Level = statusbar.LevelWarning
-			model.state = stateEditMessage
-			model.keys = editingMessageKeys()
-			model.msgEdit.SetValue(model.commitTranslate)
+			model.WritingStatusBar.Content = "Editing AI's response"
 			return model, nil
 		case key.Matches(msg, model.keys.Esc):
 			return model.cancelProcess(stateChoosingCommit)

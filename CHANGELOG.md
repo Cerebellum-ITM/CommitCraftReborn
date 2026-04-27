@@ -2,6 +2,18 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.11.0 — 2026-04-26
+
+The "edit AI message" flow is now a popup instead of a separate full-screen state. Same shortcut (`Ctrl+E`), but only available once the AI has produced a response.
+
+- New `internal/tui/edit_message_popup.go` (`editMessagePopupModel`): textarea seeded with `commitTranslate`. `ctrl+s` emits `editMessageAppliedMsg` (writes back to `commitTranslate`), `esc` closes without applying, `ctrl+d` deletes the current line, `enter` is a regular newline.
+- `update_writing.go::CreateIaCommit`-sibling `Edit` handler now: if `commitTranslate` is empty, surfaces a red status-bar error ("There is no AI response yet…") and returns; otherwise opens the popup. No state change — the compose view stays mounted underneath.
+- Removed the old full-screen edit flow: `stateEditMessage`, `updateEditingMessage`, `buildEditingMessageView`, `editingMessageKeys`, `model.msgEdit`, and `msgEditHeaderView` / `msgEditFooterView`. References cleaned up in `update.go`, `view.go`, `tabs.go`, `compose_status.go`, `keys.go`, `model.go`.
+
+### Usage
+
+In compose, after running the AI flow (`Ctrl+W`), press `Ctrl+E` to open the edit popup. Edit freely (newlines via `Enter`, `Ctrl+D` to drop the current line), then `Ctrl+S` to apply or `Esc` to cancel. Pressing `Ctrl+E` before the AI has responded triggers an error in the top status bar instead of opening the popup.
+
 ## v0.10.7 — 2026-04-26
 
 When loading a commit (or draft) from history with `e` / `Enter`, the changed-files list and per-file diff are now sourced from the DB-persisted `Diff_code` instead of the live `git diff --staged`, which is unrelated to the historical commit.
