@@ -37,6 +37,9 @@ var defaultOnlyTranslateFormatPrompt string
 //go:embed prompts/release.prompt.tmpl
 var defaultReleaseFormatPrompt string
 
+//go:embed prompts/changelog_refiner.prompt.tmpl
+var defaultChangelogRefinerPrompt string
+
 func PopulateCommitTypeColors(cfg *Config, commitTypes []commit.CommitType) {
 	if cfg.CommitFormat.CommitTypeColors == nil {
 		cfg.CommitFormat.CommitTypeColors = make(map[string]string)
@@ -67,6 +70,8 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 			defaultPromptContent = defaultOnlyTranslateFormatPrompt
 		case "release":
 			defaultPromptContent = defaultReleaseFormatPrompt
+		case "changelog_refiner":
+			defaultPromptContent = defaultChangelogRefinerPrompt
 		}
 		parentDir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(parentDir, 0o755); err != nil {
@@ -136,6 +141,17 @@ func loadIaPrompts(
 	globalConfig.Prompts.CommitTitleGeneratorPrompt = commitTitleGeneratorPrompt
 	globalConfig.Prompts.OnlyTranslatePrompt = onlyTranslatePrompt
 	globalConfig.Prompts.ReleasePrompt = releasePrompt
+
+	if globalConfig.Changelog.PromptFile != "" {
+		changelogPrompt, err := createOrLoadPromptFile(
+			configDir,
+			globalConfig.Changelog.PromptFile,
+		)
+		if err != nil {
+			return err
+		}
+		globalConfig.Changelog.Prompt = changelogPrompt
+	}
 	return nil
 }
 

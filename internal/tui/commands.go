@@ -33,7 +33,8 @@ func callIaCommitBuilderStage2Cmd(model *Model) tea.Cmd {
 			return IaCommitRawResultMsg{Err: err}
 		}
 		model.iaTitleRawOutput = titleText
-		model.commitTranslate = assembleCommitMessage(titleText, commitBody)
+		runChangelogRefiner(model)
+		model.commitTranslate = composeFinalCommitMessage(model)
 		return IaCommitRawResultMsg{Err: nil}
 	}
 }
@@ -45,8 +46,21 @@ func callIaOutputFormatCmd(model *Model) tea.Cmd {
 			return IaOutputFormatResultMsg{Err: err}
 		}
 		model.iaTitleRawOutput = titleText
-		model.commitTranslate = assembleCommitMessage(titleText, model.iaCommitRawOutput)
+		runChangelogRefiner(model)
+		model.commitTranslate = composeFinalCommitMessage(model)
 		return IaOutputFormatResultMsg{Err: nil}
+	}
+}
+
+// callIaChangelogOnlyCmd re-runs only the changelog refiner using the
+// currently stored stage 2 / stage 3 outputs. Used by the stage 4 retry
+// shortcut so the user can iterate on the entry without re-spending tokens
+// on the upstream stages.
+func callIaChangelogOnlyCmd(model *Model) tea.Cmd {
+	return func() tea.Msg {
+		runChangelogRefiner(model)
+		model.commitTranslate = composeFinalCommitMessage(model)
+		return IaChangelogResultMsg{Err: nil}
 	}
 }
 

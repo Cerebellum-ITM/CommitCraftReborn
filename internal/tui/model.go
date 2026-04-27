@@ -164,18 +164,39 @@ type Model struct {
 	scopeChipIndex int
 	// keypointIndex is the cursor inside the key-points list when the
 	// keypoints section has focus, used by the per-section delete keys.
-	keypointIndex       int
-	commitMsg           string
-	commitTranslate     string
-	diffCode            string
-	iaSummaryOutput     string
-	iaCommitRawOutput   string
-	iaTitleRawOutput    string
+	keypointIndex     int
+	commitMsg         string
+	commitTranslate   string
+	diffCode          string
+	iaSummaryOutput   string
+	iaCommitRawOutput string
+	iaTitleRawOutput  string
+	// iaChangelogEntry holds the markdown block the refiner produced for the
+	// CHANGELOG. Empty when the feature is disabled, the file is missing, or
+	// the AI call failed. Persisted to disk in createCommit().
+	iaChangelogEntry string
+	// iaChangelogTargetPath is the resolved absolute path to the CHANGELOG
+	// file the refiner sampled. Reused by the writer so detection and write
+	// touch the same file even if pwd changes mid-session.
+	iaChangelogTargetPath string
+	// iaChangelogSuggestedVersion is the version string the refiner was
+	// asked to use; surfaced in the status bar after a successful run.
+	iaChangelogSuggestedVersion string
+	// iaChangelogMentionLine is the single bullet/sentence the refiner
+	// produced to be appended to the commit body. Stage 2's stored body
+	// (`iaCommitRawOutput`) is never modified — this line is concatenated
+	// only when composing the final commit message.
+	iaChangelogMentionLine string
+	// changelogActive flips on at pipeline start when CHANGELOG support is
+	// enabled and the file was detected. Drives the 4th stage card visibility
+	// and the CHANGELOG status-bar pill.
+	changelogActive     bool
 	activeTab           int
 	activePipelineStage int
 	pipelineViewport1   viewport.Model
 	pipelineViewport2   viewport.Model
 	pipelineViewport3   viewport.Model
+	pipelineViewport4   viewport.Model
 	pipeline            pipelineModel
 	useDbCommmit        bool
 	// dbFileDiffs holds per-file diff text parsed out of a DB-loaded
@@ -319,6 +340,8 @@ func NewModel(
 	pvp2.Style = pipelineVpStyle
 	pvp3 := viewport.New()
 	pvp3.Style = pipelineVpStyle
+	pvp4 := viewport.New()
+	pvp4.Style = pipelineVpStyle
 
 	spinner := spinner.New()
 	spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -421,6 +444,7 @@ func NewModel(
 		pipelineViewport1:       pvp1,
 		pipelineViewport2:       pvp2,
 		pipelineViewport3:       pvp3,
+		pipelineViewport4:       pvp4,
 		pipeline:                newPipelineModel(),
 		useDbCommmit:            false,
 		OutputDirect:            outputDirect,
@@ -436,6 +460,7 @@ func NewModel(
 	m.pipeline.stages[stageSummary].Model = config.Prompts.ChangeAnalyzerPromptModel
 	m.pipeline.stages[stageBody].Model = config.Prompts.CommitBodyGeneratorPromptModel
 	m.pipeline.stages[stageTitle].Model = config.Prompts.CommitTitleGeneratorPromptModel
+	m.pipeline.stages[stageChangelog].Model = config.Changelog.PromptModel
 	refreshPipelineNumstat(m)
 	applyPipelineFilesDelegate(m)
 	setDiffFromSelectedFile(m)

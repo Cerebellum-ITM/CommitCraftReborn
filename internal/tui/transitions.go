@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"commit_craft_reborn/internal/changelog"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/statusbar"
@@ -82,6 +83,32 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	model.currentCommit.IaCommitRaw = model.iaCommitRawOutput
 	model.currentCommit.IaTitle = model.iaTitleRawOutput
 	model.currentCommit.CreatedAt = time.Now()
+
+	// Reword flows rewrite an existing commit's message; staging a new
+	// CHANGELOG file in that path either changes the historical commit's
+	// scope unexpectedly (HEAD amend) or breaks the interactive rebase used
+	// for older commits. The "commit and reword" mode is the exception —
+	// it produces a brand-new commit, so the changelog write is welcome.
+	skipChangelogWrite := model.RewordHash != "" && !model.commitAndReword
+
+	if model.iaChangelogEntry != "" && model.iaChangelogTargetPath != "" && !skipChangelogWrite {
+		if err := changelog.Prepend(model.iaChangelogTargetPath, model.iaChangelogEntry); err != nil {
+			model.log.Error("Failed to update CHANGELOG", "error", err)
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("CHANGELOG update failed: %s", err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+		}
+		if err := git.StageFile(model.iaChangelogTargetPath); err != nil {
+			model.log.Error("Failed to stage CHANGELOG", "error", err)
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("CHANGELOG staged update failed: %s", err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+		}
+	}
 
 	var err error
 	if model.currentCommit.ID != 0 {

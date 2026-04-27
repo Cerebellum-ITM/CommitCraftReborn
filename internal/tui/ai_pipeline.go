@@ -1,10 +1,15 @@
 package tui
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"commit_craft_reborn/internal/api"
+	"commit_craft_reborn/internal/changelog"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/storage"
 )
@@ -140,9 +145,183 @@ func ia_commit_builder(model *Model) error {
 	}
 
 	model.iaTitleRawOutput = titleText
-	model.commitTranslate = assembleCommitMessage(titleText, commitBody)
+	runChangelogRefiner(model)
+	model.commitTranslate = composeFinalCommitMessage(model)
 	model.log.Debug("Final commit message", "commitTranslate", model.commitTranslate)
 	return nil
+}
+
+// changelogRefinerOutput mirrors the JSON contract documented in
+// prompts/changelog_refiner.prompt.tmpl. The refiner emits two independent
+// pieces of text: the new CHANGELOG block and a single mention line that
+// will be appended to the commit body. Stage 2's body is never rewritten —
+// the mention line is added on top, the existing bullets stay verbatim.
+type changelogRefinerOutput struct {
+	ChangelogEntry    string `json:"changelog_entry"`
+	CommitMentionLine string `json:"commit_mention_line"`
+}
+
+// runChangelogRefiner is the optional 4th step. It detects the project's
+// CHANGELOG and asks the AI for two independent pieces of text: the new
+// CHANGELOG block and a one-line mention to append to the commit body.
+// Stage 2's body is sent purely as input context for the entry — this
+// function never mutates iaCommitRawOutput, so the stage 2 viewport keeps
+// showing the real model output. The mention line lives in
+// iaChangelogMentionLine and is concatenated by composeFinalCommitMessage.
+func runChangelogRefiner(model *Model) {
+	model.iaChangelogEntry = ""
+	model.iaChangelogMentionLine = ""
+
+	cfg := model.globalConfig.Changelog
+	// changelogActive is the single source of truth: pipelineStartFullRun
+	// already evaluated `Enabled` plus the dirty-file safeguard and decided
+	// whether the refiner should run. Re-checking only `cfg.Enabled` here
+	// would bypass the safeguard (the file exists and is readable, so the
+	// downstream Detect would succeed and the AI call would still fire).
+	if !cfg.Enabled || !model.changelogActive {
+		return
+	}
+
+	info, err := changelog.Detect(model.pwd, cfg.Path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			model.log.Warn("Changelog detect failed, skipping refiner", "error", err)
+		}
+		return
+	}
+
+	suggested := changelog.SuggestNextVersion(info.LatestVersion, cfg.BumpStrategy)
+	prompt := cfg.Prompt
+	if prompt == "" {
+		model.log.Warn("Changelog prompt is empty, skipping refiner")
+		return
+	}
+
+	bulletHint := pickBulletStyle(model.iaCommitRawOutput)
+	if bulletHint == "" {
+		bulletHint = "none"
+	}
+
+	userInput := fmt.Sprintf(
+		"FORMAT_SAMPLE:\n%s\nSUGGESTED_VERSION:\n%s\nDATE:\n%s\nSTAGE2_BODY:\n%s\nSTAGE3_TITLE:\n%s\nBODY_BULLET_STYLE:\n%s",
+		info.FormatSample,
+		suggested,
+		time.Now().Format("2006-01-02"),
+		model.iaCommitRawOutput,
+		model.iaTitleRawOutput,
+		bulletHint,
+	)
+
+	response, err := createAndSendIaMessage(prompt, userInput, cfg.PromptModel, model)
+	if err != nil {
+		model.log.Warn("Changelog refiner call failed", "error", err)
+		return
+	}
+
+	parsed, perr := parseChangelogRefinerJSON(response)
+	if perr != nil {
+		model.log.Warn("Changelog refiner JSON parse failed, using fallback", "error", perr)
+		model.iaChangelogEntry = fallbackChangelogEntry(
+			suggested,
+			model.iaTitleRawOutput,
+			model.iaCommitRawOutput,
+		)
+		model.iaChangelogMentionLine = fallbackMentionLine(model.iaCommitRawOutput, suggested)
+		model.iaChangelogTargetPath = info.Path
+		model.iaChangelogSuggestedVersion = suggested
+		return
+	}
+
+	mention := strings.TrimSpace(parsed.CommitMentionLine)
+	// Safety net: if the model dropped the mention or omitted the
+	// CHANGELOG.md token, build a deterministic fallback so the final
+	// commit message always documents the update.
+	if mention == "" || !strings.Contains(strings.ToLower(mention), "changelog.md") {
+		mention = fallbackMentionLine(model.iaCommitRawOutput, suggested)
+	}
+
+	model.iaChangelogEntry = strings.TrimSpace(parsed.ChangelogEntry)
+	model.iaChangelogMentionLine = mention
+	model.iaChangelogTargetPath = info.Path
+	model.iaChangelogSuggestedVersion = suggested
+	model.log.Debug(
+		"Changelog refiner output",
+		"entry", model.iaChangelogEntry,
+		"mention", model.iaChangelogMentionLine,
+		"version", suggested,
+	)
+}
+
+// composeFinalCommitMessage builds the user-visible commit message: stage 3
+// title + stage 2 body verbatim, plus the refiner's mention line appended at
+// the end when present. Stage 2's stored output is never modified — the
+// appended line only lives in the final commitTranslate string.
+func composeFinalCommitMessage(model *Model) string {
+	body := model.iaCommitRawOutput
+	if model.iaChangelogMentionLine != "" {
+		body = strings.TrimRight(body, " \n\t") + "\n\n" + model.iaChangelogMentionLine
+	}
+	return assembleCommitMessage(model.iaTitleRawOutput, body)
+}
+
+// parseChangelogRefinerJSON extracts the refiner's JSON payload, tolerating
+// the model wrapping it in prose or a markdown code fence.
+func parseChangelogRefinerJSON(raw string) (changelogRefinerOutput, error) {
+	var out changelogRefinerOutput
+	trimmed := strings.TrimSpace(raw)
+	if i := strings.Index(trimmed, "{"); i >= 0 {
+		if j := strings.LastIndex(trimmed, "}"); j > i {
+			trimmed = trimmed[i : j+1]
+		}
+	}
+	if err := json.Unmarshal([]byte(trimmed), &out); err != nil {
+		return out, err
+	}
+	if out.ChangelogEntry == "" {
+		return out, fmt.Errorf("missing changelog_entry field")
+	}
+	return out, nil
+}
+
+// fallbackMentionLine builds a deterministic single-line mention used when
+// the refiner doesn't return a usable commit_mention_line. The bullet
+// character is matched to the existing body so the appended line blends in.
+func fallbackMentionLine(body, version string) string {
+	bullet := pickBulletStyle(body)
+	if bullet == "" {
+		return fmt.Sprintf("Updated CHANGELOG.md with %s entry.", version)
+	}
+	return fmt.Sprintf("%s Updated CHANGELOG.md with %s entry.", bullet, version)
+}
+
+// pickBulletStyle scans body for the first existing bullet and returns the
+// same prefix character. Returns the empty string when the body has no
+// bullets — callers should treat that as "use a plain sentence".
+func pickBulletStyle(body string) string {
+	for _, line := range strings.Split(body, "\n") {
+		trimmed := strings.TrimLeft(line, " \t")
+		if len(trimmed) >= 2 {
+			switch trimmed[0] {
+			case '-', '*', '+':
+				if trimmed[1] == ' ' {
+					return string(trimmed[0])
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// fallbackChangelogEntry builds a minimal entry when the AI response is
+// unusable. Conservative: heading + title + first paragraph of the body.
+func fallbackChangelogEntry(version, title, body string) string {
+	first := strings.SplitN(strings.TrimSpace(body), "\n\n", 2)[0]
+	return fmt.Sprintf("## %s — %s\n\n%s\n\n%s",
+		version,
+		time.Now().Format("2006-01-02"),
+		strings.TrimSpace(title),
+		first,
+	)
 }
 
 func iaReleaseBuilder(model *Model) error {

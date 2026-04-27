@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -9,6 +11,8 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 
+	"commit_craft_reborn/internal/changelog"
+	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/tui/statusbar"
 )
 
@@ -29,6 +33,11 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			return model, model.pipelineRetryStage(stageBody)
 		case key.Matches(m, model.keys.RerunStage3):
 			return model, model.pipelineRetryStage(stageTitle)
+		case key.Matches(m, model.keys.RerunStage4):
+			if model.pipeline.activeStages >= 4 {
+				return model, model.pipelineRetryStage(stageChangelog)
+			}
+			return model, nil
 		case key.Matches(m, model.keys.Up):
 			model.pipeline.diffViewport.ScrollUp(1)
 			return model, nil
@@ -138,21 +147,77 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 		model.WritingStatusBar.Content = "At least one key point is required before requesting the AI."
 		return nil
 	}
+	// Detect a project CHANGELOG before resetting the stages so the layout
+	// already knows whether stage 4 should be visible. Detection failures
+	// (file missing, unreadable) downgrade to a 3-stage run. Also skip the
+	// refiner when the user has already staged a CHANGELOG change of their
+	// own — auto-prepending another entry on top would clobber their edit.
+	model.changelogActive = false
+	model.pipeline.activeStages = 3
+	changelogSkipReason := ""
+	if model.globalConfig.Changelog.Enabled {
+		cfgPath := model.globalConfig.Changelog.Path
+		if cfgPath == "" {
+			cfgPath = "CHANGELOG.md"
+		}
+		if dirty, sErr := git.HasFileChanges(cfgPath); sErr == nil && dirty {
+			changelogSkipReason = "CHANGELOG already modified · skipping auto-update"
+			model.log.Info("Skipping changelog refiner: file already modified", "path", cfgPath)
+		} else if sErr != nil {
+			model.log.Warn("git status check failed; proceeding with refiner", "error", sErr)
+		}
+		if changelogSkipReason == "" {
+			if info, err := changelog.Detect(model.pwd, cfgPath); err == nil && info != nil {
+				model.changelogActive = true
+				model.pipeline.activeStages = 4
+				model.iaChangelogTargetPath = info.Path
+				model.iaChangelogSuggestedVersion = changelog.SuggestNextVersion(
+					info.LatestVersion,
+					model.globalConfig.Changelog.BumpStrategy,
+				)
+			} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+				model.log.Warn("Changelog detect failed at pipeline start", "error", err)
+			}
+		}
+	}
+
 	model.pipeline.resetAll(time.Now())
 	model.commitTranslate = ""
 	model.iaSummaryOutput = ""
 	model.iaCommitRawOutput = ""
 	model.iaTitleRawOutput = ""
+	model.iaChangelogEntry = ""
+	model.iaChangelogMentionLine = ""
+	if !model.changelogActive {
+		model.iaChangelogTargetPath = ""
+		model.iaChangelogSuggestedVersion = ""
+	}
 	model.pipelineViewport1.SetContent("")
 	model.pipelineViewport2.SetContent("")
 	model.pipelineViewport3.SetContent("")
+	model.pipelineViewport4.SetContent("")
 	if !model.useDbCommmit {
 		refreshPipelineNumstat(model)
 		applyPipelineFilesDelegate(model)
 	}
 
-	model.WritingStatusBar.Content = "pipeline started · stage 1/3"
-	model.WritingStatusBar.Level = statusbar.LevelInfo
+	switch {
+	case model.changelogActive:
+		model.WritingStatusBar.Content = fmt.Sprintf(
+			"pipeline started · 4 stages · CHANGELOG detected (%s)",
+			model.iaChangelogSuggestedVersion,
+		)
+		model.WritingStatusBar.Level = statusbar.LevelChangelog
+	case changelogSkipReason != "":
+		model.WritingStatusBar.Content = fmt.Sprintf(
+			"pipeline started · stage 1/3 · %s",
+			changelogSkipReason,
+		)
+		model.WritingStatusBar.Level = statusbar.LevelChangelog
+	default:
+		model.WritingStatusBar.Content = "pipeline started · stage 1/3"
+		model.WritingStatusBar.Level = statusbar.LevelInfo
+	}
 
 	return tea.Batch(
 		model.WritingStatusBar.StartSpinner(),
@@ -190,7 +255,11 @@ func (model *Model) pipelineRetryStage(from stageID) tea.Cmd {
 		model.iaTitleRawOutput = ""
 	case stageTitle:
 		model.iaTitleRawOutput = ""
+	case stageChangelog:
+		// Retrying only the refiner: stages 1-3 outputs stay untouched.
 	}
+	model.iaChangelogEntry = ""
+	model.iaChangelogMentionLine = ""
 
 	model.WritingStatusBar.Content = fmt.Sprintf("pipeline retry · stage %d", int(from)+1)
 	model.WritingStatusBar.Level = statusbar.LevelAI
@@ -209,6 +278,8 @@ func (model *Model) pipelineRetryStage(from stageID) tea.Cmd {
 		// callIaOutputFormatCmd is named for legacy reasons — today it
 		// drives the commit-title generator.
 		cmds = append(cmds, callIaOutputFormatCmd(model))
+	case stageChangelog:
+		cmds = append(cmds, callIaChangelogOnlyCmd(model))
 	}
 	return tea.Batch(cmds...)
 }
@@ -272,6 +343,8 @@ func (model *Model) applyPipelineResult(touched []stageID, err error) tea.Cmd {
 				vp.SetContent(model.iaCommitRawOutput)
 			case stageTitle:
 				vp.SetContent(model.iaTitleRawOutput)
+			case stageChangelog:
+				vp.SetContent(model.iaChangelogEntry)
 			}
 			vp.GotoTop()
 		}

@@ -1,0 +1,54 @@
+You generate two pieces of text for a commit that updates a project's
+CHANGELOG.md:
+
+1. A NEW changelog entry, in the EXACT markdown layout shown in
+   FORMAT_SAMPLE. Match heading level, version prefix style ("v1.2.3"
+   vs "[1.2.3]"), date format, dash separator, bullet-vs-paragraph
+   style, blank-line spacing, and any subsection headings (e.g.
+   "### Usage", "### Added") found in the sample.
+
+2. A SHORT one-line bullet (or one short sentence) that will be
+   APPENDED to the commit body to document the CHANGELOG.md update.
+   This line must:
+   - Mention the literal token "CHANGELOG.md".
+   - Be self-contained — do not reference other bullets, do not
+     restate facts already in the body, do not include the version
+     number unless natural.
+   - Match the bullet style hinted by BODY_BULLET_STYLE ("-", "*",
+     "+", or "none" if the body has no bullets — in that case return
+     a plain sentence with no leading bullet character).
+
+INPUTS you will receive:
+
+- FORMAT_SAMPLE: the existing changelog title and most recent entry,
+  used as a style reference for the changelog entry. Imitate it
+  strictly.
+- SUGGESTED_VERSION: the version string for the new entry's heading.
+- DATE: ISO date (YYYY-MM-DD) to use in the heading.
+- STAGE2_BODY: the commit body produced by the upstream pipeline.
+  Use it ONLY as a source of facts about what changed when writing
+  the changelog entry. Do not echo, rephrase, or comment on it in
+  your output.
+- STAGE3_TITLE: the commit subject line.
+- BODY_BULLET_STYLE: the bullet character used by the existing body
+  ("-", "*", "+", or "none").
+
+OUTPUT FORMAT:
+
+Return a single JSON object, no prose around it, no markdown code fences.
+
+{
+  "changelog_entry": "<full markdown for the new entry, including its
+heading and trailing newline>",
+  "commit_mention_line": "<single line to append to the commit body>"
+}
+
+Rules:
+- The JSON must be valid and parseable.
+- Inside string values, escape newlines as \n and quotes as \".
+- Inside string values, escape any literal backslashes and control
+  characters per the JSON spec.
+- Do not include the file's H1 title in changelog_entry — only the
+  new per-version block.
+- commit_mention_line must be a single physical line (no \n inside).
+- All output must be in English regardless of the input language.

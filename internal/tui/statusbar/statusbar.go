@@ -154,6 +154,11 @@ var (
 			Foreground(lipgloss.Color("#b8bcc4"))
 	msgDebug = msgStyle.Background(lipgloss.Color("#14161c")).Foreground(lipgloss.Color("#8a8e98"))
 
+	pillChangelog = pillStyle.Background(lipgloss.Color("#2f4a3a")).
+			Foreground(lipgloss.Color("#cdeadc"))
+	msgChangelog = msgStyle.Background(lipgloss.Color("#152821")).
+			Foreground(lipgloss.Color("#a9d2bb"))
+
 	ctxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6f7480"))
 )
 
@@ -174,6 +179,8 @@ func stylesFor(level LogLevel) (lipgloss.Style, lipgloss.Style, string) {
 		return pillRun, msgRun, "RUN"
 	case LevelDebug:
 		return pillDebug, msgDebug, "DEBUG"
+	case LevelChangelog:
+		return pillChangelog, msgChangelog, "≡ CHANGELOG"
 	}
 	return pillInfo, msgInfo, "INFO"
 }

@@ -16,9 +16,10 @@ import (
 type stageID int
 
 const (
-	stageSummary stageID = iota // Stage 1 — change analyzer
-	stageBody                   // Stage 2 — commit body generator
-	stageTitle                  // Stage 3 — commit title generator
+	stageSummary   stageID = iota // Stage 1 — change analyzer
+	stageBody                     // Stage 2 — commit body generator
+	stageTitle                    // Stage 3 — commit title generator
+	stageChangelog                // Stage 4 — changelog refiner (optional)
 )
 
 // stageStatus is the per-stage lifecycle state rendered as a status pill
@@ -54,8 +55,8 @@ type pipelineStage struct {
 // main Model. It lives as a single embedded field so resets and animation
 // scheduling stay local to this file.
 type pipelineModel struct {
-	stages   [3]pipelineStage
-	progress [3]progress.Model
+	stages   [4]pipelineStage
+	progress [4]progress.Model
 	spinner  spinner.Model
 	// diffViewport renders the current selected file's staged diff in the
 	// last sub-block of the right panel. Updated whenever the user moves
@@ -77,15 +78,19 @@ type pipelineModel struct {
 	// pulsePhase is incremented on every tickPulseMsg while at least one
 	// stage is Running. Used to animate the indeterminate progress bars.
 	pulsePhase int
+	// activeStages is the number of stages currently part of the run. The
+	// optional changelog refiner only counts when the project's CHANGELOG
+	// was detected at pipeline start. Defaults to 3.
+	activeStages int
 }
 
 // newPipelineModel builds the Pipeline tab's initial state. It does not
 // allocate the file list (that lives on the parent Model as
 // pipelineDiffList so it can share git status across views).
 func newPipelineModel() pipelineModel {
-	titles := [3]string{"Change Analyzer", "Commit Body", "Commit Title"}
-	pm := pipelineModel{focusedStage: stageSummary}
-	for i := 0; i < 3; i++ {
+	titles := [4]string{"Change Analyzer", "Commit Body", "Commit Title", "Changelog Refiner"}
+	pm := pipelineModel{focusedStage: stageSummary, activeStages: 3}
+	for i := 0; i < len(pm.stages); i++ {
 		pm.stages[i] = pipelineStage{
 			ID:     stageID(i),
 			Title:  titles[i],
@@ -103,10 +108,15 @@ func newPipelineModel() pipelineModel {
 	return pm
 }
 
-// cycleFocus advances the focused-stage cursor by one slot, wrapping at
-// the third stage. Triggered by `tab` on the Pipeline tab.
+// cycleFocus advances the focused-stage cursor by one slot, wrapping at the
+// last *active* stage. When the optional changelog stage is inactive the
+// cursor wraps at stage 3, otherwise at stage 4.
 func (pm *pipelineModel) cycleFocus() {
-	pm.focusedStage = stageID((int(pm.focusedStage) + 1) % 3)
+	active := pm.activeStages
+	if active < 1 {
+		active = 1
+	}
+	pm.focusedStage = stageID((int(pm.focusedStage) + 1) % active)
 }
 
 // resetAll marks every stage as Running with progress 0 and clears
@@ -115,6 +125,17 @@ func (pm *pipelineModel) resetAll(now time.Time) {
 	pm.fadeFrame = 0
 	pm.cancelling = false
 	for i := range pm.stages {
+		if i >= pm.activeStages {
+			// Inactive stages (e.g. the changelog refiner when no
+			// CHANGELOG file is present) stay Idle so they don't leak
+			// into the rendered card list.
+			pm.stages[i].Status = statusIdle
+			pm.stages[i].Progress = 0
+			pm.stages[i].Err = nil
+			pm.stages[i].flashExpiresAt = time.Time{}
+			pm.stages[i].shakeFrame = 0
+			continue
+		}
 		pm.stages[i].Status = statusRunning
 		pm.stages[i].Progress = 0
 		pm.stages[i].StartedAt = now
@@ -133,6 +154,14 @@ func (pm *pipelineModel) resetFrom(from stageID, now time.Time) {
 	pm.fadeFrame = 0
 	pm.cancelling = false
 	for i := int(from); i < len(pm.stages); i++ {
+		if i >= pm.activeStages {
+			pm.stages[i].Status = statusIdle
+			pm.stages[i].Progress = 0
+			pm.stages[i].Err = nil
+			pm.stages[i].flashExpiresAt = time.Time{}
+			pm.stages[i].shakeFrame = 0
+			continue
+		}
 		pm.stages[i].Status = statusRunning
 		pm.stages[i].Progress = 0
 		pm.stages[i].StartedAt = now
@@ -153,10 +182,15 @@ func (pm *pipelineModel) anyRunning() bool {
 	return false
 }
 
-// allDone reports whether every stage finished successfully — gates the
-// final-commit fade-in and the `enter` accept shortcut.
+// allDone reports whether every *active* stage finished successfully — gates
+// the final-commit fade-in and the `enter` accept shortcut. Inactive stages
+// (the changelog refiner when disabled or no CHANGELOG file) are ignored.
 func (pm *pipelineModel) allDone() bool {
-	for i := range pm.stages {
+	limit := pm.activeStages
+	if limit <= 0 || limit > len(pm.stages) {
+		limit = len(pm.stages)
+	}
+	for i := 0; i < limit; i++ {
 		if pm.stages[i].Status != statusDone {
 			return false
 		}

@@ -53,7 +53,7 @@ func (model *Model) viewPipeline(width, height int) string {
 // pipeline stages and per-stage viewports. Only touches stages that are
 // Idle so an in-flight run isn't disturbed.
 func (model *Model) hydratePipelineFromCompose() {
-	pairs := [3]struct {
+	pairs := []struct {
 		id  stageID
 		out string
 		vp  string
@@ -61,6 +61,7 @@ func (model *Model) hydratePipelineFromCompose() {
 		{stageSummary, model.iaSummaryOutput, model.iaSummaryOutput},
 		{stageBody, model.iaCommitRawOutput, model.iaCommitRawOutput},
 		{stageTitle, model.iaTitleRawOutput, model.iaTitleRawOutput},
+		{stageChangelog, model.iaChangelogEntry, model.iaChangelogEntry},
 	}
 	for _, p := range pairs {
 		st := &model.pipeline.stages[p.id]
@@ -77,6 +78,8 @@ func (model *Model) hydratePipelineFromCompose() {
 			model.pipelineViewport2.SetContent(p.vp)
 		case stageTitle:
 			model.pipelineViewport3.SetContent(p.vp)
+		case stageChangelog:
+			model.pipelineViewport4.SetContent(p.vp)
 		}
 	}
 }
@@ -143,6 +146,11 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 
 	innerH := max(1, height-2)
 
+	numStages := model.pipeline.activeStages
+	if numStages < 1 {
+		numStages = 3
+	}
+
 	showFinal := model.pipeline.allDone() && strings.TrimSpace(model.commitTranslate) != ""
 	finalBodyRows := 0
 	finalCardH := 0
@@ -153,7 +161,7 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	}
 
 	// Step 1: reserve all stages at default height + the diff floor.
-	stagesAtDefault := cardH(defaultBody)*3 + gap*2
+	stagesAtDefault := cardH(defaultBody)*numStages + gap*(numStages-1)
 	overhead := stagesAtDefault + diffMin + gap
 	if showFinal {
 		overhead += gap + finalCardH
@@ -182,13 +190,13 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	}
 
 	parts := make([]string, 0, 8)
-	for i := 0; i < 3; i++ {
+	for i := 0; i < numStages; i++ {
 		body := defaultBody
 		if model.pipeline.focusedStage == stageID(i) {
 			body = defaultBody + growth
 		}
 		parts = append(parts, model.renderStageCard(i, innerW, cardH(body), body))
-		if i < 2 {
+		if i < numStages-1 {
 			parts = append(parts, "")
 		}
 	}
@@ -204,7 +212,7 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	content := strings.Join(parts, "\n")
 
 	return renderTitledPanel(titledPanelOpts{
-		title:       "pipeline · 3 stages",
+		title:       fmt.Sprintf("pipeline · %d stages", numStages),
 		content:     content,
 		width:       width,
 		height:      height,
@@ -434,6 +442,8 @@ func (model *Model) stageViewportModel(id stageID) *viewport.Model {
 		return &model.pipelineViewport2
 	case stageTitle:
 		return &model.pipelineViewport3
+	case stageChangelog:
+		return &model.pipelineViewport4
 	}
 	return nil
 }

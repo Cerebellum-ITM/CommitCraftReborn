@@ -21,6 +21,7 @@ const (
 	LevelAI
 	LevelRun
 	LevelDebug
+	LevelChangelog
 )
 
 // String returns the short uppercase label rendered inside the pill.
@@ -40,6 +41,8 @@ func (l LogLevel) String() string {
 		return "RUN"
 	case LevelDebug:
 		return "DEBUG"
+	case LevelChangelog:
+		return "CHANGELOG"
 	default:
 		return "UNKNOWN"
 	}

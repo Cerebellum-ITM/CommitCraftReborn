@@ -289,6 +289,38 @@ func GetLastGitTag() (string, error) {
 	return "", nil
 }
 
+// HasFileChanges reports whether path has any uncommitted state — staged,
+// unstaged, or untracked. Uses `git status --porcelain -- <path>` so a single
+// call covers every "the file is dirty" case. Empty output (and no error)
+// means the working tree matches HEAD for that path.
+func HasFileChanges(path string) (bool, error) {
+	cmd := exec.Command("git", "status", "--porcelain", "--", path)
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return false, fmt.Errorf("git status: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) != "", nil
+}
+
+// StageFile runs `git add <path>` so the file is included in the next commit.
+// Used to bundle CHANGELOG.md updates produced by the AI pipeline together
+// with the user's already-staged changes.
+func StageFile(path string) error {
+	cmd := exec.Command("git", "add", "--", path)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return fmt.Errorf("git add %s: %w (%s)", path, err, strings.TrimSpace(stderr.String()))
+		}
+		return fmt.Errorf("git add %s: %w", path, err)
+	}
+	return nil
+}
+
 // RewordCommit changes the commit message of the given hash to newMessage.
 // For HEAD it uses git commit --amend; for other commits it uses a
 // non-interactive rebase driven by temp scripts that replace the pick line

@@ -40,6 +40,10 @@ func pipelineKeys() KeyMap {
 			key.WithKeys("3"),
 			key.WithHelp("3", "retry stage 3"),
 		),
+		RerunStage4: key.NewBinding(
+			key.WithKeys("4"),
+			key.WithHelp("4", "retry changelog refiner"),
+		),
 		Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 	}

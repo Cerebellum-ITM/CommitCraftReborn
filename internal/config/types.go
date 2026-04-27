@@ -47,12 +47,25 @@ type ReleaseConfig struct {
 	BinaryAssetsPath string `toml:"binary_assets_path"`
 }
 
+// ChangelogConfig drives the optional post-pipeline step that detects the
+// repository's CHANGELOG format, asks the AI to produce a matching new entry,
+// and writes/stages it together with the commit. Off by default — opt-in.
+type ChangelogConfig struct {
+	Enabled      bool   `toml:"enabled"`
+	Path         string `toml:"path"`
+	BumpStrategy string `toml:"bump_strategy"`
+	PromptFile   string `toml:"prompt_file"`
+	PromptModel  string `toml:"prompt_model"`
+	Prompt       string `toml:"-"`
+}
+
 type Config struct {
 	CommitTypes   CommitTypesConfig  `toml:"commit_types"`
 	CommitFormat  CommitFormatConfig `toml:"commit_format"`
 	TUI           TUIConfig          `toml:"tui,omitempty"`
 	Prompts       PromptsConfig      `toml:"prompts,omitempty"`
 	ReleaseConfig ReleaseConfig      `toml:"release_config,omitempty"`
+	Changelog     ChangelogConfig    `toml:"changelog,omitempty"`
 }
 
 type CommitFormatConfig struct {
@@ -99,6 +112,13 @@ func NewDefaultConfig() Config {
 			CommitTitleGeneratorPromptModel: "llama-3.1-8b-instant",
 			OnlyTranslatePromptFile:         "prompts/only_translate.prompt",
 			OnlyTranslatePromptModel:        "llama-3.1-8b-instant",
+		},
+		Changelog: ChangelogConfig{
+			Enabled:      false,
+			Path:         "CHANGELOG.md",
+			BumpStrategy: "patch",
+			PromptFile:   "prompts/changelog_refiner.prompt",
+			PromptModel:  "llama-3.1-8b-instant",
 		},
 	}
 }

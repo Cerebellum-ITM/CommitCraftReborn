@@ -52,6 +52,7 @@ type KeyMap struct {
 	RerunStage1 key.Binding
 	RerunStage2 key.Binding
 	RerunStage3 key.Binding
+	RerunStage4 key.Binding
 	FileUp      key.Binding
 	FileDown    key.Binding
 }

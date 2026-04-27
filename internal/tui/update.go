@@ -31,6 +31,7 @@ type (
 	IaSummaryResultMsg      struct{ Err error }
 	IaCommitRawResultMsg    struct{ Err error }
 	IaOutputFormatResultMsg struct{ Err error }
+	IaChangelogResultMsg    struct{ Err error }
 )
 
 // Main Update Function
@@ -364,13 +365,21 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.err = msg.Err
 			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
 			model.WritingStatusBar.Level = statusbar.LevelError
+		} else if model.iaChangelogEntry != "" {
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"AI commit + CHANGELOG entry %s ready!",
+				model.iaChangelogSuggestedVersion,
+			)
+			model.WritingStatusBar.Level = statusbar.LevelChangelog
 		} else {
 			model.WritingStatusBar.Content = "AI commit message ready!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		cmds = append(cmds, model.applyPipelineResult(
-			[]stageID{stageSummary, stageBody, stageTitle}, msg.Err,
-		))
+		touched := []stageID{stageSummary, stageBody, stageTitle}
+		if model.changelogActive {
+			touched = append(touched, stageChangelog)
+		}
+		cmds = append(cmds, model.applyPipelineResult(touched, msg.Err))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage
 		}
@@ -381,13 +390,21 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 1): %s", msg.Err.Error())
 			model.WritingStatusBar.Level = statusbar.LevelError
+		} else if model.iaChangelogEntry != "" {
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"Pipeline re-run complete · CHANGELOG %s ready!",
+				model.iaChangelogSuggestedVersion,
+			)
+			model.WritingStatusBar.Level = statusbar.LevelChangelog
 		} else {
 			model.WritingStatusBar.Content = "Pipeline re-run complete!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		cmds = append(cmds, model.applyPipelineResult(
-			[]stageID{stageSummary, stageBody, stageTitle}, msg.Err,
-		))
+		touched1 := []stageID{stageSummary, stageBody, stageTitle}
+		if model.changelogActive {
+			touched1 = append(touched1, stageChangelog)
+		}
+		cmds = append(cmds, model.applyPipelineResult(touched1, msg.Err))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage
 		}
@@ -398,13 +415,21 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 2): %s", msg.Err.Error())
 			model.WritingStatusBar.Level = statusbar.LevelError
+		} else if model.iaChangelogEntry != "" {
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"Stages 2+3+CHANGELOG re-run complete (%s)!",
+				model.iaChangelogSuggestedVersion,
+			)
+			model.WritingStatusBar.Level = statusbar.LevelChangelog
 		} else {
 			model.WritingStatusBar.Content = "Stages 2+3 re-run complete!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		cmds = append(cmds, model.applyPipelineResult(
-			[]stageID{stageBody, stageTitle}, msg.Err,
-		))
+		touched2 := []stageID{stageBody, stageTitle}
+		if model.changelogActive {
+			touched2 = append(touched2, stageChangelog)
+		}
+		cmds = append(cmds, model.applyPipelineResult(touched2, msg.Err))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage
 		}
@@ -415,12 +440,43 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 3): %s", msg.Err.Error())
 			model.WritingStatusBar.Level = statusbar.LevelError
+		} else if model.iaChangelogEntry != "" {
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"Stage 3+CHANGELOG re-run complete (%s)!",
+				model.iaChangelogSuggestedVersion,
+			)
+			model.WritingStatusBar.Level = statusbar.LevelChangelog
 		} else {
 			model.WritingStatusBar.Content = "Stage 3 re-run complete!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
+		touched3 := []stageID{stageTitle}
+		if model.changelogActive {
+			touched3 = append(touched3, stageChangelog)
+		}
+		cmds = append(cmds, model.applyPipelineResult(touched3, msg.Err))
+		if model.state != statePipeline {
+			model.state = stateWritingMessage
+		}
+		return model, tea.Batch(cmds...)
+
+	case IaChangelogResultMsg:
+		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		if msg.Err != nil {
+			model.WritingStatusBar.Content = fmt.Sprintf("Error (Stage 4): %s", msg.Err.Error())
+			model.WritingStatusBar.Level = statusbar.LevelError
+		} else if model.iaChangelogEntry != "" {
+			model.WritingStatusBar.Content = fmt.Sprintf(
+				"CHANGELOG entry %s refreshed!",
+				model.iaChangelogSuggestedVersion,
+			)
+			model.WritingStatusBar.Level = statusbar.LevelChangelog
+		} else {
+			model.WritingStatusBar.Content = "Changelog refiner produced no entry"
+			model.WritingStatusBar.Level = statusbar.LevelWarning
+		}
 		cmds = append(cmds, model.applyPipelineResult(
-			[]stageID{stageTitle}, msg.Err,
+			[]stageID{stageChangelog}, msg.Err,
 		))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage

@@ -2,6 +2,110 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.13.0 — 2026-04-26
+
+Add an optional 4th AI step that produces a CHANGELOG entry alongside the
+commit. When enabled, after stage 3 finishes the pipeline detects the
+project's CHANGELOG.md format, asks the model for a matching new entry plus
+a refined body that mentions the changelog update, and on commit acceptance
+prepends the entry and stages the file together with the user's changes.
+
+- `internal/changelog/changelog.go`: new package with `Detect`,
+  `SuggestNextVersion`, and `Prepend`. Detection samples the title plus the
+  first existing entry so the prompt can imitate the project's heading
+  level, version prefix style, date format, and bullet layout. Version
+  bumping defaults to patch and supports `minor`/`major` via config.
+  Insertion preserves the H1 title and any intro paragraph below it.
+- `internal/config/types.go`, `loader.go`, and the new
+  `prompts/changelog_refiner.prompt.tmpl`: opt-in `[changelog]` config
+  block (`enabled`, `path`, `bump_strategy`, `prompt_file`, `prompt_model`)
+  with a default of `enabled = false`. Prompt is loaded through the same
+  `createOrLoadPromptFile` flow as the other stage prompts.
+- `internal/tui/ai_pipeline.go`: new `runChangelogRefiner` runs after stage
+  3 in `ia_commit_builder` and the stage-2/stage-3 retry commands. It
+  reads the body from a fresh `iaCommitBodyOriginal` snapshot so re-runs
+  never refine on top of an already-refined paragraph. JSON parsing is
+  tolerant of code fences; on parse failure a deterministic fallback entry
+  is emitted and the body is left untouched.
+- `internal/tui/transitions.go`: `createCommit` writes the entry via
+  `changelog.Prepend` and runs `git.StageFile` (a new helper in
+  `internal/git/git.go`) so the next external `git commit` picks the
+  CHANGELOG up alongside the user's staged changes. Failures abort the
+  commit save with a status-bar error. The write is skipped in plain
+  reword flows (`-w <hash>` without "commit and reword") so the
+  interactive rebase used for non-HEAD reword is never tripped by a
+  newly staged file.
+- `internal/tui/update.go`: status bar surfaces the suggested version
+  through a brand-new `LevelChangelog` pill ("≡ CHANGELOG · AI commit +
+  CHANGELOG entry vX.Y.Z ready!") whenever the refiner produced an entry.
+  The pill is also raised at pipeline start ("pipeline started · 4 stages
+  · CHANGELOG detected") so the user sees the extra step coming before
+  it runs. Stage rerun handlers (`1`/`2`/`3`) keep the pill green when
+  they cascade through the refiner.
+- `internal/tui/statusbar/level.go` + `statusbar.go`: new
+  `LevelChangelog` constant with a green-tinted pill/body palette and the
+  `≡ CHANGELOG` label (Unicode triple-line glyph, no emojis).
+- `internal/tui/pipeline_state.go`, `pipeline_view.go`, `pipeline_update.go`:
+  the pipeline panel grows from 3 to 4 stage cards when CHANGELOG is
+  detected at run start. The 4th card ("Changelog Refiner") shows the
+  generated entry exactly like the other stages, share the same
+  status/focus/retry semantics, and is hidden completely when the file is
+  absent or the feature is disabled — so repos without a changelog see
+  zero UI changes. A new `pipeline.activeStages` int gates rendering and
+  `allDone`/`cycleFocus` skip the inactive 4th slot.
+- `internal/tui/pipeline_keys.go`, `keys.go`, `commands.go`: stage 4 retry
+  is bound to `4` and dispatches `callIaChangelogOnlyCmd`, which re-runs
+  only the refiner against the existing stage 2/3 outputs and emits a new
+  `IaChangelogResultMsg` for the per-stage status bar update — saves
+  tokens compared to a full pipeline re-run.
+- `internal/tui/ai_pipeline.go`: the refiner now always guarantees the
+  literal string `CHANGELOG.md` ends up in `refined_body`. If the model
+  drops the mention, `appendChangelogMention` patches a single trailing
+  bullet (`- Updated CHANGELOG.md with vX.Y.Z entry.`) using the body's
+  existing bullet style. The prompt template was tightened to require the
+  mention explicitly.
+- `internal/tui/pipeline_update.go`: `pipelineStartFullRun` and
+  `pipelineRetryStage` now also clear the changelog snapshot fields so a
+  retry starts from a clean state, and a stage 4 retry is treated as a
+  refresh that does not touch stages 1–3. The refiner is also skipped
+  when `git diff --cached --name-only` already lists the configured
+  changelog path (new helper `git.IsFileStaged`) — protects user-authored
+  changelog edits from being clobbered by the auto-prepend.
+
+### Usage
+
+The feature is off by default. To enable it edit
+`~/.config/CommitCraft/config.toml` (or the local `.commitcraft.toml`)
+and add:
+
+```toml
+[changelog]
+enabled = true
+path = "CHANGELOG.md"        # optional, this is the default
+bump_strategy = "patch"      # patch | minor | major
+prompt_file = "prompts/changelog_refiner.prompt"
+prompt_model = "llama-3.1-8b-instant"
+```
+
+When enabled, `Ctrl+W` runs the regular 3-stage pipeline and, if a
+CHANGELOG file exists at `path`, follows up with the refiner — visible
+as a 4th stage card on the Pipeline tab. The status bar shows a
+`≡ CHANGELOG` pill at run start and on completion. The final commit body
+always mentions `CHANGELOG.md` (guaranteed by a deterministic safety
+net even when the model drops it). Pressing `Enter` to accept the commit
+prepends the new entry into CHANGELOG.md and runs `git add` on it.
+
+Stage retries on the Pipeline tab:
+
+- `1` → re-runs stages 1+2+3+4 (analyzer → body → title → refiner)
+- `2` → re-runs stages 2+3+4
+- `3` → re-runs stages 3+4
+- `4` → re-runs only the refiner against the existing stage 2/3 output
+
+Repos without a CHANGELOG, or sessions with `enabled = false`, behave
+exactly as before — no extra calls, no file writes, and no 4th card in
+the UI.
+
 ## v0.12.5 — 2026-04-26
 
 Fix Nerd Font icons in the file picker and make the scope popup filter
