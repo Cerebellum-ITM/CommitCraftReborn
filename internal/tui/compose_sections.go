@@ -16,10 +16,7 @@ func (model *Model) renderComposeTypeRow(width int, focused bool) string {
 	theme := model.Theme
 	base := theme.AppStyles().Base
 
-	label := base.Foreground(theme.Muted).Render("commit type")
-	if focused {
-		label = base.Foreground(theme.Primary).Bold(true).Render("commit type")
-	}
+	label := theme.SectionPill(focused).Render("commit type")
 
 	if len(model.finalCommitTypes) == 0 {
 		empty := base.Foreground(theme.Muted).Italic(true).Render("(no commit types configured)")
@@ -37,7 +34,7 @@ func (model *Model) renderComposeTypeRow(width int, focused bool) string {
 	// truncated by the panel's hard right edge.
 	rowsText := wrapPillsToRows(pills, width, " ")
 
-	return lipgloss.JoinVertical(lipgloss.Left, append([]string{label}, rowsText...)...)
+	return lipgloss.JoinVertical(lipgloss.Left, append([]string{label, ""}, rowsText...)...)
 }
 
 // commitTypeChip renders a single commit-type pill. Active gets a filled
@@ -106,13 +103,9 @@ func wrapPillsToRows(pills []string, maxWidth int, sep string) []string {
 // single value — when the user picks a new scope the chip is replaced.
 func (model *Model) renderComposeScopeRow(width int, focused bool) string {
 	theme := model.Theme
-	base := theme.AppStyles().Base
 
 	labelText := "scope"
-	label := base.Foreground(theme.Muted).Render(labelText)
-	if focused {
-		label = base.Foreground(theme.Primary).Bold(true).Render(labelText)
-	}
+	label := theme.SectionPill(focused).Render(labelText)
 
 	var cells []string
 	if len(model.commitScopes) > 0 {
@@ -123,6 +116,7 @@ func (model *Model) renderComposeScopeRow(width int, focused bool) string {
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		label,
+		"",
 		row,
 	)
 }
@@ -167,19 +161,16 @@ func (model *Model) scopeEditButton(highlighted bool) string {
 // where the user types short paragraphs feeding the AI.
 func (model *Model) renderComposeSummaryArea(width int, focused bool) string {
 	theme := model.Theme
-	base := theme.AppStyles().Base
 
 	labelText := "summary"
-	label := base.Foreground(theme.Muted).Render(labelText)
-	if focused {
-		label = base.Foreground(theme.Primary).Bold(true).Render(labelText)
-	}
+	label := theme.SectionPill(focused).Render(labelText)
 
 	model.commitsKeysInput.SetWidth(width)
 	body := model.commitsKeysInput.View()
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		label,
+		"",
 		body,
 	)
 }
@@ -191,10 +182,7 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 	base := theme.AppStyles().Base
 
 	labelText := "key points"
-	label := base.Foreground(theme.Muted).Render(labelText)
-	if focused {
-		label = base.Foreground(theme.Primary).Bold(true).Render(labelText)
-	}
+	label := theme.SectionPill(focused).Render(labelText)
 
 	counter := base.Foreground(theme.Muted).Render(
 		fmt.Sprintf("%d items", len(model.keyPoints)),
@@ -203,11 +191,7 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 	if spacerW < 1 {
 		overflow := 1 - spacerW
 		trimmed := ansi.Truncate(labelText, max(1, lipgloss.Width(label)-overflow), "…")
-		if focused {
-			label = base.Foreground(theme.Primary).Bold(true).Render(trimmed)
-		} else {
-			label = base.Foreground(theme.Muted).Render(trimmed)
-		}
+		label = theme.SectionPill(focused).Render(trimmed)
 		spacerW = max(1, width-lipgloss.Width(label)-lipgloss.Width(counter))
 	}
 	header := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -253,7 +237,7 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 
 	body := lipgloss.JoinVertical(lipgloss.Left, listLines...)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, body)
+	return lipgloss.JoinVertical(lipgloss.Left, header, "", body)
 }
 
 // renderComposePipelineModelsArea shows a numbered list of the AI stages
@@ -263,10 +247,7 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 	base := theme.AppStyles().Base
 
 	labelText := "pipeline models"
-	label := base.Foreground(theme.Muted).Render(labelText)
-	if focused {
-		label = base.Foreground(theme.Primary).Bold(true).Render(labelText)
-	}
+	label := theme.SectionPill(focused).Render(labelText)
 
 	prompts := model.globalConfig.Prompts
 	stages := []struct {
@@ -296,6 +277,7 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		label,
+		"",
 		strings.Join(rows, "\n"),
 	)
 }

@@ -2,6 +2,61 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.4 — 2026-04-27
+
+Add a single blank line between every section pill and its content
+in the compose left panel so the labels breathe instead of sitting
+flush on top of their components.
+
+- `internal/tui/compose_sections.go`: insert `""` between label and
+  body in the type, scope, summary, key points and pipeline models
+  renderers.
+
+## v0.15.3 — 2026-04-27
+
+Tweaks on top of the compose panel refresh: header and middle block
+get explicit single-line breathing room, the summary area is no
+longer vertically centered (it sits flush right after the header),
+and the keypoint textarea prompt symbols (`>` / `:::`) now use
+`t.Secondary`.
+
+- `internal/tui/view_writing.go`: prepend a blank line to the header
+  block and to the middle block; pad the gap between middle and
+  footer so pipeline models stay pinned to the bottom of the panel.
+- `internal/tui/styles/theme.go`: switch the focused
+  `KeyPointsInput.PromptFocused` and `DotsFocused` to `t.Secondary`.
+
+## v0.15.2 — 2026-04-27
+
+Visual refresh of the compose tab's left panel: the section labels
+become theme-aware pills, the summary + keypoints input area is
+vertically centered, pipeline models sit at the panel footer with
+their own divider, and the keypoint textarea prompt symbols now
+follow the theme accent.
+
+- `internal/tui/styles/theme.go`: new `Theme.SectionPill(focused)`
+  helper (Surface/Muted blurred · Primary/BG focused). Switched
+  `KeyPointsInput.PromptFocused` and `DotsFocused` from `t.Green`
+  to `t.Primary` so the textarea prompt recolors with the theme.
+- `internal/tui/compose_sections.go`: applied `SectionPill` to the
+  five section labels (commit type, scope, summary, key points,
+  pipeline models). The keypoints "X items" counter stays as plain
+  muted text on the right.
+- `internal/tui/view_writing.go`: rewrote `assembleComposeLeftBody`
+  into three zones — header (type + scope + divider), centered
+  middle (summary + keypoints), footer (divider + pipeline models).
+  Uses `lipgloss.Place` with `lipgloss.Center` to vertically center
+  the middle block in the leftover height, falling back to plain
+  stacking when the panel is too short.
+
+### Usage
+
+No new keybindings or behavior changes. Open the compose tab as
+before; the new layout shows two horizontal rules (above summary,
+above pipeline models), the input zone visually anchored in the
+middle, and section headers as small pills that swap to the theme
+primary when focused.
+
 ## v0.15.1 — 2026-04-27
 
 Restore `tab` / `shift+tab` as directory-navigation keys in the scope

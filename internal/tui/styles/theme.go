@@ -127,6 +127,25 @@ func (t *Theme) TypePill(bg color.Color) lipgloss.Style {
 		Bold(true)
 }
 
+// SectionPill renders the small label pill used as the header of each
+// section inside the compose left panel. Blurred state sits in the
+// surface tone with muted text so the headers read as subdued
+// chip-style labels; focused state flips to the brand primary so the
+// active section pops without needing extra chrome.
+func (t *Theme) SectionPill(focused bool) lipgloss.Style {
+	if focused {
+		return lipgloss.NewStyle().
+			Background(t.Primary).
+			Foreground(t.BG).
+			Bold(true).
+			Padding(0, 1)
+	}
+	return lipgloss.NewStyle().
+		Background(t.Surface).
+		Foreground(t.Muted).
+		Padding(0, 1)
+}
+
 // Panel is the default panel chrome (rounded border + subtle border color).
 func (t *Theme) Panel() lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -225,9 +244,9 @@ func (t *Theme) buildStyles() *Styles {
 		},
 	}
 
-	s.KeyPointsInput.PromptFocused = base.Foreground(t.Green).SetString("  > ")
+	s.KeyPointsInput.PromptFocused = base.Foreground(t.Secondary).SetString("  > ")
 	s.KeyPointsInput.PromptBlurred = base.Foreground(t.Blur).SetString("  > ")
-	s.KeyPointsInput.DotsFocused = base.Foreground(t.Green).SetString("::: ")
+	s.KeyPointsInput.DotsFocused = base.Foreground(t.Secondary).SetString("::: ")
 	s.KeyPointsInput.DotsBlurred = base.Foreground(t.Blur).SetString("::: ")
 
 	return s

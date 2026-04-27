@@ -373,10 +373,12 @@ func (model *Model) buildWritingMessageView(appStyle lipgloss.Style) string {
 	)
 }
 
-// assembleComposeLeftBody stacks the 5 sections inside the left panel and
-// returns the joined string ready to feed renderTitledPanel.
+// assembleComposeLeftBody stacks the panel into three vertical zones:
+// a metadata header (type + scope), the input area (summary +
+// keypoints) flushed right under it, and a footer with the pipeline
+// models pinned to the bottom. Two horizontal rules separate the
+// zones so each one reads as its own block.
 func (model *Model) assembleComposeLeftBody(innerW, innerH int) string {
-	// Render each section once and let JoinVertical handle the spacing.
 	typeRow := model.renderComposeTypeRow(innerW, model.focusedElement == focusComposeType)
 	scopeRow := model.renderComposeScopeRow(innerW, model.focusedElement == focusComposeScope)
 	summary := model.renderComposeSummaryArea(innerW, model.focusedElement == focusComposeSummary)
@@ -384,34 +386,59 @@ func (model *Model) assembleComposeLeftBody(innerW, innerH int) string {
 		innerW,
 		model.focusedElement == focusComposePipelineModels,
 	)
+	dividerTop := model.renderComposeDivider(innerW)
+	dividerBottom := model.renderComposeDivider(innerW)
 
-	// Reserve a chunk for keypoints and let it grow with the panel.
-	usedH := lipgloss.Height(typeRow) +
-		lipgloss.Height(scopeRow) +
-		lipgloss.Height(summary) +
-		lipgloss.Height(pipelineModels) +
-		8 // accumulated blank-line separators
-	keypointsH := max(3, innerH-usedH)
+	header := lipgloss.JoinVertical(lipgloss.Left,
+		"",
+		typeRow,
+		"",
+		scopeRow,
+		"",
+		dividerTop,
+	)
+	footer := lipgloss.JoinVertical(lipgloss.Left,
+		dividerBottom,
+		"",
+		pipelineModels,
+	)
+
+	headerH := lipgloss.Height(header)
+	footerH := lipgloss.Height(footer)
+	// Keypoints still gets the leftover panel height so the list grows
+	// with the terminal; the +3 reserves room for the summary input
+	// plus the single blank line between header and middle and between
+	// summary and keypoints.
+	keypointsH := max(3, innerH-headerH-footerH-lipgloss.Height(summary)-3)
 	keypoints := model.renderComposeKeypointsArea(
 		innerW,
 		keypointsH,
 		model.focusedElement == focusComposeKeypoints,
 	)
 
-	divider := model.renderComposeDivider(innerW)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		typeRow,
-		"",
-		scopeRow,
-		"",
-		divider,
+	middle := lipgloss.JoinVertical(lipgloss.Left,
 		"",
 		summary,
 		"",
 		keypoints,
-		"",
-		pipelineModels,
+	)
+
+	// Push the footer to the bottom by padding the gap between middle
+	// and footer. When the panel is too short to fit everything, just
+	// stack normally and let the parent panel clip.
+	gap := innerH - headerH - lipgloss.Height(middle) - footerH
+	if gap > 0 {
+		return lipgloss.JoinVertical(lipgloss.Left,
+			header,
+			middle,
+			strings.Repeat("\n", gap),
+			footer,
+		)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		middle,
+		footer,
 	)
 }
 
