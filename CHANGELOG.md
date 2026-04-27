@@ -2,6 +2,71 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.14.0 — 2026-04-27
+
+Refresh the Pipeline tab so the focused stage gets most of the screen,
+the diff stays comfortable to read, and the rendered output across all
+stage cards matches the look used by Compose's AI suggestion panel.
+
+- `internal/tui/pipeline_keys.go`: `ctrl+↑` and `ctrl+↓` now alias
+  `pgup`/`pgdown` for scrolling the focused stage's viewport, so the
+  user does not have to leave home row to scroll.
+- `internal/tui/pipeline_state.go`, `pipeline_view.go`,
+  `pipeline_update.go`: the pipeline panel collapses every non-focused
+  stage to a single line (icon + `stage N · title` + status pill) and
+  the focused stage absorbs the freed space. `Tab` cycles focus through
+  every active stage and the `final commit ready` card too — when the
+  final card is focused the stages stay collapsed and the final card
+  grows. `cycleFocus(showFinal bool)` plus a new `focusedFinal` flag
+  on `pipelineModel` drive the rotation. `allDone`/`resetAll` ignore
+  the optional 4th stage when CHANGELOG support is inactive.
+- `internal/tui/pipeline_view.go`: stage 1 (the change analyzer
+  summary) now renders through Glamour with the Tokyo Night style
+  (`charm.land/glamour/v2/styles.TokyoNightStyleConfig`), since the
+  summary is genuine markdown. Stages 2, 3, 4 and the
+  `final commit ready` card share `renderCommitMessage` (already used
+  by Compose's AI suggestion panel), so commit titles render bold,
+  inline `` `code` `` segments are highlighted, and hand-written line
+  breaks survive verbatim. Content is rendered fresh each frame so
+  resizing or focus changes always reflow correctly.
+- `internal/tui/pipeline_view.go`: the diff sub-block reserves an
+  extra 20% of the right panel's inner height on top of the configured
+  floor so reviewing the diff alongside an expanded focused stage
+  stays comfortable on tall and short terminals.
+- `internal/tui/pipeline_update.go`: the changelog refiner now gates
+  on `model.changelogActive` (single source of truth populated by
+  `pipelineStartFullRun`), so the "CHANGELOG already modified" skip
+  reason actually prevents the AI call instead of just hiding the 4th
+  card. The dirty-file check uses the new `git.HasFileChanges` helper
+  (`git status --porcelain -- <path>`) which also catches unstaged and
+  untracked modifications, not only staged ones.
+- `internal/tui/ai_pipeline.go`,
+  `internal/config/prompts/changelog_refiner.prompt.tmpl`: the
+  changelog refiner emits two independent fields — `changelog_entry`
+  for the file and `commit_mention_line` for the commit body — so
+  stage 2's body is never rewritten by stage 4. Composition in
+  `composeFinalCommitMessage` appends the mention with a blank line
+  of separation. A deterministic `fallbackMentionLine` kicks in if the
+  model omits the literal `CHANGELOG.md` token.
+
+### Usage
+
+On the Pipeline tab:
+
+- `Tab` cycles focus: `stage 1 → … → stage N → final commit → stage 1`.
+  Only the focused card expands; the rest collapse to a one-line row.
+- `pgup`/`pgdown` or `ctrl+↑`/`ctrl+↓` scroll the focused stage's
+  viewport. Diff scrolling and changed-file navigation are unchanged.
+- The `final commit ready` card joins the cycle once the pipeline is
+  done; focusing it grows the card so the assembled commit is easier
+  to skim before pressing `Enter`.
+
+When the optional CHANGELOG flow is enabled and `CHANGELOG.md` is
+already dirty (staged, unstaged, or untracked), the pipeline now skips
+stage 4 entirely — no extra AI call, no body mention, no auto-write.
+The status bar pill shows `≡ CHANGELOG · CHANGELOG already modified ·
+skipping auto-update`.
+
 ## v0.13.0 — 2026-04-26
 
 Add an optional 4th AI step that produces a CHANGELOG entry alongside the

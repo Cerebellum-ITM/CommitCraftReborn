@@ -337,16 +337,9 @@ func (model *Model) applyPipelineResult(touched []stageID, err error) tea.Cmd {
 		cmds = append(cmds, tickFlash(id, 400*time.Millisecond))
 
 		if vp := model.stageViewportModel(id); vp != nil {
-			switch id {
-			case stageSummary:
-				vp.SetContent(model.iaSummaryOutput)
-			case stageBody:
-				vp.SetContent(model.iaCommitRawOutput)
-			case stageTitle:
-				vp.SetContent(model.iaTitleRawOutput)
-			case stageChangelog:
-				vp.SetContent(model.iaChangelogEntry)
-			}
+			// Content is rendered fresh by renderStageCard each frame.
+			// Reset the scroll position so the user sees the top of the
+			// new output instead of wherever the previous run left it.
 			vp.GotoTop()
 		}
 	}

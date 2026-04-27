@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/viewport"
+	"charm.land/glamour/v2"
+	glamourstyles "charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -53,33 +55,15 @@ func (model *Model) viewPipeline(width, height int) string {
 // pipeline stages and per-stage viewports. Only touches stages that are
 // Idle so an in-flight run isn't disturbed.
 func (model *Model) hydratePipelineFromCompose() {
-	pairs := []struct {
-		id  stageID
-		out string
-		vp  string
-	}{
-		{stageSummary, model.iaSummaryOutput, model.iaSummaryOutput},
-		{stageBody, model.iaCommitRawOutput, model.iaCommitRawOutput},
-		{stageTitle, model.iaTitleRawOutput, model.iaTitleRawOutput},
-		{stageChangelog, model.iaChangelogEntry, model.iaChangelogEntry},
-	}
-	for _, p := range pairs {
-		st := &model.pipeline.stages[p.id]
-		if st.Status == statusIdle && strings.TrimSpace(p.out) != "" {
+	// Viewports are populated lazily by renderStageCard on each frame, so
+	// here we only need to flip stale Idle → Done states for stages whose
+	// raw output is already in the model (e.g. when reopening the tab).
+	stageIDs := []stageID{stageSummary, stageBody, stageTitle, stageChangelog}
+	for _, id := range stageIDs {
+		st := &model.pipeline.stages[id]
+		if st.Status == statusIdle && strings.TrimSpace(model.stageRawOutput(id)) != "" {
 			st.Status = statusDone
 			st.Progress = 1
-		}
-		// Keep the per-stage viewport content in sync with the model so
-		// reopening the tab always shows the latest run.
-		switch p.id {
-		case stageSummary:
-			model.pipelineViewport1.SetContent(p.vp)
-		case stageBody:
-			model.pipelineViewport2.SetContent(p.vp)
-		case stageTitle:
-			model.pipelineViewport3.SetContent(p.vp)
-		case stageChangelog:
-			model.pipelineViewport4.SetContent(p.vp)
 		}
 	}
 }
@@ -248,6 +232,56 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 	})
 }
 
+// stageRawOutput returns the model field that backs each stage's viewport.
+// Used by the renderer so the per-stage content stays a pure projection of
+// the model with no extra cache to keep in sync.
+func (model *Model) stageRawOutput(id stageID) string {
+	switch id {
+	case stageSummary:
+		return model.iaSummaryOutput
+	case stageBody:
+		return model.iaCommitRawOutput
+	case stageTitle:
+		return model.iaTitleRawOutput
+	case stageChangelog:
+		return model.iaChangelogEntry
+	}
+	return ""
+}
+
+// renderStageContent formats a stage's raw output for display. Stage 1
+// (the change analyzer summary) flows through Glamour with the Tokyo Night
+// theme because its output is full markdown with headings, lists and code
+// fences. Stages 2-4 reuse `renderCommitMessage`, the same plain-text +
+// inline-code styling the Compose tab applies to the AI suggestion panel —
+// commit bodies and title text are NOT real markdown and Glamour mangles
+// their indentation and lazy line breaks.
+func (model *Model) renderStageContent(id stageID, width int) string {
+	raw := model.stageRawOutput(id)
+	if strings.TrimSpace(raw) == "" {
+		return ""
+	}
+	if width < 1 {
+		width = 1
+	}
+	if id == stageSummary {
+		renderer, err := glamour.NewTermRenderer(
+			glamour.WithStyles(glamourstyles.TokyoNightStyleConfig),
+			glamour.WithWordWrap(width),
+		)
+		if err != nil {
+			return raw
+		}
+		out, err := renderer.Render(raw)
+		if err != nil {
+			return raw
+		}
+		return strings.TrimRight(out, "\n")
+	}
+	const glamourGutter = 3
+	return model.renderCommitMessage(raw, max(1, width-glamourGutter))
+}
+
 // renderStageCardCollapsed draws the one-line summary used for non-focused
 // stages: status icon, "stage N · title", and the right-aligned status pill.
 // No borders, no body — just a compact row that fits exactly the panel
@@ -314,6 +348,10 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 	vp := model.stageViewportModel(stageID(idx))
 	vp.SetWidth(innerW)
 	vp.SetHeight(bodyRows)
+	// Content is rendered fresh each frame so it adapts to width changes
+	// (panel resize, focus growth) and stays in sync with the latest model
+	// outputs without a separate cache.
+	vp.SetContent(model.renderStageContent(stageID(idx), innerW))
 	bodyRendered := vp.View()
 
 	// Some viewports return fewer rows than requested when the source is
@@ -361,40 +399,27 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 
 // renderFinalCommitCard renders the assembled commit (title + body) as
 // the last sub-block before the diff. bodyRows is the inner row budget
-// computed by renderPipelinePanel; the title line is bolded and the
-// body lines fade in via theme.AcceptDim → theme.Success on completion.
+// computed by renderPipelinePanel. The body uses the same plain-text +
+// inline-code styling that stages 2-4 (and the Compose AI suggestion
+// panel) apply via `renderCommitMessage`, so the user always sees the
+// commit message rendered the same way regardless of which card they
+// look at.
 func (model *Model) renderFinalCommitCard(width, bodyRows int, focused bool) string {
 	theme := model.Theme
 	cw, _ := titledPanelChrome()
 	innerW := max(1, width-cw-2)
 
-	var fg color.Color
-	switch model.pipeline.fadeFrame {
-	case 0:
-		fg = theme.Muted
-	case 1:
-		fg = theme.AcceptDim
-	default:
-		fg = theme.Success
-	}
+	const glamourGutter = 3
+	rendered := model.renderCommitMessage(
+		strings.TrimSpace(model.commitTranslate),
+		max(1, innerW-glamourGutter),
+	)
 
-	lines := wrapToLines(strings.TrimSpace(model.commitTranslate), innerW, bodyRows)
-	if len(lines) == 0 {
-		lines = []string{""}
-	}
-	titleStyle := lipgloss.NewStyle().Foreground(fg).Bold(true)
-	bodyStyle := lipgloss.NewStyle().Foreground(theme.FG)
-
-	rendered := make([]string, 0, bodyRows)
-	for i, line := range lines {
-		if i == 0 {
-			rendered = append(rendered, titleStyle.Render(line))
-		} else {
-			rendered = append(rendered, bodyStyle.Render(line))
-		}
-	}
-	for len(rendered) < bodyRows {
-		rendered = append(rendered, "")
+	// Pad to exactly bodyRows so the surrounding panel chrome stays
+	// anchored and the diff sub-block below doesn't shift around.
+	lineCount := strings.Count(rendered, "\n") + 1
+	if lineCount < bodyRows {
+		rendered += strings.Repeat("\n", bodyRows-lineCount)
 	}
 
 	hint := lipgloss.NewStyle().Foreground(theme.AI).Bold(true).Render("⏎ accept & commit")
@@ -410,7 +435,7 @@ func (model *Model) renderFinalCommitCard(width, bodyRows int, focused bool) str
 		title:       "final commit ready",
 		hintRight:   hint,
 		hintRaw:     true,
-		content:     strings.Join(rendered, "\n"),
+		content:     rendered,
 		width:       width,
 		height:      bodyRows + 2,
 		borderColor: borderColor,
