@@ -2,6 +2,43 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.7 — 2026-04-27
+
+Theme-tie the commit-type popup: the row cursor (`❯`) now uses
+`t.Secondary`, and the hint line keys (`↑↓`, `enter`, `esc`) use
+`t.Accent` — matching the help styles used elsewhere in the TUI —
+while the labels stay in `t.Muted`.
+
+- `internal/tui/commit_type_list.go`: `CommitTypeDelegate` carries a
+  `Theme *styles.Theme`; the cursor glyph is rendered with
+  `Theme.Secondary` (bold) when available, plain `❯` otherwise.
+  `NewCommitTypeList` now takes the theme.
+- `internal/tui/type_popup.go`: rebuild the hint line as a
+  key/desc-styled string so the shortcuts pop in the accent color.
+- `internal/tui/model.go`: pass the active theme to
+  `NewCommitTypeList`.
+
+## v0.15.6 — 2026-04-27
+
+Improvements to the commit-type popup (`Ctrl+T`): show a hint line
+with the available shortcuts and auto-fit the popup width to the
+widest row instead of locking it at half the terminal width.
+
+- `internal/tui/type_popup.go`: render a muted hint
+  ("type to filter · ↑↓ nav · enter pick · esc clear/close") under
+  the list. Adjusted height calc to reserve space for the hint.
+  New `CommitTypePopupContentWidth` helper computes the minimum
+  width needed by the longest row (tag + description).
+- `internal/tui/update_writing.go`: pass `max(model.width/2,
+  contentW)` clamped to `model.width-4`, so the popup grows when
+  needed and never overflows the terminal.
+
+### Usage
+
+Open the popup with `Ctrl+T` from the writing state. It now expands
+horizontally to fit the longest tag+description, and the hint line
+at the bottom lists the active shortcuts.
+
 ## v0.15.5 — 2026-04-27
 
 Fix the commit-type list filter so typing matches only against the

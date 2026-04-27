@@ -299,7 +299,7 @@ func NewModel(
 		return nil, err
 	}
 
-	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat)
+	commitTypesList := NewCommitTypeList(finalCommitTypes, config.CommitFormat.TypeFormat, theme)
 	workspaceCommits, err := database.GetCommits(pwd, "completed")
 	workspaceCommitsList := NewHistoryCommitList(
 		workspaceCommits,

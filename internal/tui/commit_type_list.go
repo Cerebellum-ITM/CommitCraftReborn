@@ -9,12 +9,14 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/commit"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 type CommitTypeDelegate struct {
 	list.DefaultDelegate
 	TypeFormat string
 	Color      string
+	Theme      *styles.Theme
 }
 type CommitTypeItem struct {
 	commit.CommitType
@@ -50,10 +52,20 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 		styleDesc := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("229")) // Amarillo claro
 
+		var cursor string
+		if d.Theme != nil && d.Theme.Secondary != nil {
+			cursor = lipgloss.NewStyle().
+				Foreground(d.Theme.Secondary).
+				Bold(true).
+				Render("❯")
+		} else {
+			cursor = "❯"
+		}
+
 		renderedType = styleType.Render(formattedCommitType)
 		renderedDesc = styleDesc.Render(commitDesc)
 
-		fmt.Fprintf(w, "❯ %s - %s", renderedType, renderedDesc)
+		fmt.Fprintf(w, "%s %s - %s", cursor, renderedType, renderedDesc)
 	} else {
 		styleType := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")) // Gris
@@ -68,7 +80,11 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 	}
 }
 
-func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) list.Model {
+func NewCommitTypeList(
+	commitTypes []commit.CommitType,
+	commitFormat string,
+	theme *styles.Theme,
+) list.Model {
 	items := make([]list.Item, len(commitTypes))
 	for i, ct := range commitTypes {
 		items[i] = CommitTypeItem{CommitType: ct}
@@ -76,6 +92,7 @@ func NewCommitTypeList(commitTypes []commit.CommitType, commitFormat string) lis
 
 	delegate := CommitTypeDelegate{
 		TypeFormat: commitFormat,
+		Theme:      theme,
 	}
 	typeList := list.New(items, delegate, 0, 0)
 	typeList.Title = "Choose Commit Type"

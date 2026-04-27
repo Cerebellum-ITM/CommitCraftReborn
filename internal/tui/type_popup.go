@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -34,7 +36,7 @@ func newCommitTypePopup(
 	width, height int,
 	theme *styles.Theme,
 ) commitTypePopupModel {
-	l := NewCommitTypeList(types, typeFormat)
+	l := NewCommitTypeList(types, typeFormat, theme)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetShowPagination(false)
@@ -108,18 +110,60 @@ func (m commitTypePopupModel) View() tea.View {
 		BorderForeground(m.theme.Primary)
 
 	innerWidth := max(20, m.width-boxStyle.GetHorizontalFrameSize())
-	innerHeight := max(4, m.height-boxStyle.GetVerticalFrameSize()-1)
+	innerHeight := max(6, m.height-boxStyle.GetVerticalFrameSize())
 
-	title := m.theme.AppStyles().Base.
+	base := m.theme.AppStyles().Base
+	title := base.
 		Foreground(m.theme.Secondary).
 		Bold(true).
 		Render("Commit type")
 
-	m.list.SetWidth(innerWidth)
-	m.list.SetHeight(innerHeight - 1)
+	keyStyle := base.Foreground(m.theme.Accent)
+	descStyle := base.Foreground(m.theme.Muted)
+	sep := descStyle.Render(" · ")
+	hint := lipgloss.JoinHorizontal(lipgloss.Top,
+		descStyle.Render("type to filter"),
+		sep,
+		keyStyle.Render("↑↓"), descStyle.Render(" nav"),
+		sep,
+		keyStyle.Render("enter"), descStyle.Render(" pick"),
+		sep,
+		keyStyle.Render("esc"), descStyle.Render(" clear/close"),
+	)
 
-	body := lipgloss.JoinVertical(lipgloss.Left, title, m.list.View())
+	listH := max(3, innerHeight-lipgloss.Height(title)-lipgloss.Height(hint)-2)
+	m.list.SetWidth(innerWidth)
+	m.list.SetHeight(listH)
+
+	body := lipgloss.JoinVertical(
+		lipgloss.Left,
+		title,
+		"",
+		m.list.View(),
+		"",
+		hint,
+	)
 	return tea.NewView(boxStyle.Render(body))
+}
+
+// CommitTypePopupContentWidth returns the minimum width the popup
+// needs in order to render every item without truncation. It mirrors
+// the row shape used by CommitTypeDelegate.Render
+// ("❯ <formattedTag> - <desc>"), plus a small margin for the box
+// padding/border so the caller can decide whether to widen the popup.
+func CommitTypePopupContentWidth(types []commit.CommitType, typeFormat string) int {
+	const prefix = 2 // "❯ " or "  "
+	const sep = 3    // " - "
+	const margin = 8 // box padding + border + scrollbar/cursor breathing room
+	maxW := 0
+	for _, ct := range types {
+		formatted := fmt.Sprintf(typeFormat, ct.Tag)
+		w := prefix + lipgloss.Width(formatted) + sep + lipgloss.Width(ct.Description)
+		if w > maxW {
+			maxW = w
+		}
+	}
+	return maxW + margin
 }
 
 // keyTypePopup is the global shortcut that opens the commit-type popup

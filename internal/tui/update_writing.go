@@ -50,7 +50,20 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		}
 		switch {
 		case key.Matches(msg, keyTypePopup):
+			contentW := CommitTypePopupContentWidth(
+				model.finalCommitTypes,
+				model.globalConfig.CommitFormat.TypeFormat,
+			)
+			// Auto-fit to the widest row when it exceeds the previous
+			// half-width default; clamp to the terminal so the popup
+			// never overflows the screen.
 			w := max(40, model.width/2)
+			if contentW > w {
+				w = contentW
+			}
+			if w > model.width-4 {
+				w = model.width - 4
+			}
 			h := max(12, model.height*2/3)
 			model.popup = newCommitTypePopup(
 				model.finalCommitTypes,
