@@ -29,6 +29,14 @@ type ChangelogIndicator struct {
 	UseNerdFonts bool
 }
 
+// ScopeStaleIndicator drives the persistent warning pill that appears
+// when a commit was loaded from the DB without a linked git hash, so
+// the scope picker cannot highlight the commit's actual modified files.
+type ScopeStaleIndicator struct {
+	Stale        bool
+	UseNerdFonts bool
+}
+
 // StatusBar holds the state of the top-of-screen status surface. Its
 // rendered output follows the "TYPE - message" two-pill scheme: a coloured
 // label pill on the left, the message body in a darker shade of the same
@@ -45,6 +53,10 @@ type StatusBar struct {
 	// Changelog drives the persistent CHANGELOG pill on the right side.
 	// Populated by Model.syncChangelogIndicator after every state refresh.
 	Changelog ChangelogIndicator
+	// ScopeStale drives the persistent "scope data stale" warning pill,
+	// shown when a DB-loaded commit has no linked hash and the picker
+	// cannot resolve its real modified files.
+	ScopeStale ScopeStaleIndicator
 }
 
 func New(content string, level LogLevel, with int, theme *styles.Theme, version string) StatusBar {
@@ -130,6 +142,9 @@ func (sb StatusBar) Render() string {
 	if sb.showSpinner {
 		sb.spinner.Style = sb.spinner.Style.Foreground(sb.theme.Primary)
 		rightParts = append(rightParts, sb.spinner.View(), "  ")
+	}
+	if sb.ScopeStale.Stale {
+		rightParts = append(rightParts, renderScopeStalePill(sb.ScopeStale), " ")
 	}
 	if sb.Changelog.Present {
 		rightParts = append(rightParts, renderChangelogPill(sb.Changelog), " ")
@@ -229,6 +244,21 @@ func renderChangelogPill(ind ChangelogIndicator) string {
 		}
 	}
 	return pillChangelog.Render(icon)
+}
+
+// renderScopeStalePill draws the persistent warning pill shown when the
+// loaded commit has no linked git hash, so the scope picker cannot
+// resolve its actual modified files. Reuses the warning palette so it
+// visually groups with WARN status messages.
+//
+// Icon U+F13D2 (󱏒) is the NerdFont "alert/missing data" glyph; the
+// ASCII fallback is "!" enclosed for legibility.
+func renderScopeStalePill(ind ScopeStaleIndicator) string {
+	icon := "!"
+	if ind.UseNerdFonts {
+		icon = "\U000f13d2" // 󱏒
+	}
+	return pillWarn.Render(icon)
 }
 
 // RenderStatus draws "TYPE - message" as two adjacent flat-rectangle pills.

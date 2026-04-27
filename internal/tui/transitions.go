@@ -38,6 +38,8 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.RewordHash = ""
 		model.commitAndReword = false
 		model.useDbCommmit = false
+		model.scopeDataStale = false
+		model.syncScopeStaleIndicator()
 		if gitData, gErr := git.GetAllGitStatusData(); gErr == nil {
 			model.gitStatusData = gitData
 			model.currentUpdateFileListFn(model.pwd, &model.fileList, model.gitStatusData)

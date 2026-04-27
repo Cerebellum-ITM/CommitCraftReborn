@@ -204,6 +204,12 @@ type Model struct {
 	pipelineViewport4       viewport.Model
 	pipeline                pipelineModel
 	useDbCommmit            bool
+	// scopeDataStale flips on when a commit is loaded from the DB without a
+	// linked git hash (drafts and history commits committed outside the
+	// CLI). In that mode gitStatusData still reflects the live workspace,
+	// so the scope picker cannot mark the commit's actual files as
+	// modified. Drives the warning pill in WritingStatusBar.
+	scopeDataStale bool
 	// dbFileDiffs holds per-file diff text parsed out of a DB-loaded
 	// commit's Diff_code so the Pipeline tab can render the changed-files
 	// list and per-file diff without going to `git diff --staged`. Empty

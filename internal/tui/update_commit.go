@@ -189,6 +189,8 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.iaCommitRawOutput = commit.IaCommitRaw
 					model.iaTitleRawOutput = commit.IaTitle
 					model.useDbCommmit = true
+					model.scopeDataStale = true
+					model.syncScopeStaleIndicator()
 					model.keyPoints = commit.KeyPoints
 					loadPipelineFilesFromDb(model, commit.Diff_code)
 					model.state = stateWritingMessage
@@ -227,6 +229,8 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.iaCommitRawOutput = commit.IaCommitRaw
 					model.iaTitleRawOutput = commit.IaTitle
 					model.useDbCommmit = true
+					model.scopeDataStale = true
+					model.syncScopeStaleIndicator()
 					loadPipelineFilesFromDb(model, commit.Diff_code)
 					model.state = stateWritingMessage
 					model.focusedElement = focusComposeSummary

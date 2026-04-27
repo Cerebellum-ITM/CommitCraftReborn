@@ -37,6 +37,8 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					if commitGitData, gErr := git.GetCommitGitStatusData(item.Hash); gErr == nil {
 						model.gitStatusData = commitGitData
 						model.currentUpdateFileListFn(model.pwd, &model.fileList, model.gitStatusData)
+						model.scopeDataStale = false
+						model.syncScopeStaleIndicator()
 					} else {
 						model.log.Error("Error getting commit git status data", "error", gErr)
 					}
@@ -99,6 +101,8 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 	if commitGitData, gErr := git.GetCommitGitStatusData(hash); gErr == nil {
 		model.gitStatusData = commitGitData
 		model.currentUpdateFileListFn(model.pwd, &model.fileList, model.gitStatusData)
+		model.scopeDataStale = false
+		model.syncScopeStaleIndicator()
 	} else {
 		model.log.Error("Error getting commit git status data for reword", "error", gErr)
 	}

@@ -75,6 +75,16 @@ func (model *Model) syncChangelogIndicator() {
 	}
 }
 
+// syncScopeStaleIndicator pushes the current scopeDataStale flag into
+// the WritingStatusBar so the warning pill appears/disappears as soon
+// as the user enters or leaves a DB-loaded commit without a hash.
+func (model *Model) syncScopeStaleIndicator() {
+	model.WritingStatusBar.ScopeStale = statusbar.ScopeStaleIndicator{
+		Stale:        model.scopeDataStale,
+		UseNerdFonts: model.globalConfig.TUI.UseNerdFonts,
+	}
+}
+
 // updatePipeline is the Pipeline tab's per-state Update handler. It owns
 // keyboard shortcuts (retry / accept / cancel / panel switch) and forwards
 // progress / spinner / file-list ticks to the right sub-component.

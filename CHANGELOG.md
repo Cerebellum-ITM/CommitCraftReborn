@@ -2,6 +2,36 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.0 — 2026-04-27
+
+Add a persistent warning pill on the status bar when a commit is loaded
+from the DB without a linked git hash (drafts and history commits
+generated outside the CLI). In that mode `gitStatusData` still reflects
+the live workspace, so the scope picker cannot mark the commit's
+actual modified files — the pill makes that limitation visible.
+
+- `internal/tui/model.go`: new `scopeDataStale` flag on the model.
+- `internal/tui/statusbar/statusbar.go`: new `ScopeStaleIndicator` and
+  `renderScopeStalePill` using `pillWarn` and the NerdFont glyph
+  `U+F13D2` (󱏒), with `!` as ASCII fallback.
+- `internal/tui/pipeline_update.go`: `Model.syncScopeStaleIndicator`
+  pushes the flag into `WritingStatusBar` so the pill toggles in real
+  time.
+- `internal/tui/update_commit.go`: set the flag when loading a draft
+  (Enter) or editing a saved commit (EditIaCommit).
+- `internal/tui/update_reword.go`: clear the flag in both
+  reword paths (`-w` startup and "Commit and reword"), since those
+  replace `gitStatusData` with the target commit's real status.
+- `internal/tui/transitions.go`: clear the flag when returning to the
+  main list.
+
+### Usage
+
+No new keybinding. The pill appears automatically next to the version
+indicator whenever the loaded commit lacks a hash; open with
+`commitcraft -w <hash>` (or use "Commit and reword") to keep the
+scope picker fully aware of the commit's modified files.
+
 ## v0.14.2 — 2026-04-27
 
 Scope file picker now opens with the modified-only filter enabled by
