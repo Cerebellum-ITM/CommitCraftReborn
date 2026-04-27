@@ -2,6 +2,16 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.15.5 — 2026-04-27
+
+Fix the commit-type list filter so typing matches only against the
+tag, not the description. Before, searching for a short tag like
+`fix` would also surface every type whose description happened to
+contain that substring.
+
+- `internal/tui/commit_type_list.go`: `CommitTypeItem.FilterValue`
+  now returns only `Tag`.
+
 ## v0.15.4 — 2026-04-27
 
 Add a single blank line between every section pill and its content

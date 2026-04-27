@@ -26,7 +26,7 @@ func (cti CommitTypeItem) Color() string { return cti.CommitType.Color }
 func (cti CommitTypeItem) Description() string { return cti.CommitType.Description }
 
 func (cti CommitTypeItem) FilterValue() string {
-	return cti.CommitType.Tag + " " + cti.CommitType.Description
+	return cti.CommitType.Tag
 }
 
 func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
