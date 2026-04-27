@@ -147,6 +147,11 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.WritingStatusBar.Content = "At least one key point is required before requesting the AI."
 				return model, nil
 			}
+			// Evaluate CHANGELOG state so the refiner gate (changelogActive)
+			// is correctly set before ia_commit_builder runs. Without this
+			// the Compose-tab Ctrl+W would always skip stage 4 because the
+			// flag stayed at its zero value.
+			model.refreshChangelogState()
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
 			spinnerCmd := model.WritingStatusBar.StartSpinner()

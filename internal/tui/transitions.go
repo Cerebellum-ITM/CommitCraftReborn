@@ -124,6 +124,9 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList, commitDb)
+	// The CHANGELOG file likely changed (we just prepended an entry) — refresh
+	// the indicator so the pill flips between auto/passive on the next render.
+	model.refreshChangelogState()
 	model.state = stateChoosingCommit
 	model.keys = mainListKeys()
 	model.WritingStatusBar.Content = fmt.Sprintf(

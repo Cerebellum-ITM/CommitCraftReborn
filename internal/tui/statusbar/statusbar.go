@@ -13,6 +13,22 @@ import (
 
 type clearStatusMsg struct{}
 
+// ChangelogIndicator drives the persistent CHANGELOG pill drawn at the
+// right edge of the status bar (next to the version + logo pills). The
+// model refreshes it whenever the changelog state may have changed —
+// startup, before each Ctrl+W, and after a commit is created.
+type ChangelogIndicator struct {
+	// Present is true when CHANGELOG.md (or the configured path) exists in
+	// the repo and the feature is enabled in config.
+	Present bool
+	// WillAutoUpdate is true when the next Ctrl+W will run the refiner
+	// (file present AND clean). When false but Present is true, the file
+	// is dirty (staged/unstaged) and the refiner will be skipped.
+	WillAutoUpdate bool
+	// UseNerdFonts toggles between NerdFont icons and an ASCII fallback.
+	UseNerdFonts bool
+}
+
 // StatusBar holds the state of the top-of-screen status surface. Its
 // rendered output follows the "TYPE - message" two-pill scheme: a coloured
 // label pill on the left, the message body in a darker shade of the same
@@ -26,6 +42,9 @@ type StatusBar struct {
 	Level          LogLevel
 	theme          *styles.Theme
 	spinner        spinner.Model
+	// Changelog drives the persistent CHANGELOG pill on the right side.
+	// Populated by Model.syncChangelogIndicator after every state refresh.
+	Changelog ChangelogIndicator
 }
 
 func New(content string, level LogLevel, with int, theme *styles.Theme, version string) StatusBar {
@@ -112,6 +131,9 @@ func (sb StatusBar) Render() string {
 		sb.spinner.Style = sb.spinner.Style.Foreground(sb.theme.Primary)
 		rightParts = append(rightParts, sb.spinner.View(), "  ")
 	}
+	if sb.Changelog.Present {
+		rightParts = append(rightParts, renderChangelogPill(sb.Changelog), " ")
+	}
 	rightParts = append(rightParts, version.String(), logo.String())
 	right := lipgloss.JoinHorizontal(lipgloss.Top, rightParts...)
 
@@ -183,6 +205,30 @@ func stylesFor(level LogLevel) (lipgloss.Style, lipgloss.Style, string) {
 		return pillChangelog, msgChangelog, "≡ CHANGELOG"
 	}
 	return pillInfo, msgInfo, "INFO"
+}
+
+// renderChangelogPill draws the persistent CHANGELOG indicator that lives
+// on the right edge of the status bar. It uses the same green palette as
+// LevelChangelog so it visually groups with the in-flight "≡ CHANGELOG"
+// pill the user already knows.
+//
+// Icons are NerdFont private-use codepoints:
+//   - U+F11FC (󱇼) — file present but auto-update will NOT run
+//     (feature off, file already dirty, etc.).
+//   - U+F1AD3 (󱫓) — auto-update will run on the next Ctrl+W.
+//
+// When NerdFonts are disabled the indicator falls back to the same triple
+// horizontal-line glyph used by the in-flight pill so the bar still hints
+// at "changelog" without requiring a special font.
+func renderChangelogPill(ind ChangelogIndicator) string {
+	icon := "≡"
+	if ind.UseNerdFonts {
+		icon = "\U000f11fc" // 󱇼 — file present
+		if ind.WillAutoUpdate {
+			icon = "\U000f1ad3" // 󱫓 — auto-update active
+		}
+	}
+	return pillChangelog.Render(icon)
 }
 
 // RenderStatus draws "TYPE - message" as two adjacent flat-rectangle pills.

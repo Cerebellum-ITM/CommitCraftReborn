@@ -2,6 +2,53 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.14.1 — 2026-04-27
+
+Fix the changelog refiner not running when triggered from the Compose
+tab and add a persistent CHANGELOG indicator pill to the status bar.
+
+- `internal/tui/pipeline_update.go`: extract the inline detection in
+  `pipelineStartFullRun` into a reusable `Model.refreshChangelogState()`
+  method. It now updates `changelogActive` (the runtime gate the
+  refiner reads), `pipeline.activeStages`, and the new persistent
+  indicator flags (`changelogFilePresent`, `changelogWillAutoUpdate`)
+  in one shot. Returns the skip reason so callers can surface it in
+  the status bar.
+- `internal/tui/update_writing.go`: the Compose-tab Ctrl+W handler
+  now calls `refreshChangelogState()` before dispatching
+  `callIaCommitBuilderCmd`. Previously the helper only ran from the
+  Pipeline tab's `r` shortcut, which left `changelogActive = false`
+  and made `runChangelogRefiner` bail out unconditionally on Compose.
+- `internal/tui/model.go`: `NewModel` calls
+  `refreshChangelogState()` so the indicator is correct from the
+  first frame. `transitions.go::createCommit` re-runs the refresh
+  after a successful commit because the file just changed.
+- `internal/tui/statusbar/statusbar.go`: new
+  `ChangelogIndicator{Present, WillAutoUpdate, UseNerdFonts}` field on
+  `StatusBar` plus a `renderChangelogPill` helper. When `Present` is
+  true the right side of the bar gets a green pill (reusing
+  `pillChangelog`) showing one of two NerdFont icons:
+  - `󱇼` (U+F11FC) — file detected but auto-update will not run
+    (feature off, dirty file, etc.).
+  - `󱫓` (U+F1AD3) — auto-update will run on the next Ctrl+W.
+  Without NerdFonts the icon falls back to the existing `≡` glyph.
+
+### Usage
+
+The CHANGELOG pill is now always visible on the right of the status
+bar whenever `[changelog] enabled = true` and the configured file
+exists. The icon tells you at a glance whether stage 4 will run:
+
+- `󱫓` next to the version pill → next Ctrl+W (Compose or Pipeline
+  tab) will detect, generate the entry, and stage the file.
+- `󱇼` → file detected but skipped this run, usually because you
+  already modified `CHANGELOG.md` yourself. The auto-write would
+  clobber your edit, so the refiner stays out.
+
+Triggering Ctrl+W from the Compose tab now follows the exact same
+flow as from the Pipeline tab, including the optional 4th stage when
+the file is clean.
+
 ## v0.14.0 — 2026-04-27
 
 Refresh the Pipeline tab so the focused stage gets most of the screen,

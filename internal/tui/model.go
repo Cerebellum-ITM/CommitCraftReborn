@@ -190,15 +190,20 @@ type Model struct {
 	// changelogActive flips on at pipeline start when CHANGELOG support is
 	// enabled and the file was detected. Drives the 4th stage card visibility
 	// and the CHANGELOG status-bar pill.
-	changelogActive     bool
-	activeTab           int
-	activePipelineStage int
-	pipelineViewport1   viewport.Model
-	pipelineViewport2   viewport.Model
-	pipelineViewport3   viewport.Model
-	pipelineViewport4   viewport.Model
-	pipeline            pipelineModel
-	useDbCommmit        bool
+	changelogActive bool
+	// changelogFilePresent and changelogWillAutoUpdate back the persistent
+	// CHANGELOG indicator pill rendered in WritingStatusBar — they survive
+	// across pipeline runs and are refreshed by refreshChangelogState.
+	changelogFilePresent    bool
+	changelogWillAutoUpdate bool
+	activeTab               int
+	activePipelineStage     int
+	pipelineViewport1       viewport.Model
+	pipelineViewport2       viewport.Model
+	pipelineViewport3       viewport.Model
+	pipelineViewport4       viewport.Model
+	pipeline                pipelineModel
+	useDbCommmit            bool
 	// dbFileDiffs holds per-file diff text parsed out of a DB-loaded
 	// commit's Diff_code so the Pipeline tab can render the changed-files
 	// list and per-file diff without going to `git diff --staged`. Empty
@@ -464,6 +469,7 @@ func NewModel(
 	refreshPipelineNumstat(m)
 	applyPipelineFilesDelegate(m)
 	setDiffFromSelectedFile(m)
+	m.refreshChangelogState()
 	return m, nil
 }
 

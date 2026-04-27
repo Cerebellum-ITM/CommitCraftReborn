@@ -16,6 +16,65 @@ import (
 	"commit_craft_reborn/internal/tui/statusbar"
 )
 
+// refreshChangelogState evaluates the project's CHANGELOG situation and
+// updates every flag that depends on it: the live `changelogActive` switch
+// the refiner gates on, the pipeline's `activeStages` count, and the
+// indicator booleans backing the WritingStatusBar pill. Returns a non-empty
+// string when an auto-update would have run but is being skipped (file
+// dirty), so the caller can surface the reason in the status bar.
+func (model *Model) refreshChangelogState() string {
+	model.changelogActive = false
+	model.pipeline.activeStages = 3
+	model.changelogFilePresent = false
+	model.changelogWillAutoUpdate = false
+	defer model.syncChangelogIndicator()
+
+	cfg := model.globalConfig.Changelog
+	if !cfg.Enabled {
+		return ""
+	}
+	cfgPath := cfg.Path
+	if cfgPath == "" {
+		cfgPath = "CHANGELOG.md"
+	}
+
+	info, err := changelog.Detect(model.pwd, cfgPath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			model.log.Warn("Changelog detect failed", "error", err)
+		}
+		return ""
+	}
+	model.changelogFilePresent = true
+
+	if dirty, sErr := git.HasFileChanges(cfgPath); sErr == nil && dirty {
+		model.log.Info("Skipping changelog refiner: file already modified", "path", cfgPath)
+		return "CHANGELOG already modified · skipping auto-update"
+	} else if sErr != nil {
+		model.log.Warn("git status check failed; proceeding with refiner", "error", sErr)
+	}
+
+	model.changelogActive = true
+	model.pipeline.activeStages = 4
+	model.changelogWillAutoUpdate = true
+	model.iaChangelogTargetPath = info.Path
+	model.iaChangelogSuggestedVersion = changelog.SuggestNextVersion(
+		info.LatestVersion,
+		cfg.BumpStrategy,
+	)
+	return ""
+}
+
+// syncChangelogIndicator pushes the latest indicator booleans into the
+// WritingStatusBar so its Render method can draw the persistent pill.
+func (model *Model) syncChangelogIndicator() {
+	model.WritingStatusBar.Changelog = statusbar.ChangelogIndicator{
+		Present:        model.changelogFilePresent,
+		WillAutoUpdate: model.changelogWillAutoUpdate,
+		UseNerdFonts:   model.globalConfig.TUI.UseNerdFonts,
+	}
+}
+
 // updatePipeline is the Pipeline tab's per-state Update handler. It owns
 // keyboard shortcuts (retry / accept / cancel / panel switch) and forwards
 // progress / spinner / file-list ticks to the right sub-component.
@@ -148,39 +207,10 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 		model.WritingStatusBar.Content = "At least one key point is required before requesting the AI."
 		return nil
 	}
-	// Detect a project CHANGELOG before resetting the stages so the layout
-	// already knows whether stage 4 should be visible. Detection failures
-	// (file missing, unreadable) downgrade to a 3-stage run. Also skip the
-	// refiner when the user has already staged a CHANGELOG change of their
-	// own — auto-prepending another entry on top would clobber their edit.
-	model.changelogActive = false
-	model.pipeline.activeStages = 3
-	changelogSkipReason := ""
-	if model.globalConfig.Changelog.Enabled {
-		cfgPath := model.globalConfig.Changelog.Path
-		if cfgPath == "" {
-			cfgPath = "CHANGELOG.md"
-		}
-		if dirty, sErr := git.HasFileChanges(cfgPath); sErr == nil && dirty {
-			changelogSkipReason = "CHANGELOG already modified · skipping auto-update"
-			model.log.Info("Skipping changelog refiner: file already modified", "path", cfgPath)
-		} else if sErr != nil {
-			model.log.Warn("git status check failed; proceeding with refiner", "error", sErr)
-		}
-		if changelogSkipReason == "" {
-			if info, err := changelog.Detect(model.pwd, cfgPath); err == nil && info != nil {
-				model.changelogActive = true
-				model.pipeline.activeStages = 4
-				model.iaChangelogTargetPath = info.Path
-				model.iaChangelogSuggestedVersion = changelog.SuggestNextVersion(
-					info.LatestVersion,
-					model.globalConfig.Changelog.BumpStrategy,
-				)
-			} else if err != nil && !errors.Is(err, os.ErrNotExist) {
-				model.log.Warn("Changelog detect failed at pipeline start", "error", err)
-			}
-		}
-	}
+	// Detect / decide whether the changelog refiner runs. Refresh resets
+	// model.changelogActive, model.pipeline.activeStages, and the indicator
+	// flags consumed by the WritingStatusBar pill.
+	changelogSkipReason := model.refreshChangelogState()
 
 	model.pipeline.resetAll(time.Now())
 	model.commitTranslate = ""
