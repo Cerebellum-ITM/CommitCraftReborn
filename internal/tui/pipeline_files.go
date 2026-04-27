@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,7 +37,13 @@ func setDiffFromSelectedFile(model *Model) {
 		model.pipeline.diffViewport.SetContent("")
 		return
 	}
-	diff, err := git.GetStagedFileDiff(it.FilePath)
+	var diff string
+	var err error
+	if model.useDbCommmit {
+		diff = model.dbFileDiffs[it.FilePath]
+	} else {
+		diff, err = git.GetStagedFileDiff(it.FilePath)
+	}
 	if err != nil || strings.TrimSpace(diff) == "" {
 		model.pipeline.diffViewport.SetContent(
 			lipgloss.NewStyle().
@@ -150,6 +157,82 @@ func (d pipelineFilesDelegate) Render(w io.Writer, m list.Model, index int, list
 	row2 := "      " + mutedStyle.Render(addStyle.Render(addsText)+" "+delStyle.Render(delsText))
 
 	fmt.Fprintf(w, "%s\n%s", row1, row2)
+}
+
+// parseDbDiff extracts files, numstats, and per-file diff text from the
+// Diff_code blob persisted by GetStagedDiffSummary (format:
+// "=== <path> ===\n<diff bytes>\n=== <next path> ===\n..."). Returns
+// items sorted alphabetically so the list stays stable across reloads.
+func parseDbDiff(diffCode string) ([]list.Item, map[string]git.FileNumstat, map[string]string) {
+	if strings.TrimSpace(diffCode) == "" {
+		return nil, nil, nil
+	}
+	type block struct {
+		path string
+		body strings.Builder
+	}
+	var blocks []*block
+	var cur *block
+	for _, line := range strings.Split(diffCode, "\n") {
+		if strings.HasPrefix(line, "=== ") && strings.HasSuffix(line, " ===") {
+			path := strings.TrimSuffix(strings.TrimPrefix(line, "=== "), " ===")
+			cur = &block{path: path}
+			blocks = append(blocks, cur)
+			continue
+		}
+		if cur != nil {
+			cur.body.WriteString(line)
+			cur.body.WriteByte('\n')
+		}
+	}
+	if len(blocks) == 0 {
+		return nil, nil, nil
+	}
+	paths := make([]string, 0, len(blocks))
+	bodies := make(map[string]string, len(blocks))
+	numstat := make(map[string]git.FileNumstat, len(blocks))
+	for _, b := range blocks {
+		body := strings.TrimRight(b.body.String(), "\n")
+		bodies[b.path] = body
+		paths = append(paths, b.path)
+
+		adds, dels := 0, 0
+		for _, l := range strings.Split(body, "\n") {
+			switch {
+			case strings.HasPrefix(l, "+++") || strings.HasPrefix(l, "---"):
+				continue
+			case strings.HasPrefix(l, "+"):
+				adds++
+			case strings.HasPrefix(l, "-"):
+				dels++
+			}
+		}
+		numstat[b.path] = git.FileNumstat{Adds: adds, Dels: dels}
+	}
+	sort.Strings(paths)
+	items := make([]list.Item, 0, len(paths))
+	for _, p := range paths {
+		items = append(items, DiffFileItem{FilePath: p, Status: "M"})
+	}
+	return items, numstat, bodies
+}
+
+// loadPipelineFilesFromDb rebuilds the pipeline files list + numstat from
+// a DB-loaded commit's Diff_code. Caches the per-file diff text on the
+// model so setDiffFromSelectedFile can render it without invoking git.
+func loadPipelineFilesFromDb(model *Model, diffCode string) {
+	items, numstat, bodies := parseDbDiff(diffCode)
+	model.dbFileDiffs = bodies
+	if items == nil {
+		model.pipeline.numstat = nil
+		model.pipelineDiffList.SetItems(nil)
+		applyPipelineFilesDelegate(model)
+		return
+	}
+	model.pipeline.numstat = numstat
+	model.pipelineDiffList.SetItems(items)
+	model.pipelineDiffList.Select(0)
+	applyPipelineFilesDelegate(model)
 }
 
 // applyPipelineFilesDelegate swaps the list delegate with a fresh

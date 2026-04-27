@@ -2,6 +2,19 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.10.7 — 2026-04-26
+
+When loading a commit (or draft) from history with `e` / `Enter`, the changed-files list and per-file diff are now sourced from the DB-persisted `Diff_code` instead of the live `git diff --staged`, which is unrelated to the historical commit.
+
+- New helpers in `internal/tui/pipeline_files.go`: `parseDbDiff` splits the persisted Diff_code blob (`=== <path> ===` blocks produced by `git.GetStagedDiffSummary`) into items, per-file numstats, and per-file diff bodies; `loadPipelineFilesFromDb` swaps them into `pipelineDiffList`, `pipeline.numstat`, and a new `model.dbFileDiffs` cache.
+- `setDiffFromSelectedFile` now reads from `model.dbFileDiffs` when `useDbCommmit` is true (otherwise unchanged: live staged diff).
+- `pipelineStartFullRun` skips `refreshPipelineNumstat` / `applyPipelineFilesDelegate` when `useDbCommmit` is true so the historical files list isn't overwritten by the working-tree state.
+- The "edit historical commit" path (`update_commit.go::EditIaCommit`) and the "continue draft" path (`Enter` on a `draft`-status item) both call `loadPipelineFilesFromDb` and set `useDbCommmit = true` for consistency.
+
+### Usage
+
+Pick a commit or draft from the main list and press `e` (edit) or `Enter` (drafts). Open the Pipeline tab (`Ctrl+3`): the changed-files panel now lists exactly the files captured when the commit was generated, with the same `+N -M` counts and per-file diff content stored in the DB.
+
 ## v0.10.6 — 2026-04-26
 
 Fix the trailing `…` that appeared on every row of the compose "summary" panel after running the AI flow.

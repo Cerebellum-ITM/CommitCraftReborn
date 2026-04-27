@@ -146,8 +146,10 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 	model.pipelineViewport1.SetContent("")
 	model.pipelineViewport2.SetContent("")
 	model.pipelineViewport3.SetContent("")
-	refreshPipelineNumstat(model)
-	applyPipelineFilesDelegate(model)
+	if !model.useDbCommmit {
+		refreshPipelineNumstat(model)
+		applyPipelineFilesDelegate(model)
+	}
 
 	model.WritingStatusBar.Content = "pipeline started · stage 1/3"
 	model.WritingStatusBar.Level = statusbar.LevelInfo

@@ -180,6 +180,11 @@ type Model struct {
 	pipelineViewport3       viewport.Model
 	pipeline                pipelineModel
 	useDbCommmit            bool
+	// dbFileDiffs holds per-file diff text parsed out of a DB-loaded
+	// commit's Diff_code so the Pipeline tab can render the changed-files
+	// list and per-file diff without going to `git diff --staged`. Empty
+	// when editing a fresh (non-DB) commit.
+	dbFileDiffs map[string]string
 	FinalMessage            string
 	RewordHash              string
 	OutputDirect            bool
