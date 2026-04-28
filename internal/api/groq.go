@@ -24,6 +24,58 @@ type ResponseBody struct {
 	Choices []Choice `json:"choices"`
 }
 
+// GroqModel mirrors a single entry from GET /openai/v1/models. Only the
+// fields we currently surface are decoded; extra fields are ignored.
+type GroqModel struct {
+	ID            string `json:"id"`
+	OwnedBy       string `json:"owned_by"`
+	Active        bool   `json:"active"`
+	ContextWindow int    `json:"context_window"`
+}
+
+type modelsListResponse struct {
+	Object string      `json:"object"`
+	Data   []GroqModel `json:"data"`
+}
+
+// ListGroqModels fetches the catalogue of models the API key can address.
+// The endpoint does not flag free-tier vs paid models; callers filter the
+// result via the curated allowlist in internal/config.
+func ListGroqModels(apiKey string) ([]GroqModel, error) {
+	if apiKey == "" {
+		return nil, fmt.Errorf("Groq API key was not provided")
+	}
+
+	req, err := http.NewRequest("GET", "https://api.groq.com/openai/v1/models", nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(
+			"API returned a non-success status: %d, %s",
+			resp.StatusCode, string(body),
+		)
+	}
+
+	var parsed modelsListResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, fmt.Errorf("error decoding response JSON: %w", err)
+	}
+	return parsed.Data, nil
+}
+
 // GetGroqChatCompletion is a generic function to interact with the Groq Chat API.
 // It takes the model name and a slice of messages as parameters.
 func GetGroqChatCompletion(apiKey, modelName string, messages []Message) (string, error) {

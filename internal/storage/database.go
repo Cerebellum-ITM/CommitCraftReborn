@@ -47,7 +47,26 @@ func InitDB() (*DB, error) {
 		return nil, errors.Wrap(err, "failed to create tables")
 	}
 
+	if err := createModelsCacheTable(sqlDB); err != nil {
+		return nil, errors.Wrap(err, "failed to create models cache table")
+	}
+
 	return &DB{sqlDB}, nil
+}
+
+// createModelsCacheTable bootstraps the cache that backs the model
+// picker popup. Lives outside createTables so it follows the migration
+// pattern (CREATE IF NOT EXISTS, no destructive changes to existing data).
+func createModelsCacheTable(db *sql.DB) error {
+	_, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS groq_models_cache (
+            id TEXT PRIMARY KEY,
+            owned_by TEXT NOT NULL DEFAULT '',
+            context_window INTEGER NOT NULL DEFAULT 0,
+            fetched_at INTEGER NOT NULL
+        );
+    `)
+	return err
 }
 
 func applySchemaMigrations(db *sql.DB) error {

@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
 
+	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/tui/statusbar"
 	"commit_craft_reborn/internal/tui/styles"
@@ -136,6 +137,73 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.WritingStatusBar.SetTheme(model.Theme)
 		model.popup = nil
 		return model, nil
+	case closeModelPickerMsg:
+		model.popup = nil
+		return model, nil
+	case modelPickerOpenedMsg:
+		if msg.err != nil && len(msg.models) == 0 {
+			model.popup = nil
+			model.log.Error("model picker fetch failed", "error", msg.err)
+			cmd := model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("Could not load Groq models: %s", msg.err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+			return model, cmd
+		}
+		w := max(60, model.width*2/3)
+		h := max(20, model.height*2/3)
+		if w > model.width-4 {
+			w = model.width - 4
+		}
+		if h > model.height-4 {
+			h = model.height - 4
+		}
+		model.popup = newModelPickerPopup(
+			msg.stage, msg.label, msg.current, msg.models, msg.cachedAt,
+			w, h, model.Theme,
+		)
+		var statusCmd tea.Cmd
+		if msg.err != nil {
+			statusCmd = model.WritingStatusBar.ShowMessageForDuration(
+				"Showing cached models (refresh failed)",
+				statusbar.LevelWarning,
+				3*time.Second,
+			)
+		}
+		return model, statusCmd
+	case modelPickerRefreshMsg:
+		stage := msg.stage
+		label := stageLabelFor(model, stage)
+		statusCmd := model.WritingStatusBar.ShowMessageForDuration(
+			"Refreshing models from Groq…",
+			statusbar.LevelInfo,
+			2*time.Second,
+		)
+		return model, tea.Batch(statusCmd, refreshModelPickerCmd(model, stage, label))
+	case modelPickerResultMsg:
+		model.popup = nil
+		if err := config.SaveModelForStage(msg.stage, msg.modelID, msg.scope); err != nil {
+			model.log.Error("save model failed", "error", err)
+			cmd := model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("Could not save model: %s", err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+			return model, cmd
+		}
+		config.ApplyModelToConfig(&model.globalConfig, msg.stage, msg.modelID)
+		applyPipelineModelsToStages(model)
+		scopeLabel := "global"
+		if msg.scope == config.ScopeLocal {
+			scopeLabel = "local"
+		}
+		cmd := model.WritingStatusBar.ShowMessageForDuration(
+			fmt.Sprintf("Set %s → %s (%s)", msg.stage, msg.modelID, scopeLabel),
+			statusbar.LevelSuccess,
+			3*time.Second,
+		)
+		return model, cmd
 	case editMessageAppliedMsg:
 		model.popup = nil
 		model.commitTranslate = msg.value

@@ -34,6 +34,10 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if handled, m, c := handleKeypointsSectionKey(model, msg); handled {
 				return m, c
 			}
+		case focusComposePipelineModels:
+			if handled, m, c := handlePipelineModelsSectionKey(model, msg); handled {
+				return m, c
+			}
 		}
 
 		if msg.String() == "@" && model.focusedElement == focusComposeSummary {
@@ -270,6 +274,34 @@ func handleKeypointsSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, t
 			model.keypointIndex = len(model.keyPoints) - 1
 		}
 		return true, model, nil
+	}
+	return false, model, nil
+}
+
+// handlePipelineModelsSectionKey owns navigation inside the
+// pipeline-models row: ↑/↓ (and h/j/k/l) move the cursor through the
+// configurable stages, Enter opens the model picker for the selected
+// stage. Returns handled=true when the key was consumed.
+func handlePipelineModelsSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	stages := composePipelineStages(model)
+	if len(stages) == 0 {
+		return false, model, nil
+	}
+	if model.pipelineModelStageIndex >= len(stages) {
+		model.pipelineModelStageIndex = 0
+	}
+	switch msg.String() {
+	case "up", "k", "left", "h":
+		model.pipelineModelStageIndex = (model.pipelineModelStageIndex - 1 + len(stages)) % len(
+			stages,
+		)
+		return true, model, nil
+	case "down", "j", "right", "l":
+		model.pipelineModelStageIndex = (model.pipelineModelStageIndex + 1) % len(stages)
+		return true, model, nil
+	case "enter":
+		entry := stages[model.pipelineModelStageIndex]
+		return true, model, openModelPickerCmd(model, entry.stage, entry.label)
 	}
 	return false, model, nil
 }

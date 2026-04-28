@@ -164,13 +164,17 @@ type Model struct {
 	scopeChipIndex int
 	// keypointIndex is the cursor inside the key-points list when the
 	// keypoints section has focus, used by the per-section delete keys.
-	keypointIndex     int
-	commitMsg         string
-	commitTranslate   string
-	diffCode          string
-	iaSummaryOutput   string
-	iaCommitRawOutput string
-	iaTitleRawOutput  string
+	keypointIndex int
+	// pipelineModelStageIndex is the cursor inside the pipeline-models
+	// row when that section has focus, picking which stage Enter opens
+	// the model picker for.
+	pipelineModelStageIndex int
+	commitMsg               string
+	commitTranslate         string
+	diffCode                string
+	iaSummaryOutput         string
+	iaCommitRawOutput       string
+	iaTitleRawOutput        string
 	// iaChangelogEntry holds the markdown block the refiner produced for the
 	// CHANGELOG. Empty when the feature is disabled, the file is missing, or
 	// the AI call failed. Persisted to disk in createCommit().

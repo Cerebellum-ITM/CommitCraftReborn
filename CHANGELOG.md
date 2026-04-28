@@ -2,6 +2,50 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.16.0 — 2026-04-27
+
+Interactive Groq model picker for the Compose pipeline. The list of
+free-tier models is fetched from the Groq `/openai/v1/models` endpoint,
+filtered against a curated free-tier allowlist and cached in SQLite for
+24h. Picking a model rewrites the relevant `*_prompt_model` field in
+either the global config (`~/.config/CommitCraft/config.toml`) or the
+per-repo `.commitcraft.toml`, scope chosen explicitly per save.
+
+- `internal/api/groq.go`: new `ListGroqModels(apiKey)` hitting
+  `/openai/v1/models` with the existing Bearer pattern.
+- `internal/config/free_models.go`: curated `FreeTierChatModels`
+  allowlist (chat-capable, free-tier-listed IDs only).
+- `internal/config/save_model.go`: `SaveModelForStage` /
+  `ApplyModelToConfig` / `CurrentModelForStage` plus `ConfigScope` and
+  `ModelStage` types. Rewrites only the targeted TOML key by parsing
+  the file as a generic table so unrelated config survives.
+- `internal/storage/database.go` + `models_cache.go`: new
+  `groq_models_cache` table (created via `createModelsCacheTable`),
+  `SaveModelsCache` / `LoadModelsCache` helpers and an
+  `IsModelsCacheStale` TTL check.
+- `internal/tui/model_picker_popup.go`: two-step popup — a filterable
+  free-model list, then a `g`/`l` scope prompt.
+- `internal/tui/model_picker_glue.go`: `openModelPickerCmd` and
+  `refreshModelPickerCmd` perform cache-aware fetch/save in a tea.Cmd
+  and emit `modelPickerOpenedMsg` so the parent rebuilds the popup.
+- `internal/tui/update_writing.go`:
+  `handlePipelineModelsSectionKey` adds `↑↓/hjkl` to move the cursor
+  through the configurable stages and `enter` to open the picker.
+- `internal/tui/compose_sections.go`: pipeline-models row now reads the
+  current model via `config.CurrentModelForStage`, shows a `▸` cursor
+  on the focused stage and a `↑↓ pick stage · enter change model`
+  hint underneath.
+
+### Usage
+
+In the Compose tab press `Tab` until the **pipeline models** section is
+focused, then `↑/↓` (or `j/k`) to pick a stage and `Enter` to open the
+picker. Use `/` to filter the list, `r` to force a fresh fetch from the
+Groq API, `esc` to cancel. After picking a model, press `g` to save it
+in the global config or `l` to save it in `.commitcraft.toml` for the
+current repo. The change is applied to the running session immediately
+and reflected on the Pipeline tab.
+
 ## v0.15.14 — 2026-04-27
 
 Rework `@`-mentions on the Compose tab so the marker survives long

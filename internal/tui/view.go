@@ -250,6 +250,9 @@ func (model *Model) View() tea.View {
 	case configPopupModel:
 		ok = true
 		popupView = popupModel.View()
+	case modelPickerPopup:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}

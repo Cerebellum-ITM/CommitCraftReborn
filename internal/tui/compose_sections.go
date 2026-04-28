@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/tui/statusbar"
 )
 
@@ -286,7 +287,9 @@ func (model *Model) renderComposeKeypointsArea(width, height int, focused bool) 
 }
 
 // renderComposePipelineModelsArea shows a numbered list of the AI stages
-// with the model name configured for each.
+// with the model name configured for each. When the section has focus
+// the active stage is highlighted with a cursor and an `enter to change`
+// hint appears underneath.
 func (model *Model) renderComposePipelineModelsArea(width int, focused bool) string {
 	theme := model.Theme
 	base := theme.AppStyles().Base
@@ -294,37 +297,45 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 	labelText := "pipeline models"
 	label := theme.SectionPill(focused).Render(labelText)
 
-	prompts := model.globalConfig.Prompts
-	stages := []struct {
-		index int
-		name  string
-		model string
-	}{
-		{1, "summary", prompts.ChangeAnalyzerPromptModel},
-		{2, "raw commit", prompts.CommitBodyGeneratorPromptModel},
-		{3, "formatted", prompts.CommitTitleGeneratorPromptModel},
+	stages := composePipelineStages(model)
+	if focused && model.pipelineModelStageIndex >= len(stages) {
+		model.pipelineModelStageIndex = 0
 	}
 
 	rows := make([]string, 0, len(stages))
-	for _, s := range stages {
-		idx := base.Foreground(theme.Muted).Render(fmt.Sprintf("[%d]", s.index))
-		name := base.Foreground(theme.FG).Render(s.name)
+	for i, s := range stages {
+		isActive := focused && i == model.pipelineModelStageIndex
+		cursor := base.Foreground(theme.Muted).Render(" ")
+		idxColor := theme.Muted
+		nameColor := theme.FG
+		modColor := theme.Primary
+		if isActive {
+			cursor = base.Foreground(theme.Warning).Bold(true).Render("▸")
+			idxColor = theme.Warning
+			nameColor = theme.Warning
+			modColor = theme.Warning
+		}
+		idx := base.Foreground(idxColor).Render(fmt.Sprintf("[%d]", i+1))
+		name := base.Foreground(nameColor).Render(s.label)
 		sep := base.Foreground(theme.Muted).Render("·")
-		modelName := s.model
+		modelName := config.CurrentModelForStage(model.globalConfig, s.stage)
 		if modelName == "" {
 			modelName = "(unset)"
 		}
-		mod := base.Foreground(theme.Primary).Render(modelName)
+		mod := base.Foreground(modColor).Render(modelName)
 		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top,
-			idx, " ", name, " ", sep, " ", mod,
+			cursor, " ", idx, " ", name, " ", sep, " ", mod,
 		))
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		label,
-		"",
-		strings.Join(rows, "\n"),
-	)
+	parts := []string{label, ""}
+	parts = append(parts, strings.Join(rows, "\n"))
+	if focused {
+		hint := base.Foreground(theme.Muted).
+			Render("↑↓ pick stage · enter change model")
+		parts = append(parts, hint)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 // renderAISuggestionContent picks between the empty-state placeholder and
