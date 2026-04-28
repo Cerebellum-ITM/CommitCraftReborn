@@ -45,6 +45,10 @@ type ReleaseConfig struct {
 	GhToken          string `toml:"GH_TOKEN"`
 	Repository       string `toml:"repository"`
 	BinaryAssetsPath string `toml:"binary_assets_path"`
+
+	AutoBuild   bool   `toml:"auto_build"`
+	BuildTool   string `toml:"build_tool"`
+	BuildTarget string `toml:"build_target"`
 }
 
 // ChangelogConfig drives the optional post-pipeline step that detects the
@@ -169,6 +173,9 @@ func NewDefautlLocalConfig() Config {
 			GhToken:          "ghp_123456789dummytoken",
 			Repository:       "user/repo_path",
 			BinaryAssetsPath: "bin/",
+			AutoBuild:        false,
+			BuildTool:        "make",
+			BuildTarget:      "",
 		},
 	}
 }

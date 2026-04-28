@@ -279,6 +279,29 @@ func ResolveReleaseConfig(
 	globalCfg *Config, localCfg Config,
 ) {
 	globalCfg.ReleaseConfig = localCfg.ReleaseConfig
+	rc := &globalCfg.ReleaseConfig
+	if !rc.AutoBuild {
+		return
+	}
+	if rc.BuildTool == "" {
+		rc.BuildTool = "make"
+	}
+	if rc.BuildTool != "make" {
+		fmt.Fprintf(
+			os.Stderr,
+			"warning: release_config.build_tool=%q is not supported (only \"make\"); disabling auto_build\n",
+			rc.BuildTool,
+		)
+		rc.AutoBuild = false
+		return
+	}
+	if rc.BuildTarget == "" {
+		fmt.Fprintln(
+			os.Stderr,
+			"warning: release_config.auto_build=true but build_target is empty; disabling auto_build",
+		)
+		rc.AutoBuild = false
+	}
 }
 
 // ResolveTUIConfig merges the local TUI overrides on top of the global

@@ -2,6 +2,36 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.17.0 — 2026-04-27
+
+Optional pre-release build step. When configured per-repo, CommitCraft now runs
+a build command (currently only `make <target>`) right before kicking off the
+GitHub release upload, so the binaries published with `gh release create` are
+always built from the current tree. Off by default; opt-in via local config.
+
+On build failure the release is aborted, the status bar shows
+`Build failed — see logs`, and the full command output is written to the debug
+log. On success the flow continues into the existing GitHub upload step.
+
+Also: the global `Ctrl+X` quit shortcut is now suppressed while the release
+version popup is open, so it can be used to decrement the version component
+under the cursor (vim-style) without exiting the TUI.
+
+### Usage
+
+In the repo's local `.commitcraft.toml`:
+
+```toml
+[release_config]
+auto_build   = true
+build_tool   = "make"     # only "make" is supported for now
+build_target = "build_release"
+```
+
+If `auto_build` is `true` and `build_target` is empty, auto-build is silently
+disabled with a warning. Setting `build_tool` to anything other than `"make"`
+also disables it with a warning.
+
 # v0.16.2 — 2026-04-27
 Adds direct exit sequence via `Ctrl+X` for the Text User Interface.
   - Checks for `ctrl+x` message and returns model and `tea.Quit` command on match

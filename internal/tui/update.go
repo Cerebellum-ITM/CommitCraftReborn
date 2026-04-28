@@ -237,6 +237,18 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// If the version editor was popped as a pre-upload step, chain
 		// straight into the GitHub release with the freshly-saved tag.
 		if pending := model.pendingReleaseUpload; pending != nil {
+			model.releaseViewState.releaseCreated = true
+			rc := model.globalConfig.ReleaseConfig
+			if rc.AutoBuild {
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				model.WritingStatusBar.Content = fmt.Sprintf(
+					"Building release assets (%s %s)…",
+					rc.BuildTool,
+					rc.BuildTarget,
+				)
+				spinnerCmd := model.WritingStatusBar.StartSpinner()
+				return model, tea.Batch(spinnerCmd, execReleaseBuild(model))
+			}
 			model.pendingReleaseUpload = nil
 			model.WritingStatusBar.Level = statusbar.LevelWarning
 			model.WritingStatusBar.Content = fmt.Sprintf(
@@ -244,7 +256,6 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				msg.version,
 			)
 			spinnerCmd := model.WritingStatusBar.StartSpinner()
-			model.releaseViewState.releaseCreated = true
 			return model, tea.Batch(spinnerCmd, execUploadRelease(*pending, model))
 		}
 
@@ -572,6 +583,30 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
 		return model, tea.Batch(cmds...)
+	case releaseBuildResultMsg:
+		if msg.Err != nil {
+			model.log.Debug("release build failed", "output", msg.Output, "err", msg.Err)
+			model.pendingReleaseUpload = nil
+			cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+			model.err = msg.Err
+			model.WritingStatusBar.Content = "Build failed — see logs"
+			model.WritingStatusBar.Level = statusbar.LevelError
+			return model, tea.Batch(cmds...)
+		}
+		model.log.Debug("release build ok", "output", msg.Output)
+		pending := model.pendingReleaseUpload
+		model.pendingReleaseUpload = nil
+		if pending == nil {
+			cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+			return model, tea.Batch(cmds...)
+		}
+		model.WritingStatusBar.Level = statusbar.LevelWarning
+		model.WritingStatusBar.Content = fmt.Sprintf(
+			"Creating GitHub release %s…",
+			model.globalConfig.ReleaseConfig.Version,
+		)
+		cmds = append(cmds, execUploadRelease(*pending, model))
+		return model, tea.Batch(cmds...)
 	case releaseUpdloadResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 		if msg.Err != nil {
@@ -598,7 +633,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// focused. Without this guard the popup-routing block below
 		// would swallow the key whenever a popup was active.
 		if msg.String() == "ctrl+x" {
-			return model, tea.Quit
+			// The version popup uses ctrl+x to decrement the version
+			// component under the cursor. Let the popup consume it
+			// instead of quitting the TUI.
+			if _, ok := model.popup.(versionPopupModel); !ok {
+				return model, tea.Quit
+			}
 		}
 		// Global logs popup toggle — works on top of any state, even with
 		// another popup open, as long as we're not typing in a filter.
