@@ -2,6 +2,13 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.19.1 — 2026-04-28
+
+- Improved the stage history popup UI by refactoring its rendering and navigation logic, providing clearer separation and consistent spacing of the version list and preview pane.
+- Added a new helper to display a hint for opening the popup with the **H** key.
+- Standardized scrolling behavior and the apply-action flow to match other UI components.
+- Enhanced readability through layout adjustments, including line rendering and element spacing.
+
 ## v0.19.0 — 2026-04-28
 
 In-memory history of AI generations per pipeline stage. Every successful

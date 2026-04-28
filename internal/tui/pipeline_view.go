@@ -389,9 +389,18 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 	// fully by the viewport.
 	stageTelemetry := renderStageTelemetry(theme, st)
 
+	// When this stage has at least one captured generation, append a
+	// thin hint line below the bar so the user knows `H` opens the
+	// history popup. Steals one row from the viewport when shown.
+	historyHint := renderStageHistoryHint(theme, st, innerW)
+	vpRows := bodyRows
+	if historyHint != "" {
+		vpRows = max(1, bodyRows-1)
+	}
+
 	vp := model.stageViewportModel(stageID(idx))
 	vp.SetWidth(innerW)
-	vp.SetHeight(bodyRows)
+	vp.SetHeight(vpRows)
 	// Content is rendered fresh each frame so it adapts to width changes
 	// (panel resize, focus growth) and stays in sync with the latest model
 	// outputs without a separate cache.
@@ -401,11 +410,14 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 	// Some viewports return fewer rows than requested when the source is
 	// empty. Pad so the underline stays anchored to the bottom border.
 	bodyLineCount := strings.Count(bodyRendered, "\n") + 1
-	if bodyLineCount < bodyRows {
-		bodyRendered += strings.Repeat("\n", bodyRows-bodyLineCount)
+	if bodyLineCount < vpRows {
+		bodyRendered += strings.Repeat("\n", vpRows-bodyLineCount)
 	}
 
 	content := bodyRendered + "\n" + bar
+	if historyHint != "" {
+		content += "\n" + historyHint
+	}
 
 	icon := stageIcon(st.Status, model.pipeline.spinner.View())
 	titleText := fmt.Sprintf("stage %d · %s", idx+1, strings.ToLower(st.Title))
@@ -584,6 +596,41 @@ func (model *Model) stageViewportModel(id stageID) *viewport.Model {
 	return nil
 }
 
+// renderStageHistoryHint draws a thin "[H] history · vN/M" line shown
+// under the stage's bottom bar so the user knows the history popup
+// exists. Returns the empty string when the stage has no captured
+// versions yet, so the caller can skip the row reservation.
+func renderStageHistoryHint(theme *styles.Theme, st *pipelineStage, width int) string {
+	total := len(st.History)
+	if total == 0 {
+		return ""
+	}
+	base := theme.AppStyles().Base
+	keyStyle := base.Foreground(theme.Primary).Bold(true)
+	descStyle := base.Foreground(theme.Muted)
+	sepStyle := base.Foreground(theme.Subtle)
+
+	active := st.ActiveHistoryIndex + 1
+	if active <= 0 || active > total {
+		active = total
+	}
+	parts := []string{
+		keyStyle.Render("H"),
+		descStyle.Render(" history"),
+	}
+	if total > 1 {
+		parts = append(parts,
+			sepStyle.Render("  ·  "),
+			descStyle.Render(fmt.Sprintf("v%d/%d", active, total)),
+		)
+	}
+	line := strings.Join(parts, "")
+	if w := ansi.StringWidth(line); w > width && width > 0 {
+		return ansi.Truncate(line, width, "…")
+	}
+	return line
+}
+
 // renderStageTelemetry is the title-row variant of the per-stage stats —
 // same content as renderStageStatsLine but rendered without a width cap
 // so the caller (renderTitledPanel) can decide how to lay it out and
@@ -689,23 +736,8 @@ func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int, dim
 		line += sep + bar + " " + pctText
 	}
 
-	// Append a "vN/M" badge when the user has more than one captured
-	// version for this stage so the card shows whether they are looking
-	// at the latest run or a swapped-in earlier one.
-	if total := len(st.History); total > 1 {
-		active := st.ActiveHistoryIndex + 1
-		if active <= 0 || active > total {
-			active = total
-		}
-		badgeColor := pctColor
-		if !dim {
-			badgeColor = theme.AI
-		}
-		badge := base.Foreground(badgeColor).Render(
-			fmt.Sprintf("v%d/%d", active, total),
-		)
-		line += sep + badge
-	}
+	// (The "vN/M" badge that used to live here moved to the hint line
+	// rendered under the stage bar — see renderStageHistoryHint.)
 
 	if w := ansi.StringWidth(line); w > width && width > 0 {
 		line = ansi.Truncate(line, width, "…")
