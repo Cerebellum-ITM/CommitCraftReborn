@@ -592,6 +592,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logsChannelClosedMsg:
 		return model, tea.Batch(cmds...)
 	case tea.KeyMsg:
+		// Global hard-quit. Runs ahead of every other handler — popups,
+		// logs viewer, per-state code — so Ctrl+X always exits the TUI
+		// regardless of whatever overlay is open or which input is
+		// focused. Without this guard the popup-routing block below
+		// would swallow the key whenever a popup was active.
+		if msg.String() == "ctrl+x" {
+			return model, tea.Quit
+		}
 		// Global logs popup toggle — works on top of any state, even with
 		// another popup open, as long as we're not typing in a filter.
 		if msg.String() == "ctrl+l" {

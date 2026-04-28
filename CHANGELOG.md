@@ -2,6 +2,15 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+# v0.16.2 — 2026-04-27
+Adds direct exit sequence via `Ctrl+X` for the Text User Interface.
+  - Checks for `ctrl+x` message and returns model and `tea.Quit` command on match
+  - Conditional check enables direct exit sequence from anywhere in the TUI
+
+# Usage
+
+# Added
+
 # v0.16.1 — 2026-04-27
 
 ### Changed
