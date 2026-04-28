@@ -305,6 +305,26 @@ func RenderStatus(level LogLevel, msg string) string {
 	)
 }
 
+// RenderLabeled mirrors RenderStatus but with a caller-provided label so
+// the same dark pill palettes can drive contextual section markers (e.g.
+// the compose bottom bar uses one level per focused section, with the
+// section name as the pill text).
+func RenderLabeled(level LogLevel, label, msg string) string {
+	pill, body, _ := stylesFor(level)
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		pill.Render(label),
+		body.Render(msg),
+	)
+}
+
+// LabelPillWidth returns the rendered width of just the pill (not the
+// body) for a given level + label. Useful when the caller needs to align
+// extra content right of the pair.
+func LabelPillWidth(level LogLevel, label string) int {
+	pill, _, _ := stylesFor(level)
+	return lipgloss.Width(pill.Render(label))
+}
+
 // RenderStatusFull stretches the bar to width, with a right-aligned ctx
 // (typically version, request stats, or other metadata).
 func RenderStatusFull(level LogLevel, msg, ctx string, width int) string {

@@ -5,6 +5,11 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"commit_craft_reborn/internal/config"
+	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/tui/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // composeMaxChars is the soft cap shown in the status bar's "X / Y chars"
@@ -12,54 +17,183 @@ import (
 // nudging the user to keep summaries terse.
 const composeMaxChars = 500
 
-// renderComposeBottomBar draws the static info bar that lives below the
-// compose panels:
-//
-//	[compose]  78 / 500 chars · 3 key points         ▓▓▓░░░ 16%
-//
-// Char count is the textarea content plus joined keypoints. The progress
-// bar is currentChars / composeMaxChars.
+// renderComposeBottomBar draws a contextual info bar below the compose
+// panels. The pill on the left names the focused section (using one of
+// the dark message palettes per section so each one is visually distinct)
+// and the body content depends on what the section is about — type
+// description, scope value, char counter + progress bar, key-point
+// total, model context window, etc.
 func (model *Model) renderComposeBottomBar(width int) string {
+	level, label, body, right := composeBottomBarContent(model, width)
+	left := statusbar.RenderLabeled(level, label, body)
+
+	if right == "" {
+		// Pad so the bar fills width; keeps the underlying surface clean
+		// when the section has no right-aligned extra.
+		gap := max(0, width-lipgloss.Width(left))
+		return left + strings.Repeat(" ", gap)
+	}
+
+	rightW := lipgloss.Width(right)
+	leftW := lipgloss.Width(left)
+	pad := max(1, width-leftW-rightW)
+	return left + strings.Repeat(" ", pad) + right
+}
+
+// composeBottomBarContent picks the (palette, label, body, right-extra)
+// tuple for the focused compose section. Right-extra is empty for every
+// section except `summary`, which keeps the chars/% progress bar.
+func composeBottomBarContent(
+	model *Model, width int,
+) (statusbar.LogLevel, string, string, string) {
 	theme := model.Theme
 	base := theme.AppStyles().Base
 
-	pill := base.
-		Foreground(theme.BG).
-		Background(theme.Primary).
-		Bold(true).
-		Padding(0, 1).
-		Render("compose")
+	switch model.focusedElement {
+	case focusComposeType:
+		desc := commitTypeDescription(model, model.commitType)
+		if desc == "" {
+			desc = "(no description)"
+		}
+		return statusbar.LevelInfo, "TYPE", desc, ""
 
+	case focusComposeScope:
+		body := composeScopeBody(model)
+		return statusbar.LevelChangelog, "SCOPE", body, ""
+
+	case focusComposeSummary, focusMsgInput:
+		chars := composeCharCount(model)
+		body := fmt.Sprintf("%d / %d chars", chars, composeMaxChars)
+		right := composeProgressBar(theme, base, chars, width)
+		return statusbar.LevelAI, "SUMMARY", body, right
+
+	case focusComposeKeypoints:
+		body := fmt.Sprintf("%d key point", len(model.keyPoints))
+		if len(model.keyPoints) != 1 {
+			body += "s"
+		}
+		return statusbar.LevelWarning, "KEYPOINTS", body, ""
+
+	case focusComposePipelineModels:
+		body := composePipelineModelBody(model)
+		return statusbar.LevelRun, "PIPELINE", body, ""
+
+	case focusComposeAISuggestion, focusAIResponse:
+		body := composeAISuggestionBody(model)
+		return statusbar.LevelSuccess, "AI", body, ""
+	}
+
+	// Fallback: behaves like the summary section so the bar always has
+	// useful content even if a new focus enum slips through.
 	chars := composeCharCount(model)
+	body := fmt.Sprintf("%d / %d chars", chars, composeMaxChars)
+	right := composeProgressBar(theme, base, chars, width)
+	return statusbar.LevelAI, "SUMMARY", body, right
+}
+
+// composeProgressBar renders the filled/empty progress block + percentage
+// label that lives on the right of the bottom bar when the summary
+// section is focused.
+func composeProgressBar(
+	theme *styles.Theme, base lipgloss.Style, chars, width int,
+) string {
 	pct := chars * 100 / composeMaxChars
 	if pct > 100 {
 		pct = 100
 	}
-
-	info := base.Foreground(theme.Muted).Render(
-		fmt.Sprintf("%d / %d chars · %d key points",
-			chars, composeMaxChars, len(model.keyPoints),
-		),
-	)
-
-	left := lipgloss.JoinHorizontal(lipgloss.Top, pill, "  ", info)
-	leftW := lipgloss.Width(left)
-
-	// Reserve at least 12 cols for a bar + percentage on the right.
-	const minRightW = 12
-	rightAvailable := max(minRightW, width-leftW-2)
-	barW := max(4, rightAvailable-6) // 6 chars reserved for " 100%"
+	const minBarArea = 12
+	rightAvailable := max(minBarArea, width/3)
+	barW := max(4, rightAvailable-6)
 	filled := barW * pct / 100
 	bar := base.Foreground(theme.Primary).Render(strings.Repeat("█", filled)) +
 		base.Foreground(theme.Subtle).Render(strings.Repeat("░", barW-filled))
 	pctText := base.Foreground(theme.Muted).Render(fmt.Sprintf("%3d%%", pct))
-	right := bar + " " + pctText
+	return bar + " " + pctText
+}
 
-	rightW := lipgloss.Width(right)
-	pad := max(1, width-leftW-rightW)
-	spacer := strings.Repeat(" ", pad)
+// composeScopeBody summarises the staged changeset that is about to be
+// committed: file count + total +adds / -dels pulled from
+// `git diff --staged --numstat`. Falls back to a hint when nothing is
+// staged so the user knows there is no commit to build yet.
+func composeScopeBody(model *Model) string {
+	numstat, err := git.GetStagedNumstat()
+	if err != nil || len(numstat) == 0 {
+		return "no staged changes · stage files with git add"
+	}
+	adds, dels := 0, 0
+	for _, ns := range numstat {
+		if ns.Adds > 0 {
+			adds += ns.Adds
+		}
+		if ns.Dels > 0 {
+			dels += ns.Dels
+		}
+	}
+	noun := "file"
+	if len(numstat) != 1 {
+		noun = "files"
+	}
+	return fmt.Sprintf("%d %s staged · +%d −%d", len(numstat), noun, adds, dels)
+}
 
-	return left + spacer + right
+// commitTypeDescription returns the description of the currently
+// selected commit type, looked up against the resolved type list.
+func commitTypeDescription(model *Model, tag string) string {
+	for _, ct := range model.finalCommitTypes {
+		if ct.Tag == tag {
+			return ct.Description
+		}
+	}
+	return ""
+}
+
+// composePipelineModelBody returns "<model id> · ctx Nk" for the stage
+// currently under the pipeline-models cursor. Falls back to "(unset)"
+// when no model is configured for the stage.
+func composePipelineModelBody(model *Model) string {
+	stages := composePipelineStages(model)
+	if len(stages) == 0 {
+		return "(no stages)"
+	}
+	idx := model.pipelineModelStageIndex
+	if idx < 0 || idx >= len(stages) {
+		idx = 0
+	}
+	stage := stages[idx]
+	modelID := config.CurrentModelForStage(model.globalConfig, stage.stage)
+	if modelID == "" {
+		return stage.label + " · (unset)"
+	}
+	ctx := lookupModelContext(model, modelID)
+	if ctx == 0 {
+		return fmt.Sprintf("%s · %s", stage.label, modelID)
+	}
+	return fmt.Sprintf("%s · %s · %dk ctx", stage.label, modelID, ctx/1000)
+}
+
+// lookupModelContext returns the cached context window for modelID, or 0
+// when the cache is empty / the id is not in it. Read-only call — no
+// fetch is triggered from here.
+func lookupModelContext(model *Model, modelID string) int {
+	cached, _, err := model.db.LoadModelsCache()
+	if err != nil {
+		return 0
+	}
+	for _, m := range cached {
+		if m.ID == modelID {
+			return m.ContextWindow
+		}
+	}
+	return 0
+}
+
+// composeAISuggestionBody describes the AI panel: its char count when
+// populated, an "(empty)" hint otherwise.
+func composeAISuggestionBody(model *Model) string {
+	if strings.TrimSpace(model.commitTranslate) == "" {
+		return "(empty) · press ^W to generate"
+	}
+	return fmt.Sprintf("%d chars · ↵ to accept", len(model.commitTranslate))
 }
 
 // composeCharCount sums the textarea content with each key point so the

@@ -2,6 +2,18 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+# v0.16.1 — 2026-04-27
+
+### Changed
+- Added contextual info bar below the compose panels in the bottom status bar.
+
+- Updated `renderComposeBottomBar` to use `composeBottomBarContent`.
+- Introduced `commitTypeDescription`, `composeScopeBody`, `composePipelineModelBody`, `lookupModelContext`, and `composeAISuggestionBody` helper functions.
+- Implemented `RenderLabeled` in `statusbar.go` for rendering labeled pills.
+
+- Extracted modular functions for improved code organization and readability.
+- Performed code formatting adjustments for consistency.
+
 ## v0.16.0 — 2026-04-27
 
 Interactive Groq model picker for the Compose pipeline. The list of
