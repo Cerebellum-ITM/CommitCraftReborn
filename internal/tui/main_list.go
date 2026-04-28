@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"image/color"
 	"io"
 	"strings"
 	"time"
@@ -33,61 +32,25 @@ func (hci HistoryCommitItem) FilterValue() string {
 		hci.commit.Type + " " + hci.commit.Scope
 }
 
+// HistoryCommitDelegate renders a single dense row per commit:
+//
+//	#371 DOC   [DOC] docs: update docs organization…  04-23 23:18
+//
+// Columns: id+type-block (≈12 cols) | message (flex) | when (12 cols, right-aligned).
+// The selected row gets a left accent border and a Surface background so the
+// cursor position stays visible without breaking the dense layout.
 type HistoryCommitDelegate struct {
 	list.DefaultDelegate
 
-	commitTypeStyle          lipgloss.Style
-	selectedContainerStyle   lipgloss.Style
-	unselectedContainerStyle lipgloss.Style
-	Theme                    *styles.Theme
-	globalConfig             config.Config
-	infoText                 lipgloss.Style
-
-	commitFormat       string
-	dateStyle          lipgloss.Style
-	idStyle            lipgloss.Style
-	msgOriginalStyle   lipgloss.Style
-	msgTranslatedStyle lipgloss.Style
-	finalMsgStyle      lipgloss.Style
+	Theme        *styles.Theme
+	globalConfig config.Config
 }
 
 func NewHistoryCommitDelegate(globalConfig config.Config, theme *styles.Theme) list.ItemDelegate {
-	baseStyle := theme.AppStyles().Base
 	return HistoryCommitDelegate{
 		globalConfig: globalConfig,
-		commitFormat: globalConfig.CommitFormat.TypeFormat,
 		Theme:        theme,
-		selectedContainerStyle: baseStyle.
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(theme.Accent).
-			PaddingLeft(1),
-
-		unselectedContainerStyle: baseStyle.
-			PaddingLeft(2),
-
-		commitTypeStyle: baseStyle.
-			Foreground(theme.Blur),
-		dateStyle: baseStyle.
-			Foreground(theme.Blur),
-
-		idStyle: baseStyle.
-			Foreground(theme.Blur),
-
-		msgOriginalStyle: baseStyle.Foreground(theme.Blur),
-
-		msgTranslatedStyle: baseStyle.Foreground(theme.Blur),
-		finalMsgStyle:      baseStyle.Foreground(theme.Blur),
-		infoText:           baseStyle.Foreground(theme.Blur),
 	}
-}
-
-func (d HistoryCommitDelegate) GetCommitTypeColor(commitType string) color.Color {
-	colorStr, ok := d.globalConfig.CommitFormat.CommitTypeColors[commitType]
-	if !ok || colorStr == "" {
-		// Fallback color if not found
-		return d.Theme.White
-	}
-	return lipgloss.Color(colorStr)
 }
 
 func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
@@ -97,118 +60,120 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	}
 
 	commit := it.commit
-	tagStr := fmt.Sprintf("%s", commit.Type)
+	palette := styles.CommitTypePalette(d.Theme, commit.Type)
+	selected := index == m.Index()
 
-	dateStr := commit.CreatedAt.Format("2006-01-02 15:04")
-	idStr := fmt.Sprintf("ID: %d", commit.ID)
-	originalMsg := strings.Join(commit.KeyPoints, " · ")
-	translatedMsg := commit.MessageEN
-	formattedCommitType := fmt.Sprintf(d.commitFormat, commit.Type)
-	finalStr := fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+	idStr := fmt.Sprintf("#%-4d", commit.ID)
+	typeTag := strings.ToUpper(commit.Type)
 
-	var (
-		indicator                 = " "
-		indicatorStyle            lipgloss.Style
-		currentCommitTypeStyle    lipgloss.Style
-		itemDisplayStyle          lipgloss.Style
-		currentDateStyle          lipgloss.Style
-		currentIDStyle            lipgloss.Style
-		currentMsgOriginalStyle   lipgloss.Style
-		currentMsgTranslatedStyle lipgloss.Style
-		currentFinalMsgStyle      lipgloss.Style
-		currentInfoText           lipgloss.Style
-		adicionalUiText           lipgloss.Style
-	)
+	// Type block (chip on the left of the row): per-type bg + fg.
+	typeBlock := lipgloss.NewStyle().
+		Background(palette.BgBlock).
+		Foreground(palette.FgBlock).
+		Bold(true).
+		Padding(0, 1).
+		Render(typeTag)
 
-	indicatorStyle = lipgloss.NewStyle().Foreground(d.Theme.Accent)
-
-	if index == m.Index() {
-		indicator = "❯"
-		currentCommitTypeStyle = d.commitTypeStyle.Foreground(d.GetCommitTypeColor(commit.Type))
-		itemDisplayStyle = d.selectedContainerStyle
-		currentDateStyle = d.dateStyle.Bold(true).
-			Foreground(d.Theme.Accent)
-		currentIDStyle = d.idStyle.Bold(true).
-			Foreground(d.Theme.FillTextLine)
-		currentMsgOriginalStyle = d.msgOriginalStyle.Foreground(d.Theme.Input)
-		currentMsgTranslatedStyle = d.msgTranslatedStyle.Italic(true).
-			Foreground(d.Theme.Output)
-		currentFinalMsgStyle = d.finalMsgStyle.Foreground(d.GetCommitTypeColor(commit.Type))
-		currentInfoText = d.infoText.Foreground(d.Theme.FgSubtle)
-		adicionalUiText = d.Theme.AppStyles().Base.Foreground(d.Theme.White)
-	} else {
-		itemDisplayStyle = d.unselectedContainerStyle
-		currentDateStyle = d.dateStyle
-		currentIDStyle = d.idStyle
-		currentMsgOriginalStyle = d.msgOriginalStyle
-		currentMsgTranslatedStyle = d.msgTranslatedStyle
-		currentCommitTypeStyle = d.commitTypeStyle
-		currentFinalMsgStyle = d.finalMsgStyle
-		currentInfoText = d.infoText
-		adicionalUiText = d.Theme.AppStyles().Base.Foreground(d.Theme.Blur)
+	idStyle := lipgloss.NewStyle().Foreground(d.Theme.Muted)
+	if selected {
+		idStyle = idStyle.Foreground(d.Theme.Primary).Bold(true)
 	}
-	contentAvailableWidth := m.Width() - itemDisplayStyle.GetHorizontalPadding() - itemDisplayStyle.
-		GetHorizontalBorderSize() - lipgloss.Width(indicator+" ")
+	idRendered := idStyle.Render(idStr)
 
-	openBracket := adicionalUiText.SetString("(").String()
-	closeBracket := adicionalUiText.SetString(")").String()
-	line1Content := lipgloss.JoinHorizontal(
+	// Inline [TYPE] tag in the message preview uses the dimmer msg palette.
+	inlineTagStyle := lipgloss.NewStyle().
+		Background(palette.BgMsg).
+		Foreground(palette.FgMsg).
+		Padding(0, 1)
+
+	scopeStyle := lipgloss.NewStyle().Foreground(d.Theme.Secondary)
+	colonStyle := lipgloss.NewStyle().Foreground(d.Theme.Muted)
+	titleStyle := lipgloss.NewStyle().Foreground(d.Theme.FG)
+	if selected {
+		titleStyle = titleStyle.Bold(true)
+	} else {
+		titleStyle = titleStyle.Foreground(d.Theme.Muted)
+	}
+
+	dateStr := commit.CreatedAt.Format("01-02 15:04")
+	dateStyle := lipgloss.NewStyle().Foreground(d.Theme.Subtle)
+	if selected {
+		dateStyle = dateStyle.Foreground(d.Theme.Primary)
+	}
+	dateRendered := dateStyle.Render(dateStr)
+
+	// Container styles: left border accent + Surface bg when selected.
+	container := lipgloss.NewStyle().PaddingLeft(2)
+	if selected {
+		container = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(d.Theme.Primary).
+			Background(d.Theme.Surface).
+			PaddingLeft(1)
+	}
+
+	totalWidth := m.Width() - container.GetHorizontalFrameSize() - container.GetHorizontalPadding()
+	if totalWidth < 20 {
+		totalWidth = 20
+	}
+
+	leftBlock := lipgloss.JoinHorizontal(lipgloss.Top, idRendered, " ", typeBlock)
+	leftWidth := lipgloss.Width(leftBlock)
+	dateWidth := lipgloss.Width(dateRendered)
+	gapBeforeDate := 2
+
+	msgWidth := totalWidth - leftWidth - dateWidth - 1 - gapBeforeDate
+	if msgWidth < 8 {
+		msgWidth = 8
+	}
+
+	inlineTag := inlineTagStyle.Render(typeTag)
+	inlineTagWidth := lipgloss.Width(inlineTag) + 1
+
+	// Build "scope: title" suffix, truncated to fit.
+	var msgSuffix string
+	scopePart := strings.TrimSpace(commit.Scope)
+	titlePart := commit.MessageEN
+	available := msgWidth - inlineTagWidth
+	if available < 4 {
+		available = 4
+	}
+
+	if scopePart != "" {
+		head := scopeStyle.Render(scopePart) + colonStyle.Render(": ")
+		headPlain := scopePart + ": "
+		titleAvail := available - lipgloss.Width(headPlain)
+		if titleAvail < 1 {
+			titleAvail = 1
+		}
+		msgSuffix = head + titleStyle.Render(TruncateString(titlePart, titleAvail))
+	} else {
+		msgSuffix = titleStyle.Render(TruncateString(titlePart, available))
+	}
+
+	msgBlock := lipgloss.JoinHorizontal(lipgloss.Top, inlineTag, " ", msgSuffix)
+
+	// Pad the middle area so the date is right-aligned.
+	currentRowWidth := leftWidth + 1 + lipgloss.Width(msgBlock)
+	pad := totalWidth - currentRowWidth - dateWidth
+	if pad < 1 {
+		pad = 1
+	}
+
+	row := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		currentDateStyle.Render(dateStr),
+		leftBlock,
 		" ",
-		lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			openBracket,
-			currentIDStyle.Render(idStr),
-			closeBracket,
-		),
-		" ",
-		lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			openBracket,
-			currentCommitTypeStyle.SetString("Type: ").String(),
-			currentCommitTypeStyle.Render(tagStr),
-			closeBracket,
-		),
+		msgBlock,
+		strings.Repeat(" ", pad),
+		dateRendered,
 	)
 
-	msgPrefixWidth := 7
-	maxMsgLength := contentAvailableWidth - msgPrefixWidth
-	maxMsgLength = max(maxMsgLength, 10)
-
-	truncatedOriginalMsg := TruncateString(originalMsg, maxMsgLength)
-	truncatedTranslatedMsg := TruncateString(translatedMsg, maxMsgLength)
-	truncatedFinalStr := TruncateString(finalStr, maxMsgLength)
-
-	line1 := fmt.Sprintf("%s %s", indicatorStyle.Render(indicator), line1Content)
-	line2 := fmt.Sprintf(
-		"  %s %s",
-		currentInfoText.Render("Inp:"),
-		currentMsgOriginalStyle.Render(truncatedOriginalMsg),
-	)
-	line3 := fmt.Sprintf(
-		"  %s %s",
-		currentInfoText.Render("Out:"),
-		currentMsgTranslatedStyle.Render(truncatedTranslatedMsg),
-	)
-	line4 := fmt.Sprintf(
-		"  %s %s",
-		currentInfoText.Render("Fnl:"),
-		currentFinalMsgStyle.Render(truncatedFinalStr),
-	)
-
-	finalRender := lipgloss.JoinVertical(lipgloss.Left,
-		line1,
-		line2,
-		line3,
-		line4,
-	)
-
-	fmt.Fprint(w, itemDisplayStyle.Width(m.Width()).Render(finalRender))
+	fmt.Fprint(w, container.Width(m.Width()).Render(row))
 }
 
-func (d HistoryCommitDelegate) Height() int  { return 3 }
-func (d HistoryCommitDelegate) Spacing() int { return 1 }
+func (d HistoryCommitDelegate) Height() int  { return 1 }
+func (d HistoryCommitDelegate) Spacing() int { return 0 }
 
 func NewHistoryCommitList(
 	workspaceCommits []storage.Commit,
@@ -224,7 +189,7 @@ func NewHistoryCommitList(
 	historyList := list.New(items, NewHistoryCommitDelegate(globalConfig, theme), 0, 0)
 	historyList.Title = fmt.Sprintf("%s: %s", "Working directory", TruncatePath(pwd, 2))
 	historyList.SetShowTitle(false)
-	historyList.SetShowFilter(true)
+	historyList.SetShowFilter(false)
 	historyList.SetShowHelp(false)
 	historyList.SetStatusBarItemName("commit", "commits")
 	historyList.Styles.StatusBar = historyList.Styles.StatusBar.Foreground(theme.Accent)

@@ -161,8 +161,21 @@ func (model *Model) View() tea.View {
 		)
 		mainContent = centeredBox
 	case stateChoosingCommit:
-		model.mainList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
-		mainContent = model.mainList.View()
+		listW, listH := model.historyView.MasterListSize(
+			availableWidthForMainContent,
+			availableHeightForMainContent,
+		)
+		model.mainList.SetSize(listW, listH)
+		model.historyView.SetCounts(
+			len(model.mainList.VisibleItems()),
+			len(model.mainList.Items()),
+		)
+		masterListView := model.mainList.View()
+		mainContent = model.historyView.View(
+			masterListView,
+			availableWidthForMainContent,
+			availableHeightForMainContent,
+		)
 	case stateReleaseMainMenu:
 		model.releaseMainList.SetSize(availableWidthForMainContent/2, availableHeightForMainContent)
 		mainContent = model.releaseMainList.View()

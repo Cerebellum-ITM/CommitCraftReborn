@@ -37,6 +37,7 @@ type KeyMap struct {
 	EditIaCommit   key.Binding
 	ReleaseCommit  key.Binding
 	ToggleDrafts   key.Binding
+	SwapMode       key.Binding
 
 	// TextArea
 	insertLine      key.Binding
@@ -179,6 +180,10 @@ func mainListKeys() KeyMap {
 		SwitchMode: key.NewBinding(
 			key.WithKeys("ctrl+s"),
 			key.WithHelp("ctrl+s", "Switch Mode"),
+		),
+		SwapMode: key.NewBinding(
+			key.WithKeys("ctrl+m"),
+			key.WithHelp("ctrl+m", "Swap inspect mode"),
 		),
 	}
 }

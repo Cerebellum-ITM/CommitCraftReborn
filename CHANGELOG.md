@@ -2,6 +2,37 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.20.0 — 2026-04-28
+
+Redesigned the History list (`stateChoosingCommit`) into a four-zone layout
+that surfaces commit context without leaving the screen.
+
+- `MasterList`: dense single-line rows (`#id TYPE [TYPE] scope: title… date`)
+  using a new 14-type default palette (ADD, FIX, DOC, WIP, STYLE, REFACTOR,
+  TEST, PERF, CHORE, DEL, BUILD, CI, REVERT, SEC). Tags outside the spec
+  fall back to a neutral theme-derived palette. The user-supplied
+  `commit_type_colors` config is ignored for the History view.
+- `FilterBar`: dedicated filter row with prefix `› filter`, placeholder, and
+  `n / total` counter; focus-reactive border. Replaces the list's built-in
+  filter UI.
+- `ModeBar`: segmented switch between two inspection contexts.
+- `DualPanel`: 28/flex split below the list with two modes:
+  - **A — KeyPoints / Body**: keypoints list + viewport with the AI body
+    (`IaCommitRaw`).
+  - **B — Stages / Response**: 3 persisted IA stages (`summary`, `body`,
+    `title`) + viewport with the corresponding raw output.
+
+All previous keybindings (Enter, d, e, n/Tab, r, ctrl+d, ctrl+s, /, q, ?,
+ctrl+x, ctrl+c) keep their behaviour.
+
+### Usage
+
+- Press `/` to focus the new FilterBar; `Esc` clears it and unfocuses.
+- Press `Ctrl+M` to swap the DualPanel between *KeyPoints / Body* and
+  *Stages / Response*.
+- `pgup` / `pgdown` scroll the active right-side viewport.
+- Drafts toggle (`Ctrl+D`) keeps the new layout — only the dataset changes.
+
 ## v0.19.2 — 2026-04-28
 
 - Unified the rendering path for stage history entries, using the same logic as the live stage card.

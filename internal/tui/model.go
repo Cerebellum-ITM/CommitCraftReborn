@@ -128,6 +128,7 @@ type Model struct {
 	keyPoints               []string
 	commitsKeysInput        textarea.Model
 	mainList                list.Model
+	historyView             HistoryView
 	releaseCommitList       list.Model
 	commitsKeysViewport     viewport.Model
 	releaseViewport         viewport.Model
@@ -427,6 +428,7 @@ func NewModel(
 		state:                   initalState,
 		pendingRewordHash:       pendingRewordHash,
 		mainList:                workspaceCommitsList,
+		historyView:             NewHistoryView(theme),
 		releaseMainList:         releaseList,
 		releaseViewport:         releaseViewport,
 		releaseViewState:        &releaseViewState{selecting: false, releaseCreated: false},
