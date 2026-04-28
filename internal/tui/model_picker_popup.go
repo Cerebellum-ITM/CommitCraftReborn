@@ -285,14 +285,22 @@ func renderModelQuotaFooter(theme *styles.Theme, modelID string, width int) stri
 	if width < 24 {
 		width = 24
 	}
-	// Groq's rate-limit headers expose one bucket per resource (requests
-	// and tokens) — typically the tightest active window. We show both
-	// bars with the captured reset times beside them so the user knows
-	// when the bucket refills.
-	reqs := renderThinQuotaBar(theme, "REQ",
-		rl.LimitRequests-rl.RemainingRequests, rl.LimitRequests, width)
-	toks := renderThinQuotaBar(theme, "TOK",
-		rl.LimitTokens-rl.RemainingTokens, rl.LimitTokens, width)
+	// REQ + TOK both derive from the captured `remaining-*` headers;
+	// the Parsed flags guard against models whose response omitted a
+	// header (would otherwise show a misleading 100% bar).
+	var reqs, toks string
+	if rl.RequestsParsed {
+		reqs = renderThinQuotaBar(theme, "REQ",
+			rl.LimitRequests-rl.RemainingRequests, rl.LimitRequests, width)
+	} else {
+		reqs = renderThinQuotaBar(theme, "REQ", 0, 0, width)
+	}
+	if rl.TokensParsed {
+		toks = renderThinQuotaBar(theme, "TOK",
+			rl.LimitTokens-rl.RemainingTokens, rl.LimitTokens, width)
+	} else {
+		toks = renderThinQuotaBar(theme, "TOK", 0, 0, width)
+	}
 
 	resetLine := base.Foreground(theme.Muted).Render(fmt.Sprintf(
 		"resets in: requests %s · tokens %s",

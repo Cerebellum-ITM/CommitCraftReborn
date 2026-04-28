@@ -305,7 +305,7 @@ func (db *DB) SaveModelRateLimits(rl ModelRateLimits) error {
 		capturedAt = time.Now()
 	}
 	_, err := db.Exec(
-		"INSERT INTO model_rate_limits (model_id, limit_requests, remaining_requests, reset_requests_ms, limit_tokens, remaining_tokens, reset_tokens_ms, captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(model_id) DO UPDATE SET limit_requests=excluded.limit_requests, remaining_requests=excluded.remaining_requests, reset_requests_ms=excluded.reset_requests_ms, limit_tokens=excluded.limit_tokens, remaining_tokens=excluded.remaining_tokens, reset_tokens_ms=excluded.reset_tokens_ms, captured_at=excluded.captured_at",
+		"INSERT INTO model_rate_limits (model_id, limit_requests, remaining_requests, reset_requests_ms, limit_tokens, remaining_tokens, reset_tokens_ms, captured_at, requests_parsed, tokens_parsed, requests_today, requests_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(model_id) DO UPDATE SET limit_requests=excluded.limit_requests, remaining_requests=excluded.remaining_requests, reset_requests_ms=excluded.reset_requests_ms, limit_tokens=excluded.limit_tokens, remaining_tokens=excluded.remaining_tokens, reset_tokens_ms=excluded.reset_tokens_ms, captured_at=excluded.captured_at, requests_parsed=excluded.requests_parsed, tokens_parsed=excluded.tokens_parsed, requests_today=excluded.requests_today, requests_day=excluded.requests_day",
 		rl.ModelID,
 		rl.LimitRequests,
 		rl.RemainingRequests,
@@ -314,15 +314,28 @@ func (db *DB) SaveModelRateLimits(rl ModelRateLimits) error {
 		rl.RemainingTokens,
 		rl.ResetTokensMs,
 		capturedAt.UTC().Format(time.RFC3339),
+		boolToInt(rl.RequestsParsed),
+		boolToInt(rl.TokensParsed),
+		rl.RequestsToday,
+		rl.RequestsDay,
 	)
 	return errors.Wrap(err, "failed to upsert model_rate_limits")
+}
+
+// boolToInt maps a Go bool to the 0/1 SQLite integer convention used by
+// the rate-limit table's parsed flags.
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // LoadAllModelRateLimits returns every persisted rate-limit row so the
 // in-memory cache can be hydrated at startup.
 func (db *DB) LoadAllModelRateLimits() ([]ModelRateLimits, error) {
 	rows, err := db.Query(
-		"SELECT model_id, limit_requests, remaining_requests, reset_requests_ms, limit_tokens, remaining_tokens, reset_tokens_ms, captured_at FROM model_rate_limits",
+		"SELECT model_id, limit_requests, remaining_requests, reset_requests_ms, limit_tokens, remaining_tokens, reset_tokens_ms, captured_at, requests_parsed, tokens_parsed, requests_today, requests_day FROM model_rate_limits",
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to query model_rate_limits")
@@ -333,11 +346,14 @@ func (db *DB) LoadAllModelRateLimits() ([]ModelRateLimits, error) {
 	for rows.Next() {
 		var r ModelRateLimits
 		var capturedAt string
+		var requestsParsed, tokensParsed int
 		if err := rows.Scan(
 			&r.ModelID,
 			&r.LimitRequests, &r.RemainingRequests, &r.ResetRequestsMs,
 			&r.LimitTokens, &r.RemainingTokens, &r.ResetTokensMs,
 			&capturedAt,
+			&requestsParsed, &tokensParsed,
+			&r.RequestsToday, &r.RequestsDay,
 		); err != nil {
 			return nil, errors.Wrap(err, "failed to scan model_rate_limits row")
 		}
@@ -349,6 +365,8 @@ func (db *DB) LoadAllModelRateLimits() ([]ModelRateLimits, error) {
 			)
 		}
 		r.CapturedAt = t
+		r.RequestsParsed = requestsParsed != 0
+		r.TokensParsed = tokensParsed != 0
 		out = append(out, r)
 	}
 	return out, nil

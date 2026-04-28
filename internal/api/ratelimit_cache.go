@@ -33,22 +33,14 @@ func GetRateLimits(modelID string) (RateLimits, bool) {
 	return rl, ok
 }
 
-// EffectiveRateLimits returns rl adjusted for time elapsed since capture:
-// if the per-resource reset window has already passed, the corresponding
-// `Remaining*` value is bumped back up to its `Limit*` so the bar reads
-// as a refilled bucket without needing a periodic tick. Resource buckets
-// that haven't expired are returned unchanged.
-func EffectiveRateLimits(rl RateLimits, now time.Time) RateLimits {
-	if rl.CapturedAt.IsZero() {
-		return rl
-	}
-	elapsed := now.Sub(rl.CapturedAt)
-	out := rl
-	if rl.ResetRequests > 0 && elapsed >= rl.ResetRequests && rl.LimitRequests > 0 {
-		out.RemainingRequests = rl.LimitRequests
-	}
-	if rl.ResetTokens > 0 && elapsed >= rl.ResetTokens && rl.LimitTokens > 0 {
-		out.RemainingTokens = rl.LimitTokens
-	}
-	return out
+// EffectiveRateLimits is reserved for any future post-processing of a
+// captured RateLimits at render time. The previous implementation tried
+// to "decay" Remaining* back up to Limit* when `elapsed >= reset`, but
+// Groq's `reset-*` headers describe how long until the *next slot*
+// becomes available (token-bucket refill rate), not when the entire
+// bucket refills — so that decay produced false zeros. The captured
+// snapshot is now returned unchanged; bars only refresh on the next
+// real call, which matches what the user actually sees against Groq.
+func EffectiveRateLimits(rl RateLimits, _ time.Time) RateLimits {
+	return rl
 }

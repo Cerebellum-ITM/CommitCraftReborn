@@ -2,12 +2,91 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.18.4 — 2026-04-28
+
+Course-correct on the rate-limit work after confirming via `Ctrl+L`
+that Groq's `x-ratelimit-*` headers do come back correctly — the bugs
+were on our side.
+
+- **Reverted local request counter** (`mergeWithLocalCounter`) introduced
+  in v0.18.3. The `remaining-requests` header is reliable and decrements
+  per call; the local counter was redundant. The `requests_today` /
+  `requests_day` columns stay in `model_rate_limits` as inert
+  zero-valued data (SQLite drop-column is non-trivial); no runtime path
+  reads or writes them anymore.
+- **Removed the auto-reset block in `EffectiveRateLimits`**. It treated
+  `reset_requests` / `reset_tokens` as "time until the bucket fully
+  refills", but Groq's headers actually report "time until the next slot
+  becomes available" under a token-bucket refill. After 6 seconds the
+  RPD bar would falsely zero itself. The function now returns the
+  captured snapshot unchanged; bars only refresh on the next real call.
+- **RPD / REQ bars go back to header-derived `Limit - Remaining`**,
+  still gated by the `RequestsParsed` / `TokensParsed` flags from
+  v0.18.2 so a missing header still falls back to "no data yet".
+- **New log10 scale on quota bars** (compose RPD/TPM, picker REQ/TOK).
+  `logScaleUsed` re-maps the linear `used` value onto a log curve so a
+  single call against a 14k daily budget lights up at least one cell
+  instead of staying invisible. Each order of magnitude advances ~2
+  cells; the usage text beside the bar still shows the real numbers.
+  The per-stage TPM mini-bar in the pipeline cards keeps a linear
+  scale because there the actual percentage of the per-minute bucket
+  matters.
+
+## v0.18.3 — 2026-04-28
+
+Fix: the RPD bar (compose pipeline-models section) and the REQ bar
+(picker footer) now use a **locally-tracked daily counter** instead of
+the unreliable `x-ratelimit-remaining-requests` header. Groq doesn't
+return a refreshing daily-remaining value on the free tier, so the
+previous header-based math made the bar swing between "always full"
+(when the header was 0/missing) and "always empty" (after a refill or
+hydration with parsed=false).
+
+Mechanics:
+
+- `model_rate_limits` gains `requests_today INT` + `requests_day TEXT`
+  columns via the existing migration path. Counter is bumped after every
+  successful AI call and persisted alongside the headers snapshot.
+- `EffectiveRateLimits` zeroes the counter when its stored UTC date no
+  longer matches today's, mirroring Groq's UTC midnight bucket reset
+  without needing a periodic ticker.
+- `LimitRequests` (header) is still used as the bar denominator so the
+  ceiling matches the one Groq actually enforces.
+- TPM bar (per-minute tokens) keeps using the header `remaining-tokens`
+  because that bucket header *does* refresh on every call.
+
 ## v0.18.2 — 2026-04-28
 
-- Updated progress bar rendering in pipeline cards to use a Braille-based ramp.
-- Added stage telemetry display in a middle panel section.
-- Extended `renderTitledPanel` to accept middle content for telemetry display.
-- Replaced linear character bar with `renderBrailleRamp` in `composeProgressBar`.
+Fix: rate-limit bars (compose RPD/TPM, picker REQ/TOK) sometimes rendered
+fully consumed (100%) for models whose response omitted an
+`x-ratelimit-remaining-*` header. The parser left the field at 0 and the
+formula `used = limit - remaining` collapsed to `used = limit`.
+
+- `api.RateLimits` gains `RequestsParsed` / `TokensParsed` flags. The
+  parser only sets each flag when *both* halves of the bucket
+  (limit + remaining) were present and parsed; otherwise the renderer
+  falls back to the "no data yet" placeholder instead of a misleading
+  full bar.
+- New columns `requests_parsed` / `tokens_parsed` on `model_rate_limits`
+  so the flags survive restarts via the existing migration path.
+- New debug log line `"rate-limit headers"` after every Groq call. Open
+  the logs popup with `Ctrl+L` to inspect what each model actually
+  returns; entries with `*_parsed=false` are the ones triggering the
+  fallback.
+
+Also lands a batch of pipeline UI refinements from the same iteration:
+
+- Progress bars across the TUI (compose char counter, quota bars,
+  stage status track) now use a unified Braille-based ramp.
+- Per-stage telemetry (in/out tokens, duration, TPM bar) moved from a
+  body row to the centered slot of the card title, freeing the viewport
+  to show one more line of AI output.
+- Collapsed (non-focused) cards mirror the same telemetry in muted tones.
+- Stage status bar at the card bottom now starts with a status word
+  (`running` / `done` / `failed` / `cancelled` / `idle`) so its meaning
+  is self-explanatory.
+- Token breakdown values use accent colors: `in` rides the AI palette
+  (blue), `out` rides Success (green); labels stay muted.
 - Modified `renderStageBar` to use the Braille ramp and custom empty cell rune.
 - Introduced `renderStageTelemetry` and `renderStageTelemetryDim` for stage telemetry rendering.
 - Added `stageBarWord` to render status words alongside stage bars.

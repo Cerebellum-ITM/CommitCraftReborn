@@ -175,6 +175,30 @@ func applySchemaMigrations(db *sql.DB) error {
 			columnType:   "INTEGER",
 			defaultValue: "0",
 		},
+		{
+			tableName:    "model_rate_limits",
+			columnName:   "requests_parsed",
+			columnType:   "INTEGER",
+			defaultValue: "0",
+		},
+		{
+			tableName:    "model_rate_limits",
+			columnName:   "tokens_parsed",
+			columnType:   "INTEGER",
+			defaultValue: "0",
+		},
+		{
+			tableName:    "model_rate_limits",
+			columnName:   "requests_today",
+			columnType:   "INTEGER",
+			defaultValue: "0",
+		},
+		{
+			tableName:    "model_rate_limits",
+			columnName:   "requests_day",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
 	}
 
 	for _, alt := range alterations {

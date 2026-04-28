@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -32,10 +33,34 @@ var braille8Levels = [9]rune{
 // stretches to fill whatever is left after label and the right-aligned
 // usage text. When limit <= 0 the row falls back to a muted "—" placeholder
 // so callers can render it for models that haven't been called yet.
+//
+// The default scale is linear; callers that need the log10 amplification
+// (small uses still light up at least one cell against very large
+// limits) should use renderThinQuotaBarLog instead.
 func renderThinQuotaBar(
 	theme *styles.Theme,
 	label string,
 	used, limit, width int,
+) string {
+	return renderThinQuotaBarScaled(theme, label, used, limit, width, false)
+}
+
+// renderThinQuotaBarLog is the log10-scaled variant — used by the RPD
+// bars (compose + picker) where the daily ceiling (e.g. 14400) is so
+// large that a handful of calls would otherwise be invisible.
+func renderThinQuotaBarLog(
+	theme *styles.Theme,
+	label string,
+	used, limit, width int,
+) string {
+	return renderThinQuotaBarScaled(theme, label, used, limit, width, true)
+}
+
+func renderThinQuotaBarScaled(
+	theme *styles.Theme,
+	label string,
+	used, limit, width int,
+	useLog bool,
 ) string {
 	base := theme.AppStyles().Base
 	const labelWidth = 4
@@ -79,9 +104,43 @@ func renderThinQuotaBar(
 	case pct >= 70:
 		fillColor = theme.Warning
 	}
-	bar := renderBrailleRamp(used, limit, barW, base, fillColor, theme.Subtle)
+	// Optionally map (used, limit) onto a log10 curve before rendering
+	// so small usage is visually noticeable. Only the RPD bars opt
+	// into this — TPM/TOK keep a linear scale because the per-minute
+	// budgets are small enough that linear already lights cells up.
+	scaled := used
+	if useLog {
+		scaled = logScaleUsed(used, limit)
+	}
+	bar := renderBrailleRamp(scaled, limit, barW, base, fillColor, theme.Subtle)
 
 	return labelStyled + " " + bar + " " + usageStyled
+}
+
+// logScaleUsed remaps a linear (used, limit) pair onto a log10 curve
+// re-anchored to the same limit, so callers can keep using the linear
+// bar renderer downstream while small values still light up at least
+// one cell. Returns the fraction-equivalent integer in [0, limit].
+func logScaleUsed(used, limit int) int {
+	if used <= 0 || limit <= 0 {
+		return 0
+	}
+	if used >= limit {
+		return limit
+	}
+	num := math.Log10(float64(used) + 1)
+	den := math.Log10(float64(limit) + 1)
+	if den <= 0 {
+		return used
+	}
+	scaled := int(math.Round(num / den * float64(limit)))
+	if scaled < 0 {
+		scaled = 0
+	}
+	if scaled > limit {
+		scaled = limit
+	}
+	return scaled
 }
 
 // renderBrailleRamp draws a width-cell horizontal bar where each cell has

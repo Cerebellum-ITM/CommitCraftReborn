@@ -61,8 +61,31 @@ func createAndSendIaMessage(
 	if stats != nil {
 		api.RecordRateLimits(iaModel, stats.RateLimits)
 		persistRateLimits(model, iaModel, stats.RateLimits)
+		logRateLimits(model, iaModel, stats.RateLimits)
 	}
 	return response, stats, nil
+}
+
+// logRateLimits emits a debug line with the parsed rate-limit fields so
+// the user can confirm via Ctrl+L which headers Groq actually returned
+// for a given model. A `*Parsed=false` flag is the signal that the
+// matching `remaining-*` header was absent from the response.
+func logRateLimits(model *Model, modelID string, rl api.RateLimits) {
+	if model == nil || model.log == nil {
+		return
+	}
+	model.log.Debug(
+		"rate-limit headers",
+		"model", modelID,
+		"limit_requests", rl.LimitRequests,
+		"remaining_requests", rl.RemainingRequests,
+		"reset_requests", rl.ResetRequests,
+		"requests_parsed", rl.RequestsParsed,
+		"limit_tokens", rl.LimitTokens,
+		"remaining_tokens", rl.RemainingTokens,
+		"reset_tokens", rl.ResetTokens,
+		"tokens_parsed", rl.TokensParsed,
+	)
 }
 
 // persistRateLimits UPSERTs the just-captured rate-limit snapshot for
@@ -82,6 +105,10 @@ func persistRateLimits(model *Model, modelID string, rl api.RateLimits) {
 		RemainingTokens:   rl.RemainingTokens,
 		ResetTokensMs:     int(rl.ResetTokens / time.Millisecond),
 		CapturedAt:        rl.CapturedAt,
+		RequestsParsed:    rl.RequestsParsed,
+		TokensParsed:      rl.TokensParsed,
+		RequestsToday:     rl.RequestsToday,
+		RequestsDay:       rl.RequestsDay,
 	}
 	if err := model.db.SaveModelRateLimits(row); err != nil {
 		model.log.Warn("rate-limit persistence failed", "model", modelID, "error", err)

@@ -344,10 +344,22 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 			tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)
 		} else if rl, ok := api.GetRateLimits(modelName); ok {
 			eff := api.EffectiveRateLimits(rl, time.Now())
-			rpd = renderThinQuotaBar(theme, "RPD",
-				eff.LimitRequests-eff.RemainingRequests, eff.LimitRequests, barWidth)
-			tpm = renderThinQuotaBar(theme, "TPM",
-				eff.LimitTokens-eff.RemainingTokens, eff.LimitTokens, barWidth)
+			// Both RPD and TPM derive from the captured `remaining-*`
+			// headers; the Parsed flags guard against the case where
+			// Groq omits a header (parser would otherwise silently
+			// produce `used = limit - 0 = limit` and show a 100% bar).
+			if eff.RequestsParsed {
+				rpd = renderThinQuotaBarLog(theme, "RPD",
+					eff.LimitRequests-eff.RemainingRequests, eff.LimitRequests, barWidth)
+			} else {
+				rpd = renderThinQuotaBarLog(theme, "RPD", 0, 0, barWidth)
+			}
+			if eff.TokensParsed {
+				tpm = renderThinQuotaBar(theme, "TPM",
+					eff.LimitTokens-eff.RemainingTokens, eff.LimitTokens, barWidth)
+			} else {
+				tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)
+			}
 		} else {
 			rpd = renderThinQuotaBar(theme, "RPD", 0, 0, barWidth)
 			tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)

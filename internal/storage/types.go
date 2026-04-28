@@ -48,6 +48,16 @@ type AICall struct {
 // a given Groq model. Persisted so the in-memory cache can be hydrated on
 // startup (the bars in compose / picker would otherwise show "no data
 // yet" for any model not called in the current session).
+//
+// RequestsParsed/TokensParsed flag whether both halves of the bucket
+// (limit + remaining) were actually present in the API response — see
+// api.RateLimits for the rationale.
+//
+// RequestsToday / RequestsDay drive the **local** RPD counter: Groq's
+// per-call `remaining-requests` header isn't reliable for the daily
+// bucket on the free tier, so we count requests ourselves and reset at
+// the UTC day boundary that matches Groq's bucket. The header limit
+// (`LimitRequests`) is still used as the denominator.
 type ModelRateLimits struct {
 	ModelID           string
 	LimitRequests     int
@@ -57,6 +67,10 @@ type ModelRateLimits struct {
 	RemainingTokens   int
 	ResetTokensMs     int
 	CapturedAt        time.Time
+	RequestsParsed    bool
+	TokensParsed      bool
+	RequestsToday     int    // local counter
+	RequestsDay       string // YYYY-MM-DD (UTC) when the counter started
 }
 
 // representation of a release in the database

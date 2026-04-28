@@ -44,7 +44,11 @@ type ResponseBody struct {
 // RateLimits captures the x-ratelimit-* headers Groq sends back on every
 // response. Reset fields are server-side wait durations until the bucket
 // refills; we keep them as parsed time.Duration. A zero value means the
-// header was absent or unparseable.
+// header was absent or unparseable. RequestsParsed/TokensParsed flag
+// whether both halves of the corresponding bucket (limit + remaining)
+// were actually present in the response — without those flags a missing
+// `remaining-*` header silently degrades to 0 and the render code can't
+// tell "fully consumed" from "no data".
 type RateLimits struct {
 	LimitRequests     int
 	RemainingRequests int
@@ -53,6 +57,15 @@ type RateLimits struct {
 	RemainingTokens   int
 	ResetTokens       time.Duration
 	CapturedAt        time.Time
+	RequestsParsed    bool
+	TokensParsed      bool
+	// RequestsToday / RequestsDay are the locally-tracked daily counter
+	// for requests. Groq's `remaining-requests` header is unreliable for
+	// the daily bucket on the free tier, so we count ourselves. The
+	// counter resets when RequestsDay (YYYY-MM-DD UTC) changes — that
+	// matches Groq's UTC midnight bucket reset.
+	RequestsToday int
+	RequestsDay   string
 }
 
 // CallStats bundles every per-call metric we surface in the UI and
@@ -213,17 +226,27 @@ func secondsToDuration(seconds float64) time.Duration {
 
 // parseRateLimitHeaders pulls the 6 x-ratelimit-* headers from a Groq
 // response. Missing or unparseable headers leave the corresponding field
-// at its zero value so callers can detect "no data" cleanly.
+// at its zero value. RequestsParsed and TokensParsed are set to true
+// only when *both* the limit and remaining headers for that bucket were
+// present and parsed to ints; this lets renderers distinguish "no data"
+// from "0 remaining" instead of falling back to a 100%-full bar.
 func parseRateLimitHeaders(h http.Header) RateLimits {
 	rl := RateLimits{CapturedAt: time.Now()}
+	limitReqOK := false
+	remainingReqOK := false
+	limitTokOK := false
+	remainingTokOK := false
+
 	if v := h.Get("x-ratelimit-limit-requests"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			rl.LimitRequests = n
+			limitReqOK = true
 		}
 	}
 	if v := h.Get("x-ratelimit-remaining-requests"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			rl.RemainingRequests = n
+			remainingReqOK = true
 		}
 	}
 	if v := h.Get("x-ratelimit-reset-requests"); v != "" {
@@ -232,16 +255,20 @@ func parseRateLimitHeaders(h http.Header) RateLimits {
 	if v := h.Get("x-ratelimit-limit-tokens"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			rl.LimitTokens = n
+			limitTokOK = true
 		}
 	}
 	if v := h.Get("x-ratelimit-remaining-tokens"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			rl.RemainingTokens = n
+			remainingTokOK = true
 		}
 	}
 	if v := h.Get("x-ratelimit-reset-tokens"); v != "" {
 		rl.ResetTokens = parseGroqResetDuration(v)
 	}
+	rl.RequestsParsed = limitReqOK && remainingReqOK
+	rl.TokensParsed = limitTokOK && remainingTokOK
 	return rl
 }
 

@@ -16,7 +16,7 @@ import (
 	"commit_craft_reborn/internal/tui"
 )
 
-var version = "v0.18.1"
+var version = "v0.18.4"
 
 func main() {
 	log := logger.New()
@@ -78,6 +78,10 @@ func main() {
 				RemainingTokens:   p.RemainingTokens,
 				ResetTokens:       time.Duration(p.ResetTokensMs) * time.Millisecond,
 				CapturedAt:        p.CapturedAt,
+				RequestsParsed:    p.RequestsParsed,
+				TokensParsed:      p.TokensParsed,
+				RequestsToday:     p.RequestsToday,
+				RequestsDay:       p.RequestsDay,
 			})
 		}
 	}
