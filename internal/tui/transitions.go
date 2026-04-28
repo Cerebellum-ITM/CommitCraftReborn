@@ -116,7 +116,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	if model.currentCommit.ID != 0 {
 		err = model.db.FinalizeCommit(model.currentCommit)
 	} else {
-		err = model.db.CreateCommit(model.currentCommit)
+		err = model.db.CreateCommit(&model.currentCommit)
 	}
 
 	if err != nil {
@@ -125,6 +125,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 		return model, tea.Quit
 	}
 
+	persistPipelineAICalls(model, model.currentCommit.ID)
 	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList, commitDb)
 	// The CHANGELOG file likely changed (we just prepended an entry) — refresh
 	// the indicator so the pill flips between auto/passive on the next render.

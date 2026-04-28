@@ -51,7 +51,40 @@ func InitDB() (*DB, error) {
 		return nil, errors.Wrap(err, "failed to create models cache table")
 	}
 
+	if err := createAICallsTable(sqlDB); err != nil {
+		return nil, errors.Wrap(err, "failed to create ai_calls table")
+	}
+
 	return &DB{sqlDB}, nil
+}
+
+// createAICallsTable bootstraps the per-stage telemetry store. One row per
+// AI call (one Commit row owns 1-4 calls — summary/body/title/changelog).
+// CASCADE delete keeps the table tidy when a commit is purged.
+func createAICallsTable(db *sql.DB) error {
+	_, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS ai_calls (
+            id INTEGER PRIMARY KEY,
+            commit_id INTEGER NOT NULL,
+            stage TEXT NOT NULL,
+            model TEXT NOT NULL,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            completion_tokens INTEGER NOT NULL DEFAULT 0,
+            total_tokens INTEGER NOT NULL DEFAULT 0,
+            queue_time_ms INTEGER NOT NULL DEFAULT 0,
+            prompt_time_ms INTEGER NOT NULL DEFAULT 0,
+            completion_time_ms INTEGER NOT NULL DEFAULT 0,
+            total_time_ms INTEGER NOT NULL DEFAULT 0,
+            request_id TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (commit_id) REFERENCES commits(id) ON DELETE CASCADE
+        );
+    `)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_ai_calls_commit ON ai_calls(commit_id);`)
+	return err
 }
 
 // createModelsCacheTable bootstraps the cache that backs the model

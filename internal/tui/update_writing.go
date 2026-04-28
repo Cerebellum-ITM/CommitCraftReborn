@@ -113,6 +113,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.err = err
 				return model, nil
 			}
+			persistPipelineAICalls(model, model.currentCommit.ID)
 			cmd := model.WritingStatusBar.ShowMessageForDuration("Draft saved!", statusbar.LevelSuccess, 2*time.Second)
 			return model, cmd
 		case key.Matches(msg, model.keys.AddCommitKey):

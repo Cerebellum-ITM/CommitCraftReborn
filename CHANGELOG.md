@@ -2,6 +2,43 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.18.0 — 2026-04-28
+
+Per-stage AI telemetry and live model quotas. Every Groq chat completion now
+carries its `usage` block (prompt / completion / total tokens, plus queue,
+prompt, completion and total times) and its `x-ratelimit-*` headers back into
+the TUI:
+
+- Each stage card on the Pipeline tab now shows a compact telemetry line
+  under the AI output — total tokens, in/out breakdown, and the wall-clock
+  duration of the call.
+- Telemetry is persisted in a new `ai_calls` SQLite table linked to the
+  parent commit, so reopening a saved draft or completed commit re-displays
+  the original numbers without another API call.
+- The Compose tab's pipeline-models section renders two thin bars under each
+  model line (request bucket and token bucket) fed by the in-memory rate-limit
+  cache that the API layer hydrates on every call. Bars turn amber/red as the
+  bucket nears exhaustion.
+- The model picker popup adds a footer panel with the focused model's most
+  recent `REQ` / `TOK` usage and the reset windows reported by Groq.
+
+### Usage
+
+No new keybindings — the telemetry is purely visual:
+
+- After an AI run, check the bottom of each stage card for the `↳ ... tok ·
+  ...ms` line.
+- On the Compose tab, focus the *pipeline models* section and observe the two
+  bars below each stage's model name. Bars stay muted and read `— no data yet`
+  until the corresponding model has been called at least once in the current
+  session.
+- Open the model picker (`↵` over a stage in the pipeline-models section) and
+  move the cursor through the table to see the per-model quota footer
+  refresh in real-time.
+
+The new `ai_calls` table is created automatically on next startup; nothing
+to migrate by hand.
+
 ## v0.17.0 — 2026-04-27
 
 Optional pre-release build step. When configured per-repo, CommitCraft now runs

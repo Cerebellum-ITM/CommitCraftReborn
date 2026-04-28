@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/styles"
@@ -234,15 +235,95 @@ func (m modelPickerPopup) View() tea.View {
 		{"esc", "cancel"},
 	})
 
+	footer := renderModelQuotaFooter(m.theme, m.focusedModelID(), m.width-6)
+
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		cacheLine,
 		"",
 		m.table.View(),
 		"",
+		footer,
+		"",
 		hint,
 	)
 	return tea.NewView(box.Render(body))
+}
+
+// focusedModelID returns the model id under the table cursor, or the
+// empty string when the table has no rows yet.
+func (m modelPickerPopup) focusedModelID() string {
+	row := m.table.SelectedRow()
+	if len(row) == 0 {
+		return ""
+	}
+	return row[0]
+}
+
+// renderModelQuotaFooter draws a 4-row panel with the latest known
+// RPM/RPD/TPM/TPD figures for modelID, fed by the in-memory rate-limit
+// cache. Falls back to a "no telemetry yet" placeholder when no call has
+// been recorded for the model in this session.
+func renderModelQuotaFooter(theme *styles.Theme, modelID string, width int) string {
+	base := theme.AppStyles().Base
+	if modelID == "" {
+		return base.Foreground(theme.Muted).Italic(true).
+			Render("Move the cursor to inspect a model's quotas.")
+	}
+
+	header := base.Foreground(theme.Secondary).Bold(true).Render(modelID)
+
+	rl, ok := api.GetRateLimits(modelID)
+	if !ok {
+		hint := base.Foreground(theme.Muted).Italic(true).Render(
+			"No telemetry yet — make a call with this model to populate the quotas.",
+		)
+		return lipgloss.JoinVertical(lipgloss.Left, header, hint)
+	}
+
+	if width < 24 {
+		width = 24
+	}
+	// Groq's rate-limit headers expose one bucket per resource (requests
+	// and tokens) — typically the tightest active window. We show both
+	// bars with the captured reset times beside them so the user knows
+	// when the bucket refills.
+	reqs := renderThinQuotaBar(theme, "REQ",
+		rl.LimitRequests-rl.RemainingRequests, rl.LimitRequests, width)
+	toks := renderThinQuotaBar(theme, "TOK",
+		rl.LimitTokens-rl.RemainingTokens, rl.LimitTokens, width)
+
+	resetLine := base.Foreground(theme.Muted).Render(fmt.Sprintf(
+		"resets in: requests %s · tokens %s",
+		formatResetDuration(rl.ResetRequests),
+		formatResetDuration(rl.ResetTokens),
+	))
+	captured := base.Foreground(theme.Subtle).Render(fmt.Sprintf(
+		"captured %s ago",
+		formatResetDuration(time.Since(rl.CapturedAt).Round(time.Second)),
+	))
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		reqs,
+		toks,
+		resetLine,
+		captured,
+	)
+}
+
+// formatResetDuration prints a Groq-style reset window in a compact form.
+func formatResetDuration(d time.Duration) string {
+	if d <= 0 {
+		return "—"
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
 }
 
 // renderPopupHelpLine mirrors renderHelpEntries (in compose_status.go) so

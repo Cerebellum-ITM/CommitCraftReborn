@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/tui/statusbar"
 )
@@ -302,7 +303,15 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 		model.pipelineModelStageIndex = 0
 	}
 
-	rows := make([]string, 0, len(stages))
+	// Each stage gets 3 lines: the model label, an RPD bar, and a TPM
+	// bar. Bars are fed by the in-memory rate-limit cache that
+	// ratelimit_cache.go hydrates from x-ratelimit-* response headers
+	// on every Groq call.
+	rows := make([]string, 0, len(stages)*3)
+	barWidth := width - 2
+	if barWidth < 24 {
+		barWidth = 24
+	}
 	for i, s := range stages {
 		isActive := focused && i == model.pipelineModelStageIndex
 		cursor := base.Foreground(theme.Muted).Render(" ")
@@ -319,13 +328,29 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 		name := base.Foreground(nameColor).Render(s.label)
 		sep := base.Foreground(theme.Muted).Render("·")
 		modelName := config.CurrentModelForStage(model.globalConfig, s.stage)
-		if modelName == "" {
-			modelName = "(unset)"
+		modelLabel := modelName
+		if modelLabel == "" {
+			modelLabel = "(unset)"
 		}
-		mod := base.Foreground(modColor).Render(modelName)
+		mod := base.Foreground(modColor).Render(modelLabel)
 		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top,
 			cursor, " ", idx, " ", name, " ", sep, " ", mod,
 		))
+
+		var rpd, tpm string
+		if modelName == "" {
+			rpd = renderThinQuotaBar(theme, "RPD", 0, 0, barWidth)
+			tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)
+		} else if rl, ok := api.GetRateLimits(modelName); ok {
+			rpd = renderThinQuotaBar(theme, "RPD",
+				rl.LimitRequests-rl.RemainingRequests, rl.LimitRequests, barWidth)
+			tpm = renderThinQuotaBar(theme, "TPM",
+				rl.LimitTokens-rl.RemainingTokens, rl.LimitTokens, barWidth)
+		} else {
+			rpd = renderThinQuotaBar(theme, "RPD", 0, 0, barWidth)
+			tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)
+		}
+		rows = append(rows, "    "+rpd, "    "+tpm)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,

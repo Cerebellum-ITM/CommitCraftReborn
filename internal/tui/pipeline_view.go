@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -362,9 +363,18 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 
 	bar := renderStageBar(theme, st, model.pipeline.pulsePhase, idx, innerW)
 
+	// When the stage has telemetry to show, reserve the bottom-most body
+	// row for the stats line so the card height stays unchanged. The
+	// viewport simply renders one fewer line of AI output.
+	statsLine := renderStageStatsLine(theme, st, innerW)
+	viewportRows := bodyRows
+	if statsLine != "" && bodyRows > 1 {
+		viewportRows = bodyRows - 1
+	}
+
 	vp := model.stageViewportModel(stageID(idx))
 	vp.SetWidth(innerW)
-	vp.SetHeight(bodyRows)
+	vp.SetHeight(viewportRows)
 	// Content is rendered fresh each frame so it adapts to width changes
 	// (panel resize, focus growth) and stays in sync with the latest model
 	// outputs without a separate cache.
@@ -374,11 +384,15 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 	// Some viewports return fewer rows than requested when the source is
 	// empty. Pad so the underline stays anchored to the bottom border.
 	bodyLineCount := strings.Count(bodyRendered, "\n") + 1
-	if bodyLineCount < bodyRows {
-		bodyRendered += strings.Repeat("\n", bodyRows-bodyLineCount)
+	if bodyLineCount < viewportRows {
+		bodyRendered += strings.Repeat("\n", viewportRows-bodyLineCount)
 	}
 
-	content := bodyRendered + "\n" + bar
+	content := bodyRendered
+	if statsLine != "" {
+		content += "\n" + statsLine
+	}
+	content += "\n" + bar
 
 	icon := stageIcon(st.Status, model.pipeline.spinner.View())
 	titleText := fmt.Sprintf("stage %d · %s", idx+1, strings.ToLower(st.Title))
@@ -553,6 +567,62 @@ func (model *Model) stageViewportModel(id stageID) *viewport.Model {
 		return &model.pipelineViewport4
 	}
 	return nil
+}
+
+// renderStageStatsLine renders a single compact telemetry row for a stage:
+// "↳ 1.2k tok (in 1.1k · out 87) · 318ms". Returns the empty string when
+// no telemetry is available for the stage so the caller can skip the line
+// (and the row reservation that goes with it).
+func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int) string {
+	if !st.HasStats || st.TotalTokens <= 0 {
+		return ""
+	}
+	base := theme.AppStyles().Base
+	arrow := base.Foreground(theme.Muted).Render("↳ ")
+	tokens := base.Foreground(theme.FG).Render(formatTokenCount(st.TotalTokens) + " tok")
+	breakdown := base.Foreground(theme.Muted).Render(fmt.Sprintf(
+		" (in %s · out %s)",
+		formatTokenCount(st.PromptTokens),
+		formatTokenCount(st.CompletionTokens),
+	))
+	sep := base.Foreground(theme.Subtle).Render(" · ")
+	dur := st.Latency
+	if dur <= 0 && st.APITotalTime > 0 {
+		dur = st.APITotalTime
+	}
+	durStr := base.Foreground(theme.Secondary).Render(formatStageDuration(dur))
+	line := arrow + tokens + breakdown + sep + durStr
+	if w := ansi.StringWidth(line); w > width && width > 0 {
+		line = ansi.Truncate(line, width, "…")
+	}
+	return line
+}
+
+// formatTokenCount renders an integer token count using a "k" suffix once
+// it crosses 1000 so the stats line stays compact in the card.
+func formatTokenCount(n int) string {
+	if n < 0 {
+		n = 0
+	}
+	if n < 1000 {
+		return strconv.Itoa(n)
+	}
+	if n < 10000 {
+		return fmt.Sprintf("%.1fk", float64(n)/1000.0)
+	}
+	return fmt.Sprintf("%dk", n/1000)
+}
+
+// formatStageDuration prints a human-friendly duration matching the
+// existing card aesthetic: ms when sub-second, "1.2s" otherwise.
+func formatStageDuration(d time.Duration) string {
+	if d <= 0 {
+		return "—"
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }
 
 // renderStageBar draws the thick coloured underline at the bottom of

@@ -193,6 +193,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.syncScopeStaleIndicator()
 					model.keyPoints = commit.KeyPoints
 					loadPipelineFilesFromDb(model, commit.Diff_code)
+					loadPipelineAICalls(model, commit.ID)
 					model.state = stateWritingMessage
 					model.focusedElement = focusComposeSummary
 					model.iaViewport.SetContent(commit.MessageEN)
@@ -232,6 +233,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.scopeDataStale = true
 					model.syncScopeStaleIndicator()
 					loadPipelineFilesFromDb(model, commit.Diff_code)
+					loadPipelineAICalls(model, commit.ID)
 					model.state = stateWritingMessage
 					model.focusedElement = focusComposeSummary
 					model.iaViewport.SetContent(commit.MessageEN)

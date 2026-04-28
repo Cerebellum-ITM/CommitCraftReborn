@@ -39,16 +39,26 @@ const (
 // checks time.Now() against it. shakeFrame drives the failure shake (0 =
 // centered, 1 = shifted left, 2 = shifted right).
 type pipelineStage struct {
-	ID             stageID
-	Title          string
-	Model          string
-	Status         stageStatus
-	Progress       float64
-	Latency        time.Duration
-	StartedAt      time.Time
-	Err            error
-	flashExpiresAt time.Time
-	shakeFrame     int
+	ID               stageID
+	Title            string
+	Model            string
+	Status           stageStatus
+	Progress         float64
+	Latency          time.Duration
+	StartedAt        time.Time
+	Err              error
+	flashExpiresAt   time.Time
+	shakeFrame       int
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+	QueueTime        time.Duration
+	PromptTime       time.Duration
+	CompletionTime   time.Duration
+	APITotalTime     time.Duration
+	RequestID        string
+	StatsModel       string
+	HasStats         bool
 }
 
 // pipelineModel groups every Pipeline-tab-specific piece of state on the
@@ -165,6 +175,16 @@ func (pm *pipelineModel) resetAll(now time.Time) {
 		pm.stages[i].Err = nil
 		pm.stages[i].flashExpiresAt = time.Time{}
 		pm.stages[i].shakeFrame = 0
+		pm.stages[i].HasStats = false
+		pm.stages[i].PromptTokens = 0
+		pm.stages[i].CompletionTokens = 0
+		pm.stages[i].TotalTokens = 0
+		pm.stages[i].QueueTime = 0
+		pm.stages[i].PromptTime = 0
+		pm.stages[i].CompletionTime = 0
+		pm.stages[i].APITotalTime = 0
+		pm.stages[i].RequestID = ""
+		pm.stages[i].StatsModel = ""
 	}
 }
 
@@ -191,6 +211,16 @@ func (pm *pipelineModel) resetFrom(from stageID, now time.Time) {
 		pm.stages[i].Err = nil
 		pm.stages[i].flashExpiresAt = time.Time{}
 		pm.stages[i].shakeFrame = 0
+		pm.stages[i].HasStats = false
+		pm.stages[i].PromptTokens = 0
+		pm.stages[i].CompletionTokens = 0
+		pm.stages[i].TotalTokens = 0
+		pm.stages[i].QueueTime = 0
+		pm.stages[i].PromptTime = 0
+		pm.stages[i].CompletionTime = 0
+		pm.stages[i].APITotalTime = 0
+		pm.stages[i].RequestID = ""
+		pm.stages[i].StatsModel = ""
 	}
 }
 

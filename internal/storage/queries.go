@@ -50,11 +50,13 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	return commits, nil
 }
 
-// CreateCommit adds a new commit to the database.
-func (db *DB) CreateCommit(c Commit) error {
+// CreateCommit adds a new commit to the database and writes the new row
+// id back into c.ID so callers can persist child rows (e.g. ai_calls)
+// using the freshly minted commit id.
+func (db *DB) CreateCommit(c *Commit) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 
-	_, err := db.Exec(
+	res, err := db.Exec(
 		"INSERT INTO commits (type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		c.Type,
 		c.Scope,
@@ -68,7 +70,15 @@ func (db *DB) CreateCommit(c Commit) error {
 		c.IaTitle,
 		createdAt,
 	)
-	return errors.Wrap(err, "failed to insert commit")
+	if err != nil {
+		return errors.Wrap(err, "failed to insert commit")
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return errors.Wrap(err, "failed to retrieve last insert id for commit")
+	}
+	c.ID = int(id)
+	return nil
 }
 
 func (db *DB) CreateRelease(c Release) error {
@@ -209,6 +219,77 @@ func (db *DB) SaveDraft(c *Commit) error {
 		c.ID,
 	)
 	return errors.Wrap(err, "failed to update draft commit")
+}
+
+// CreateAICall inserts a single per-stage telemetry record. Returns the
+// new row id so callers can correlate further updates if ever needed.
+func (db *DB) CreateAICall(call AICall) (int64, error) {
+	createdAt := time.Now().UTC().Format(time.RFC3339)
+	res, err := db.Exec(
+		"INSERT INTO ai_calls (commit_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		call.CommitID,
+		call.Stage,
+		call.Model,
+		call.PromptTokens,
+		call.CompletionTokens,
+		call.TotalTokens,
+		call.QueueTimeMs,
+		call.PromptTimeMs,
+		call.CompletionTimeMs,
+		call.TotalTimeMs,
+		call.RequestID,
+		createdAt,
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to insert ai_call")
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to retrieve last insert id for ai_call")
+	}
+	return id, nil
+}
+
+// GetAICallsByCommitID returns the ai_calls rows linked to commitID, in
+// insertion order. Empty slice + nil error when the commit has no calls.
+func (db *DB) GetAICallsByCommitID(commitID int) ([]AICall, error) {
+	rows, err := db.Query(
+		"SELECT id, commit_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, created_at FROM ai_calls WHERE commit_id = ? ORDER BY id ASC",
+		commitID,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query ai_calls")
+	}
+	defer rows.Close()
+
+	var calls []AICall
+	for rows.Next() {
+		var c AICall
+		var createdAt string
+		if err := rows.Scan(
+			&c.ID, &c.CommitID, &c.Stage, &c.Model,
+			&c.PromptTokens, &c.CompletionTokens, &c.TotalTokens,
+			&c.QueueTimeMs, &c.PromptTimeMs, &c.CompletionTimeMs, &c.TotalTimeMs,
+			&c.RequestID, &createdAt,
+		); err != nil {
+			return nil, errors.Wrap(err, "failed to scan ai_call row")
+		}
+		t, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse ai_call created_at: "+createdAt)
+		}
+		c.CreatedAt = t.Local()
+		calls = append(calls, c)
+	}
+	return calls, nil
+}
+
+// DeleteAICallsByCommitID purges every ai_call linked to commitID. Used
+// before re-inserting fresh stats when a draft is saved repeatedly so the
+// telemetry table never grows orphan rows for an evolving draft.
+func (db *DB) DeleteAICallsByCommitID(commitID int) error {
+	_, err := db.Exec("DELETE FROM ai_calls WHERE commit_id = ?", commitID)
+	return errors.Wrap(err, "failed to delete ai_calls")
 }
 
 // FinalizeCommit updates a commit to set its status to 'completed' and saves final data.

@@ -34,7 +34,7 @@ func createAndSendIaMessage(
 	userInput string,
 	iaModel string,
 	model *Model,
-) (string, error) {
+) (string, *api.CallStats, error) {
 	if iaModel == "" {
 		iaModel = "llama-3.1-8b-instant"
 	}
@@ -49,16 +49,42 @@ func createAndSendIaMessage(
 			Content: userInput,
 		},
 	}
-	response, err := api.GetGroqChatCompletion(apiKey, iaModel, messages)
+	response, stats, err := api.GetGroqChatCompletion(apiKey, iaModel, messages)
 	if err != nil {
-		return "", fmt.Errorf(
+		return "", stats, fmt.Errorf(
 			"An error occurred while making the following call:\n systemPrompt: %s\n userInput: %s\n Error: %s",
 			systemPrompt,
 			userInput,
 			err,
 		)
 	}
-	return response, nil
+	if stats != nil {
+		api.RecordRateLimits(iaModel, stats.RateLimits)
+	}
+	return response, stats, nil
+}
+
+// recordStageStats copies a CallStats into the per-stage record on the
+// pipeline model so the card and the persistence layer can read the same
+// numbers. Safe with stats == nil (no-op) so error paths can still call it.
+func recordStageStats(model *Model, id stageID, stats *api.CallStats) {
+	if model == nil || stats == nil {
+		return
+	}
+	if int(id) < 0 || int(id) >= len(model.pipeline.stages) {
+		return
+	}
+	st := &model.pipeline.stages[id]
+	st.HasStats = true
+	st.PromptTokens = stats.PromptTokens
+	st.CompletionTokens = stats.CompletionTokens
+	st.TotalTokens = stats.TotalTokens
+	st.QueueTime = stats.QueueTime
+	st.PromptTime = stats.PromptTime
+	st.CompletionTime = stats.CompletionTime
+	st.APITotalTime = stats.TotalTime
+	st.RequestID = stats.RequestID
+	st.StatsModel = stats.Model
 }
 
 func iaCallChangeAnalyzer(model *Model) (string, error) {
@@ -85,7 +111,7 @@ func iaCallChangeAnalyzer(model *Model) (string, error) {
 		gitChanges,
 	)
 
-	result, err := createAndSendIaMessage(
+	result, stats, err := createAndSendIaMessage(
 		promptConfig.ChangeAnalyzerPrompt,
 		fmt.Sprintf("DEVELOPER_POINTS:\n%s\nGIT_CHANGES:\n%s", developerPoints, gitChanges),
 		promptConfig.ChangeAnalyzerPromptModel,
@@ -94,6 +120,7 @@ func iaCallChangeAnalyzer(model *Model) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("change analyzer call failed: %w", err)
 	}
+	recordStageStats(model, stageSummary, stats)
 	model.log.Debug("Change Analyzer output", "result", result)
 	return result, nil
 }
@@ -101,7 +128,7 @@ func iaCallChangeAnalyzer(model *Model) (string, error) {
 func iaCallCommitBodyGenerator(model *Model, summaryParagraphs string) (string, error) {
 	promptConfig := model.globalConfig.Prompts
 
-	result, err := createAndSendIaMessage(
+	result, stats, err := createAndSendIaMessage(
 		promptConfig.CommitBodyGeneratorPrompt,
 		fmt.Sprintf("TAG:\n%s\nMODULE:\n%s\nSUMMARY_PARAGRAPHS:\n%s",
 			model.commitType, model.commitScope, summaryParagraphs),
@@ -111,6 +138,7 @@ func iaCallCommitBodyGenerator(model *Model, summaryParagraphs string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("commit body generator call failed: %w", err)
 	}
+	recordStageStats(model, stageBody, stats)
 	model.log.Debug("Commit Body Generator output", "result", result)
 	return result, nil
 }
@@ -118,7 +146,7 @@ func iaCallCommitBodyGenerator(model *Model, summaryParagraphs string) (string, 
 func iaCallCommitTitleGenerator(model *Model, commitBody string) (string, error) {
 	promptConfig := model.globalConfig.Prompts
 
-	result, err := createAndSendIaMessage(
+	result, stats, err := createAndSendIaMessage(
 		promptConfig.CommitTitleGeneratorPrompt,
 		fmt.Sprintf("TAG:\n%s\nMODULE:\n%s\nCOMMIT_BODY:\n%s",
 			model.commitType, model.commitScope, commitBody),
@@ -128,6 +156,7 @@ func iaCallCommitTitleGenerator(model *Model, commitBody string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("commit title generator call failed: %w", err)
 	}
+	recordStageStats(model, stageTitle, stats)
 	model.log.Debug("Commit Title Generator output", "result", result)
 	return strings.TrimSpace(result), nil
 }
@@ -227,11 +256,12 @@ func runChangelogRefiner(model *Model) {
 		bulletHint,
 	)
 
-	response, err := createAndSendIaMessage(prompt, userInput, cfg.PromptModel, model)
+	response, stats, err := createAndSendIaMessage(prompt, userInput, cfg.PromptModel, model)
 	if err != nil {
 		model.log.Warn("Changelog refiner call failed", "error", err)
 		return
 	}
+	recordStageStats(model, stageChangelog, stats)
 
 	parsed, perr := parseChangelogRefinerJSON(response)
 	if perr != nil {
@@ -356,7 +386,7 @@ func iaReleaseBuilder(model *Model) error {
 	promptConfig := model.globalConfig.Prompts
 	model.log.Debug("release ia Input", "input", input)
 
-	iaResponse, err := createAndSendIaMessage(
+	iaResponse, _, err := createAndSendIaMessage(
 		promptConfig.ReleasePrompt,
 		input.String(),
 		promptConfig.ReleasePromptModel,
