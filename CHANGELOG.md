@@ -23,8 +23,9 @@ per-repo `.commitcraft.toml`, scope chosen explicitly per save.
   `groq_models_cache` table (created via `createModelsCacheTable`),
   `SaveModelsCache` / `LoadModelsCache` helpers and an
   `IsModelsCacheStale` TTL check.
-- `internal/tui/model_picker_popup.go`: two-step popup — a filterable
-  free-model list, then a `g`/`l` scope prompt.
+- `internal/tui/model_picker_popup.go`: two-step popup — a four-column
+  `bubbles/v2/table` (Model · Owner · Ctx · Status), then a `g`/`l`
+  scope prompt.
 - `internal/tui/model_picker_glue.go`: `openModelPickerCmd` and
   `refreshModelPickerCmd` perform cache-aware fetch/save in a tea.Cmd
   and emit `modelPickerOpenedMsg` so the parent rebuilds the popup.
@@ -40,8 +41,8 @@ per-repo `.commitcraft.toml`, scope chosen explicitly per save.
 
 In the Compose tab press `Tab` until the **pipeline models** section is
 focused, then `↑/↓` (or `j/k`) to pick a stage and `Enter` to open the
-picker. Use `/` to filter the list, `r` to force a fresh fetch from the
-Groq API, `esc` to cancel. After picking a model, press `g` to save it
+picker. Use `↑↓/jk/pgup/pgdn` to navigate the table, `r` to force a
+fresh fetch from the Groq API, `esc` to cancel. After picking a model, press `g` to save it
 in the global config or `l` to save it in `.commitcraft.toml` for the
 current repo. The change is applied to the running session immediately
 and reflected on the Pipeline tab.

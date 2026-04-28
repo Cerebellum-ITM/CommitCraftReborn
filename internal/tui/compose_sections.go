@@ -328,14 +328,11 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 		))
 	}
 
-	parts := []string{label, ""}
-	parts = append(parts, strings.Join(rows, "\n"))
-	if focused {
-		hint := base.Foreground(theme.Muted).
-			Render("↑↓ pick stage · enter change model")
-		parts = append(parts, hint)
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	return lipgloss.JoinVertical(lipgloss.Left,
+		label,
+		"",
+		strings.Join(rows, "\n"),
+	)
 }
 
 // renderAISuggestionContent picks between the empty-state placeholder and

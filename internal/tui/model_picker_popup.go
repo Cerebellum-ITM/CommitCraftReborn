@@ -2,10 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"io"
 	"time"
 
-	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -39,58 +38,13 @@ const (
 	pickerStateScope
 )
 
-type modelPickerItem struct {
-	id       string
-	ownedBy  string
-	contextW int
-	current  bool
-}
-
-func (i modelPickerItem) Title() string       { return i.id }
-func (i modelPickerItem) Description() string { return i.ownedBy }
-func (i modelPickerItem) FilterValue() string { return i.id }
-
-type modelPickerDelegate struct {
-	theme *styles.Theme
-}
-
-func (d modelPickerDelegate) Height() int                             { return 1 }
-func (d modelPickerDelegate) Spacing() int                            { return 0 }
-func (d modelPickerDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-
-func (d modelPickerDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	it, ok := listItem.(modelPickerItem)
-	if !ok {
-		return
-	}
-	base := d.theme.AppStyles().Base
-	cursor := "  "
-	titleColor := d.theme.FgMuted
-	if index == m.Index() {
-		cursor = base.Foreground(d.theme.Primary).Bold(true).Render("❯ ")
-		titleColor = d.theme.FgBase
-	}
-	tag := ""
-	if it.current {
-		tag = base.Foreground(d.theme.Secondary).Render(" · current")
-	}
-	meta := ""
-	if it.contextW > 0 {
-		meta = base.Foreground(d.theme.Muted).Render(
-			fmt.Sprintf("  %dk ctx", it.contextW/1000),
-		)
-	}
-	line := cursor + base.Foreground(titleColor).Render(it.id) + meta + tag
-	fmt.Fprint(w, line)
-}
-
 type modelPickerPopup struct {
 	stage         config.ModelStage
 	stageLabel    string
 	current       string
 	models        []storage.CachedModel
 	cachedAt      time.Time
-	list          list.Model
+	table         table.Model
 	width, height int
 	theme         *styles.Theme
 	sub           modelPickerSubState
@@ -106,28 +60,67 @@ func newModelPickerPopup(
 	width, height int,
 	theme *styles.Theme,
 ) modelPickerPopup {
-	items := make([]list.Item, 0, len(models))
-	selected := 0
-	for i, m := range models {
-		items = append(items, modelPickerItem{
-			id:       m.ID,
-			ownedBy:  m.OwnedBy,
-			contextW: m.ContextWindow,
-			current:  m.ID == current,
-		})
-		if m.ID == current {
-			selected = i
-		}
+	innerW := max(40, width-6)
+	// Each cell carries Padding(0,1) from table.DefaultStyles, so the
+	// rendered width per column is colWidth + 2. Subtract that overhead
+	// from the available inner width before splitting it across columns
+	// — otherwise the header's bottom-border line wraps to a second row
+	// because the joined cells are 2*numCols chars wider than the
+	// viewport.
+	const cellPadding = 2
+	const numCols = 4
+	currentW := 14
+	ctxW := 10
+	ownerW := 18
+	idW := max(20, innerW-currentW-ctxW-ownerW-cellPadding*numCols)
+
+	cols := []table.Column{
+		{Title: "Model", Width: idW},
+		{Title: "Owner", Width: ownerW},
+		{Title: "Ctx", Width: ctxW},
+		{Title: "Status", Width: currentW},
 	}
 
-	l := list.New(items, modelPickerDelegate{theme: theme}, width, height)
-	l.SetShowTitle(false)
-	l.SetShowStatusBar(false)
-	l.SetShowPagination(false)
-	l.SetShowHelp(false)
-	l.SetFilteringEnabled(true)
-	if len(items) > 0 {
-		l.Select(selected)
+	rows := make([]table.Row, 0, len(models))
+	selected := 0
+	for i, m := range models {
+		ctx := "—"
+		if m.ContextWindow > 0 {
+			ctx = fmt.Sprintf("%dk", m.ContextWindow/1000)
+		}
+		status := ""
+		if m.ID == current {
+			status = "current"
+			selected = i
+		}
+		rows = append(rows, table.Row{m.ID, m.OwnedBy, ctx, status})
+	}
+
+	tableH := max(6, height-12)
+
+	st := table.DefaultStyles()
+	st.Header = st.Header.
+		Foreground(theme.Secondary).
+		Bold(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		BorderForeground(theme.Subtle)
+	st.Cell = st.Cell.Foreground(theme.FgMuted)
+	st.Selected = st.Selected.
+		Foreground(theme.BG).
+		Background(theme.Primary).
+		Bold(true)
+
+	tbl := table.New(
+		table.WithColumns(cols),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithWidth(innerW),
+		table.WithHeight(tableH),
+		table.WithStyles(st),
+	)
+	if len(rows) > 0 {
+		tbl.SetCursor(selected)
 	}
 
 	return modelPickerPopup{
@@ -136,7 +129,7 @@ func newModelPickerPopup(
 		current:    current,
 		models:     models,
 		cachedAt:   cachedAt,
-		list:       l,
+		table:      tbl,
 		width:      width,
 		height:     height,
 		theme:      theme,
@@ -150,7 +143,7 @@ func (m modelPickerPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	km, ok := msg.(tea.KeyMsg)
 	if !ok {
 		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
+		m.table, cmd = m.table.Update(msg)
 		return m, cmd
 	}
 
@@ -178,31 +171,22 @@ func (m modelPickerPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch km.String() {
 	case "esc":
-		if m.list.FilterState() == list.Filtering {
-			break
-		}
 		return m, func() tea.Msg { return closeModelPickerMsg{} }
 	case "enter":
-		if m.list.FilterState() == list.Filtering {
-			break
-		}
-		it, ok := m.list.SelectedItem().(modelPickerItem)
-		if !ok {
+		row := m.table.SelectedRow()
+		if len(row) == 0 {
 			return m, nil
 		}
-		m.pickedModel = it.id
+		m.pickedModel = row[0]
 		m.sub = pickerStateScope
 		return m, nil
 	case "r":
-		if m.list.FilterState() == list.Filtering {
-			break
-		}
 		stage := m.stage
 		return m, func() tea.Msg { return modelPickerRefreshMsg{stage: stage} }
 	}
 
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
+	m.table, cmd = m.table.Update(msg)
 	return m, cmd
 }
 
@@ -214,23 +198,23 @@ func (m modelPickerPopup) View() tea.View {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(m.theme.Primary)
 
-	innerW := max(20, m.width-box.GetHorizontalFrameSize())
-	innerH := max(8, m.height-box.GetVerticalFrameSize()-6)
-
 	base := m.theme.AppStyles().Base
 	header := base.Foreground(m.theme.Secondary).Bold(true).
 		Render(fmt.Sprintf("Pick model · stage: %s", m.stageLabel))
 
-	cacheLine := ""
+	cacheLine := base.Foreground(m.theme.Muted).Render("cache: empty")
 	if !m.cachedAt.IsZero() {
 		age := time.Since(m.cachedAt).Round(time.Minute)
 		cacheLine = base.Foreground(m.theme.Muted).
-			Render(fmt.Sprintf("cache: %s ago", age))
-	} else {
-		cacheLine = base.Foreground(m.theme.Muted).Render("cache: empty")
+			Render(fmt.Sprintf("cache: %s ago · %d models", age, len(m.models)))
 	}
 
 	if m.sub == pickerStateScope {
+		scopeHint := renderPopupHelpLine(m.theme, []helpEntry{
+			{"g", "global  ~/.config/CommitCraft/config.toml"},
+			{"l", "local   .commitcraft.toml"},
+			{"esc", "back"},
+		})
 		body := lipgloss.JoinVertical(lipgloss.Left,
 			header,
 			"",
@@ -238,29 +222,46 @@ func (m modelPickerPopup) View() tea.View {
 			"",
 			base.Foreground(m.theme.FG).Render("Save to:"),
 			"",
-			base.Foreground(m.theme.Primary).Bold(true).Render("[g]")+
-				base.Foreground(m.theme.FG).Render(" global  ~/.config/CommitCraft/config.toml"),
-			base.Foreground(m.theme.Primary).Bold(true).Render("[l]")+
-				base.Foreground(m.theme.FG).Render(" local   .commitcraft.toml in CWD"),
-			"",
-			base.Foreground(m.theme.Muted).Render("[esc] back"),
+			scopeHint,
 		)
 		return tea.NewView(box.Render(body))
 	}
 
-	m.list.SetWidth(innerW)
-	m.list.SetHeight(innerH)
-
-	hint := base.Foreground(m.theme.Muted).
-		Render("↑↓ navigate · / filter · enter pick · r refresh · esc cancel")
+	hint := renderPopupHelpLine(m.theme, []helpEntry{
+		{"↑↓/jk", "navigate"},
+		{"↵", "pick"},
+		{"r", "refresh"},
+		{"esc", "cancel"},
+	})
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		cacheLine,
 		"",
-		m.list.View(),
+		m.table.View(),
 		"",
 		hint,
 	)
 	return tea.NewView(box.Render(body))
+}
+
+// renderPopupHelpLine mirrors renderHelpEntries (in compose_status.go) so
+// in-popup hints share the same themed key/desc styling as the global
+// help bar — key = Primary, description = Muted, separated by `·`.
+func renderPopupHelpLine(theme *styles.Theme, entries []helpEntry) string {
+	base := theme.AppStyles().Base
+	keyStyle := base.Foreground(theme.Primary)
+	descStyle := base.Foreground(theme.Muted)
+	parts := make([]string, 0, len(entries)*4)
+	for i, e := range entries {
+		parts = append(parts,
+			keyStyle.Render(e.key),
+			" ",
+			descStyle.Render(e.desc),
+		)
+		if i < len(entries)-1 {
+			parts = append(parts, "  ", descStyle.Render("·"), "  ")
+		}
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 }

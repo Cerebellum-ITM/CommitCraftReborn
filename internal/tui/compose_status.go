@@ -117,6 +117,8 @@ func helpEntriesForFocus(f focusableElement) []helpEntry {
 		}
 	case focusComposePipelineModels:
 		return []helpEntry{
+			{"↑↓", "pick stage"},
+			{"↵", "change model"},
 			{"tab", "next section"},
 			{"esc", "back"},
 			{"?", "help"},

@@ -40,13 +40,13 @@ type composeStageEntry struct {
 // is active so the user can swap that model in the same place.
 func composePipelineStages(m *Model) []composeStageEntry {
 	stages := []composeStageEntry{
-		{label: "summary", stage: config.StageChangeAnalyzer},
-		{label: "raw commit", stage: config.StageCommitBody},
-		{label: "formatted", stage: config.StageCommitTitle},
+		{label: "Change Analyzer", stage: config.StageChangeAnalyzer},
+		{label: "Commit Body", stage: config.StageCommitBody},
+		{label: "Commit Title", stage: config.StageCommitTitle},
 	}
 	if m.changelogActive {
 		stages = append(stages, composeStageEntry{
-			label: "changelog", stage: config.StageChangelog,
+			label: "Changelog Refiner", stage: config.StageChangelog,
 		})
 	}
 	return stages
