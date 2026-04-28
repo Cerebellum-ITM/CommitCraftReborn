@@ -55,7 +55,36 @@ func InitDB() (*DB, error) {
 		return nil, errors.Wrap(err, "failed to create ai_calls table")
 	}
 
+	if err := createModelRateLimitsTable(sqlDB); err != nil {
+		return nil, errors.Wrap(err, "failed to create model_rate_limits table")
+	}
+
+	// Migrations run after every CREATE TABLE so the alterations slice can
+	// freely target child tables (e.g. ai_calls.tpm_limit_at_call).
+	if err := applySchemaMigrations(sqlDB); err != nil {
+		return nil, errors.Wrap(err, "failed to apply schema migrations")
+	}
+
 	return &DB{sqlDB}, nil
+}
+
+// createModelRateLimitsTable persists the latest x-ratelimit-* snapshot
+// per model id so the in-memory cache can be hydrated on every startup.
+// One row per model — UPSERTed on every API call.
+func createModelRateLimitsTable(db *sql.DB) error {
+	_, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS model_rate_limits (
+            model_id TEXT PRIMARY KEY,
+            limit_requests INTEGER NOT NULL DEFAULT 0,
+            remaining_requests INTEGER NOT NULL DEFAULT 0,
+            reset_requests_ms INTEGER NOT NULL DEFAULT 0,
+            limit_tokens INTEGER NOT NULL DEFAULT 0,
+            remaining_tokens INTEGER NOT NULL DEFAULT 0,
+            reset_tokens_ms INTEGER NOT NULL DEFAULT 0,
+            captured_at TEXT NOT NULL
+        );
+    `)
+	return err
 }
 
 // createAICallsTable bootstraps the per-stage telemetry store. One row per
@@ -140,6 +169,12 @@ func applySchemaMigrations(db *sql.DB) error {
 			columnType:   "TEXT",
 			defaultValue: "''",
 		},
+		{
+			tableName:    "ai_calls",
+			columnName:   "tpm_limit_at_call",
+			columnType:   "INTEGER",
+			defaultValue: "0",
+		},
 	}
 
 	for _, alt := range alterations {
@@ -197,17 +232,5 @@ func createTables(db *sql.DB) error {
             created_at TEXT NOT NULL
         );
     `)
-	if err != nil {
-		return err
-	}
-
-	err = applySchemaMigrations(db)
-	if err != nil {
-		// If the error is "duplicate column name", we safely ignore it.
-		// For any other error, we return it.
-		if !strings.Contains(err.Error(), "duplicate column name") {
-			return err
-		}
-	}
-	return nil
+	return err
 }

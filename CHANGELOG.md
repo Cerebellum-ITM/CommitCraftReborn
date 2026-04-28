@@ -4,7 +4,32 @@ All notable changes to CommitCraft are documented here. Newest version on top.
 
 ## v0.18.1 — 2026-04-28
 
-- Updated progress bar rendering in the terminal UI to use a Braille-based smoothing ramp, allowing for finer granularity and a more nuanced visual representation of quota usage.
+Persistence + finer per-call telemetry on top of v0.18.0:
+
+- New `model_rate_limits` SQLite table stores the latest `x-ratelimit-*`
+  snapshot per model. Hydrated into the in-memory cache at every startup,
+  so the RPD/TPM/REQ/TOK bars now survive `Ctrl+X` → reopen instead of
+  reading "no data yet" until the next live call.
+- New `EffectiveRateLimits` helper applied at render time: when the
+  per-resource reset window has already passed (`captured_at + reset_*`),
+  the corresponding bucket is shown as refilled. No periodic ticker —
+  the value is corrected on the next repaint after the window expires.
+- New `tpm_limit_at_call` column on `ai_calls` plus a per-stage TPM bar
+  appended to each stage card's stats line. Reflects the % of the model's
+  TPM ceiling consumed by that specific call. Survives reloads (drafts
+  and completed commits, both `EditIaCommit` and the draft Enter paths).
+- Quota bars now use a Braille-based smoothing ramp (`⠀⡀⣀⣄⣤⣦⣶⣷⣿`)
+  for 8 sub-cell levels of fill, replacing the previous block characters.
+- Internal: `applySchemaMigrations` now runs after every CREATE TABLE so
+  child-table migrations (e.g. ai_calls) execute against an existing
+  schema.
+
+### Usage
+
+Nothing to configure. After upgrading, the next AI call writes its
+rate-limit snapshot to disk; subsequent restarts pre-populate the bars.
+Per-stage TPM bars appear automatically next to the existing tokens/time
+line on every card with telemetry.
 
 ## v0.18.0 — 2026-04-28
 

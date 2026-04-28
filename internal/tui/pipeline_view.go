@@ -592,6 +592,32 @@ func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int) str
 	}
 	durStr := base.Foreground(theme.Secondary).Render(formatStageDuration(dur))
 	line := arrow + tokens + breakdown + sep + durStr
+
+	// Append a per-call TPM consumption bar when we know the model's
+	// per-minute token budget at the time of the call. The bar reflects
+	// how close THIS call got to hitting the TPM ceiling — it does not
+	// decay (unlike the global compose bars) because it documents a
+	// historical fact, not a live bucket state.
+	if st.TPMLimitAtCall > 0 && st.TotalTokens > 0 {
+		const tpmBarCells = 8
+		barColor := theme.Primary
+		pct := st.TotalTokens * 100 / st.TPMLimitAtCall
+		switch {
+		case pct >= 90:
+			barColor = theme.Error
+		case pct >= 70:
+			barColor = theme.Warning
+		}
+		bar := renderBrailleRamp(
+			st.TotalTokens, st.TPMLimitAtCall, tpmBarCells,
+			base, barColor, theme.Subtle,
+		)
+		pctText := base.Foreground(theme.Muted).Render(
+			fmt.Sprintf("%d%% TPM", pct),
+		)
+		line += sep + bar + " " + pctText
+	}
+
 	if w := ansi.StringWidth(line); w > width && width > 0 {
 		line = ansi.Truncate(line, width, "…")
 	}

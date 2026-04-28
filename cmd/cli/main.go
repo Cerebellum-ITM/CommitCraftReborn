@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
@@ -14,7 +16,7 @@ import (
 	"commit_craft_reborn/internal/tui"
 )
 
-var version = "v0.18.0"
+var version = "v0.18.1"
 
 func main() {
 	log := logger.New()
@@ -59,6 +61,26 @@ func main() {
 	}
 	defer db.Close()
 	log.Debug("Database initialized successfully.")
+
+	// Hydrate the rate-limit cache from disk so the per-model bars in the
+	// compose tab and picker footer don't read "no data yet" right after
+	// startup. Failures are non-fatal — bars simply stay empty until the
+	// next live API call refreshes them.
+	if persisted, err := db.LoadAllModelRateLimits(); err != nil {
+		log.Warn("Failed to load persisted rate-limits", "error", err)
+	} else {
+		for _, p := range persisted {
+			api.RecordRateLimits(p.ModelID, api.RateLimits{
+				LimitRequests:     p.LimitRequests,
+				RemainingRequests: p.RemainingRequests,
+				ResetRequests:     time.Duration(p.ResetRequestsMs) * time.Millisecond,
+				LimitTokens:       p.LimitTokens,
+				RemainingTokens:   p.RemainingTokens,
+				ResetTokens:       time.Duration(p.ResetTokensMs) * time.Millisecond,
+				CapturedAt:        p.CapturedAt,
+			})
+		}
+	}
 
 	appMode := tui.CommitMode
 	if *startInReleaseMode {

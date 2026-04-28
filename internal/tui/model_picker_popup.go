@@ -273,13 +273,14 @@ func renderModelQuotaFooter(theme *styles.Theme, modelID string, width int) stri
 
 	header := base.Foreground(theme.Secondary).Bold(true).Render(modelID)
 
-	rl, ok := api.GetRateLimits(modelID)
+	raw, ok := api.GetRateLimits(modelID)
 	if !ok {
 		hint := base.Foreground(theme.Muted).Italic(true).Render(
 			"No telemetry yet — make a call with this model to populate the quotas.",
 		)
 		return lipgloss.JoinVertical(lipgloss.Left, header, hint)
 	}
+	rl := api.EffectiveRateLimits(raw, time.Now())
 
 	if width < 24 {
 		width = 24

@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"regexp"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -342,10 +343,11 @@ func (model *Model) renderComposePipelineModelsArea(width int, focused bool) str
 			rpd = renderThinQuotaBar(theme, "RPD", 0, 0, barWidth)
 			tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)
 		} else if rl, ok := api.GetRateLimits(modelName); ok {
+			eff := api.EffectiveRateLimits(rl, time.Now())
 			rpd = renderThinQuotaBar(theme, "RPD",
-				rl.LimitRequests-rl.RemainingRequests, rl.LimitRequests, barWidth)
+				eff.LimitRequests-eff.RemainingRequests, eff.LimitRequests, barWidth)
 			tpm = renderThinQuotaBar(theme, "TPM",
-				rl.LimitTokens-rl.RemainingTokens, rl.LimitTokens, barWidth)
+				eff.LimitTokens-eff.RemainingTokens, eff.LimitTokens, barWidth)
 		} else {
 			rpd = renderThinQuotaBar(theme, "RPD", 0, 0, barWidth)
 			tpm = renderThinQuotaBar(theme, "TPM", 0, 0, barWidth)

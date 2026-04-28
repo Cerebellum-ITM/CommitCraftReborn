@@ -59,6 +59,7 @@ type pipelineStage struct {
 	RequestID        string
 	StatsModel       string
 	HasStats         bool
+	TPMLimitAtCall   int
 }
 
 // pipelineModel groups every Pipeline-tab-specific piece of state on the
@@ -185,6 +186,7 @@ func (pm *pipelineModel) resetAll(now time.Time) {
 		pm.stages[i].APITotalTime = 0
 		pm.stages[i].RequestID = ""
 		pm.stages[i].StatsModel = ""
+		pm.stages[i].TPMLimitAtCall = 0
 	}
 }
 
@@ -221,6 +223,7 @@ func (pm *pipelineModel) resetFrom(from stageID, now time.Time) {
 		pm.stages[i].APITotalTime = 0
 		pm.stages[i].RequestID = ""
 		pm.stages[i].StatsModel = ""
+		pm.stages[i].TPMLimitAtCall = 0
 	}
 }
 

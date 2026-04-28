@@ -226,7 +226,7 @@ func (db *DB) SaveDraft(c *Commit) error {
 func (db *DB) CreateAICall(call AICall) (int64, error) {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.Exec(
-		"INSERT INTO ai_calls (commit_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO ai_calls (commit_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, tpm_limit_at_call, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		call.CommitID,
 		call.Stage,
 		call.Model,
@@ -238,6 +238,7 @@ func (db *DB) CreateAICall(call AICall) (int64, error) {
 		call.CompletionTimeMs,
 		call.TotalTimeMs,
 		call.RequestID,
+		call.TPMLimitAtCall,
 		createdAt,
 	)
 	if err != nil {
@@ -254,7 +255,7 @@ func (db *DB) CreateAICall(call AICall) (int64, error) {
 // insertion order. Empty slice + nil error when the commit has no calls.
 func (db *DB) GetAICallsByCommitID(commitID int) ([]AICall, error) {
 	rows, err := db.Query(
-		"SELECT id, commit_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, created_at FROM ai_calls WHERE commit_id = ? ORDER BY id ASC",
+		"SELECT id, commit_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, tpm_limit_at_call, created_at FROM ai_calls WHERE commit_id = ? ORDER BY id ASC",
 		commitID,
 	)
 	if err != nil {
@@ -270,7 +271,7 @@ func (db *DB) GetAICallsByCommitID(commitID int) ([]AICall, error) {
 			&c.ID, &c.CommitID, &c.Stage, &c.Model,
 			&c.PromptTokens, &c.CompletionTokens, &c.TotalTokens,
 			&c.QueueTimeMs, &c.PromptTimeMs, &c.CompletionTimeMs, &c.TotalTimeMs,
-			&c.RequestID, &createdAt,
+			&c.RequestID, &c.TPMLimitAtCall, &createdAt,
 		); err != nil {
 			return nil, errors.Wrap(err, "failed to scan ai_call row")
 		}
@@ -290,6 +291,67 @@ func (db *DB) GetAICallsByCommitID(commitID int) ([]AICall, error) {
 func (db *DB) DeleteAICallsByCommitID(commitID int) error {
 	_, err := db.Exec("DELETE FROM ai_calls WHERE commit_id = ?", commitID)
 	return errors.Wrap(err, "failed to delete ai_calls")
+}
+
+// SaveModelRateLimits UPSERTs the latest rate-limit snapshot for one
+// model. captured_at is overwritten on every call so freshness checks
+// at render time can decide when the bucket has refilled.
+func (db *DB) SaveModelRateLimits(rl ModelRateLimits) error {
+	if rl.ModelID == "" {
+		return nil
+	}
+	capturedAt := rl.CapturedAt
+	if capturedAt.IsZero() {
+		capturedAt = time.Now()
+	}
+	_, err := db.Exec(
+		"INSERT INTO model_rate_limits (model_id, limit_requests, remaining_requests, reset_requests_ms, limit_tokens, remaining_tokens, reset_tokens_ms, captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(model_id) DO UPDATE SET limit_requests=excluded.limit_requests, remaining_requests=excluded.remaining_requests, reset_requests_ms=excluded.reset_requests_ms, limit_tokens=excluded.limit_tokens, remaining_tokens=excluded.remaining_tokens, reset_tokens_ms=excluded.reset_tokens_ms, captured_at=excluded.captured_at",
+		rl.ModelID,
+		rl.LimitRequests,
+		rl.RemainingRequests,
+		rl.ResetRequestsMs,
+		rl.LimitTokens,
+		rl.RemainingTokens,
+		rl.ResetTokensMs,
+		capturedAt.UTC().Format(time.RFC3339),
+	)
+	return errors.Wrap(err, "failed to upsert model_rate_limits")
+}
+
+// LoadAllModelRateLimits returns every persisted rate-limit row so the
+// in-memory cache can be hydrated at startup.
+func (db *DB) LoadAllModelRateLimits() ([]ModelRateLimits, error) {
+	rows, err := db.Query(
+		"SELECT model_id, limit_requests, remaining_requests, reset_requests_ms, limit_tokens, remaining_tokens, reset_tokens_ms, captured_at FROM model_rate_limits",
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query model_rate_limits")
+	}
+	defer rows.Close()
+
+	var out []ModelRateLimits
+	for rows.Next() {
+		var r ModelRateLimits
+		var capturedAt string
+		if err := rows.Scan(
+			&r.ModelID,
+			&r.LimitRequests, &r.RemainingRequests, &r.ResetRequestsMs,
+			&r.LimitTokens, &r.RemainingTokens, &r.ResetTokensMs,
+			&capturedAt,
+		); err != nil {
+			return nil, errors.Wrap(err, "failed to scan model_rate_limits row")
+		}
+		t, err := time.Parse(time.RFC3339, capturedAt)
+		if err != nil {
+			return nil, errors.Wrap(
+				err,
+				"failed to parse model_rate_limits captured_at: "+capturedAt,
+			)
+		}
+		r.CapturedAt = t
+		out = append(out, r)
+	}
+	return out, nil
 }
 
 // FinalizeCommit updates a commit to set its status to 'completed' and saves final data.

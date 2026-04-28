@@ -1,6 +1,9 @@
 package api
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // rateLimitCache stores the most recent RateLimits observed per model id,
 // hydrated as the user makes calls. Lives only in memory — Groq's reset
@@ -28,4 +31,24 @@ func GetRateLimits(modelID string) (RateLimits, bool) {
 	rl, ok := rateLimitStore[modelID]
 	rateLimitMu.RUnlock()
 	return rl, ok
+}
+
+// EffectiveRateLimits returns rl adjusted for time elapsed since capture:
+// if the per-resource reset window has already passed, the corresponding
+// `Remaining*` value is bumped back up to its `Limit*` so the bar reads
+// as a refilled bucket without needing a periodic tick. Resource buckets
+// that haven't expired are returned unchanged.
+func EffectiveRateLimits(rl RateLimits, now time.Time) RateLimits {
+	if rl.CapturedAt.IsZero() {
+		return rl
+	}
+	elapsed := now.Sub(rl.CapturedAt)
+	out := rl
+	if rl.ResetRequests > 0 && elapsed >= rl.ResetRequests && rl.LimitRequests > 0 {
+		out.RemainingRequests = rl.LimitRequests
+	}
+	if rl.ResetTokens > 0 && elapsed >= rl.ResetTokens && rl.LimitTokens > 0 {
+		out.RemainingTokens = rl.LimitTokens
+	}
+	return out
 }

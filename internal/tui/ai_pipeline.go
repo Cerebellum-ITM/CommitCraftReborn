@@ -60,8 +60,32 @@ func createAndSendIaMessage(
 	}
 	if stats != nil {
 		api.RecordRateLimits(iaModel, stats.RateLimits)
+		persistRateLimits(model, iaModel, stats.RateLimits)
 	}
 	return response, stats, nil
+}
+
+// persistRateLimits UPSERTs the just-captured rate-limit snapshot for
+// modelID so the in-memory cache can be rehydrated on the next launch.
+// Best-effort — DB failures are logged but never propagated, the live
+// cache already has the data for the current session.
+func persistRateLimits(model *Model, modelID string, rl api.RateLimits) {
+	if model == nil || model.db == nil || modelID == "" {
+		return
+	}
+	row := storage.ModelRateLimits{
+		ModelID:           modelID,
+		LimitRequests:     rl.LimitRequests,
+		RemainingRequests: rl.RemainingRequests,
+		ResetRequestsMs:   int(rl.ResetRequests / time.Millisecond),
+		LimitTokens:       rl.LimitTokens,
+		RemainingTokens:   rl.RemainingTokens,
+		ResetTokensMs:     int(rl.ResetTokens / time.Millisecond),
+		CapturedAt:        rl.CapturedAt,
+	}
+	if err := model.db.SaveModelRateLimits(row); err != nil {
+		model.log.Warn("rate-limit persistence failed", "model", modelID, "error", err)
+	}
 }
 
 // recordStageStats copies a CallStats into the per-stage record on the
@@ -85,6 +109,7 @@ func recordStageStats(model *Model, id stageID, stats *api.CallStats) {
 	st.APITotalTime = stats.TotalTime
 	st.RequestID = stats.RequestID
 	st.StatsModel = stats.Model
+	st.TPMLimitAtCall = stats.RateLimits.LimitTokens
 }
 
 func iaCallChangeAnalyzer(model *Model) (string, error) {

@@ -63,6 +63,7 @@ func persistPipelineAICalls(model *Model, commitID int) {
 			CompletionTimeMs: durationToMs(st.CompletionTime),
 			TotalTimeMs:      durationToMs(stageDisplayDuration(st)),
 			RequestID:        st.RequestID,
+			TPMLimitAtCall:   st.TPMLimitAtCall,
 		}
 		if _, err := model.db.CreateAICall(call); err != nil {
 			model.log.Warn(
@@ -104,6 +105,7 @@ func loadPipelineAICalls(model *Model, commitID int) {
 		st.CompletionTime = msToDuration(c.CompletionTimeMs)
 		st.APITotalTime = msToDuration(c.TotalTimeMs)
 		st.RequestID = c.RequestID
+		st.TPMLimitAtCall = c.TPMLimitAtCall
 		// The reloaded stage is conceptually "done" — it produced output
 		// previously — so mirror the wall-clock latency from the stored
 		// total_time_ms so renderStageStatsLine has a duration to print
