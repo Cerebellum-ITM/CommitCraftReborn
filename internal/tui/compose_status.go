@@ -91,9 +91,10 @@ func composeBottomBarContent(
 	return statusbar.LevelAI, "SUMMARY", body, right
 }
 
-// composeProgressBar renders the filled/empty progress block + percentage
-// label that lives on the right of the bottom bar when the summary
-// section is focused.
+// composeProgressBar renders the chars/% indicator on the right of the
+// summary bottom bar. Uses the same Braille-based ramp as the quota
+// bars (`renderBrailleRamp`) so every progress visual in the TUI shares
+// one fill style.
 func composeProgressBar(
 	theme *styles.Theme, base lipgloss.Style, chars, width int,
 ) string {
@@ -104,9 +105,14 @@ func composeProgressBar(
 	const minBarArea = 12
 	rightAvailable := max(minBarArea, width/3)
 	barW := max(4, rightAvailable-6)
-	filled := barW * pct / 100
-	bar := base.Foreground(theme.Primary).Render(strings.Repeat("█", filled)) +
-		base.Foreground(theme.Subtle).Render(strings.Repeat("░", barW-filled))
+	fillColor := theme.Primary
+	switch {
+	case pct >= 90:
+		fillColor = theme.Error
+	case pct >= 70:
+		fillColor = theme.Warning
+	}
+	bar := renderBrailleRamp(chars, composeMaxChars, barW, base, fillColor, theme.Subtle)
 	pctText := base.Foreground(theme.Muted).Render(fmt.Sprintf("%3d%%", pct))
 	return bar + " " + pctText
 }

@@ -88,10 +88,27 @@ func renderThinQuotaBar(
 // 8 sub-levels of fill, so the bar's leading edge grows in 8 steps as
 // progress crosses every cell. Filled cells share the foreground color;
 // empty cells use the muted subtle color so the track is always visible.
+// Empty cells render as the BRAILLE PATTERN BLANK — invisible but
+// width-preserving. Callers that want a visible track skeleton should
+// use renderBrailleRampWithEmpty instead.
 func renderBrailleRamp(
 	used, total, width int,
 	base lipgloss.Style,
 	fill, track color.Color,
+) string {
+	return renderBrailleRampWithEmpty(used, total, width, base, fill, track, braille8Levels[0])
+}
+
+// renderBrailleRampWithEmpty is the same as renderBrailleRamp but lets
+// the caller pick the rune used for empty cells. Useful when the bar
+// needs to remain visible even at 0% — e.g. the per-stage TPM bar that
+// always shows its full extent so the user sees how much of the bucket
+// each call could have consumed.
+func renderBrailleRampWithEmpty(
+	used, total, width int,
+	base lipgloss.Style,
+	fill, track color.Color,
+	emptyRune rune,
 ) string {
 	if width <= 0 || total <= 0 {
 		return ""
@@ -127,7 +144,7 @@ func renderBrailleRamp(
 	}
 	if emptyCells > 0 {
 		b.WriteString(
-			base.Foreground(track).Render(strings.Repeat(string(braille8Levels[0]), emptyCells)),
+			base.Foreground(track).Render(strings.Repeat(string(emptyRune), emptyCells)),
 		)
 	}
 	return b.String()

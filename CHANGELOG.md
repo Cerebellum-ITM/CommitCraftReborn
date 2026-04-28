@@ -2,6 +2,17 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.18.2 — 2026-04-28
+
+- Updated progress bar rendering in pipeline cards to use a Braille-based ramp.
+- Added stage telemetry display in a middle panel section.
+- Extended `renderTitledPanel` to accept middle content for telemetry display.
+- Replaced linear character bar with `renderBrailleRamp` in `composeProgressBar`.
+- Modified `renderStageBar` to use the Braille ramp and custom empty cell rune.
+- Introduced `renderStageTelemetry` and `renderStageTelemetryDim` for stage telemetry rendering.
+- Added `stageBarWord` to render status words alongside stage bars.
+- Updated `renderBrailleRamp` to allow customization of the empty cell rune.
+
 ## v0.18.1 — 2026-04-28
 
 Persistence + finer per-call telemetry on top of v0.18.0:

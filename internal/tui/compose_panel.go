@@ -28,6 +28,13 @@ type titledPanelOpts struct {
 	// pre-styled content (e.g. statusbar pills). The Pipeline tab uses
 	// this to embed the per-stage status pill in the top edge.
 	hintRaw bool
+	// middle is an optional pre-styled string laid out between the title
+	// (left) and the hint (right) on the top edge. Used by the Pipeline
+	// tab to surface per-stage telemetry (tokens / duration / TPM bar).
+	middle string
+	// middleRaw mirrors hintRaw — when true, the middle string is
+	// embedded verbatim, with no surrounding style applied.
+	middleRaw bool
 }
 
 // renderTitledPanel draws a rounded-border panel with the title embedded
@@ -90,17 +97,60 @@ func renderTitledPanel(o titledPanelOpts) string {
 		hintW = lipgloss.Width(hintRendered)
 	}
 
-	// top edge: ╭─<title><filler><hint>─╮
-	// chars: ╭(1) ─(1) title fillerN hint ─(1) ╮(1) → width
-	fillerN := o.width - 4 - titleW - hintW
-	if fillerN < 1 {
-		fillerN = 1
+	middleRendered := ""
+	middleW := 0
+	if o.middle != "" {
+		if o.middleRaw {
+			middleRendered = " " + o.middle + " "
+		} else {
+			middleRendered = hintStyle.Render(" " + o.middle + " ")
+		}
+		middleW = lipgloss.Width(middleRendered)
 	}
-	topLine := bs.Render(topLeft+horizontal) +
-		titleRendered +
-		bs.Render(strings.Repeat(horizontal, fillerN)) +
-		hintRendered +
-		bs.Render(horizontal+topRight)
+
+	// top edge layout depends on whether a middle section is present:
+	//   without middle: ╭─<title><filler><hint>─╮
+	//   with middle:    ╭─<title><filler1><middle><filler2><hint>─╮
+	// The two fillers are split evenly so the middle reads as centered
+	// between the title and the hint.
+	topLine := ""
+	if middleW == 0 {
+		fillerN := o.width - 4 - titleW - hintW
+		if fillerN < 1 {
+			fillerN = 1
+		}
+		topLine = bs.Render(topLeft+horizontal) +
+			titleRendered +
+			bs.Render(strings.Repeat(horizontal, fillerN)) +
+			hintRendered +
+			bs.Render(horizontal+topRight)
+	} else {
+		// If the middle is too long to fit alongside title+hint+min-fillers,
+		// truncate it (preserving the leading "↳" cue) so the top edge
+		// never overflows the panel width.
+		const minFillerEachSide = 1
+		maxMiddle := o.width - 4 - titleW - hintW - 2*minFillerEachSide
+		if maxMiddle < 0 {
+			maxMiddle = 0
+		}
+		if middleW > maxMiddle && maxMiddle > 1 {
+			middleRendered = ansi.Truncate(middleRendered, maxMiddle, "…")
+			middleW = lipgloss.Width(middleRendered)
+		}
+		fillerTotal := o.width - 4 - titleW - middleW - hintW
+		if fillerTotal < 2 {
+			fillerTotal = 2
+		}
+		filler1 := fillerTotal / 2
+		filler2 := fillerTotal - filler1
+		topLine = bs.Render(topLeft+horizontal) +
+			titleRendered +
+			bs.Render(strings.Repeat(horizontal, filler1)) +
+			middleRendered +
+			bs.Render(strings.Repeat(horizontal, filler2)) +
+			hintRendered +
+			bs.Render(horizontal+topRight)
+	}
 
 	bottomLine := bs.Render(bottomLeft + strings.Repeat(horizontal, o.width-2) + bottomRight)
 

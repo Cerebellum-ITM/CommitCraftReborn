@@ -284,9 +284,10 @@ func (model *Model) renderStageContent(id stageID, width int) string {
 }
 
 // renderStageCardCollapsed draws the one-line summary used for non-focused
-// stages: status icon, "stage N · title", and the right-aligned status pill.
-// No borders, no body — just a compact row that fits exactly the panel
-// width so cycling focus only resizes the chosen card.
+// stages: status icon, "stage N · title", optional dim telemetry, and
+// the right-aligned status pill. No borders, no body — just a compact
+// row that fits exactly the panel width so cycling focus only resizes
+// the chosen card.
 func (model *Model) renderStageCardCollapsed(idx, width int) string {
 	theme := model.Theme
 	st := &model.pipeline.stages[idx]
@@ -310,6 +311,25 @@ func (model *Model) renderStageCardCollapsed(idx, width int) string {
 	left := iconStyled + "  " + titleStyled
 	leftW := lipgloss.Width(left)
 	pillW := lipgloss.Width(pill)
+
+	// When the stage has telemetry, splice it between the title and the
+	// pill with a thin divider on each side so the compact row mirrors
+	// the focused card's title layout. When it doesn't fit, fall back to
+	// the divider-only behaviour.
+	telemetry := renderStageTelemetryDim(theme, st)
+	telemetryW := lipgloss.Width(telemetry)
+	const minDividerEachSide = 2
+	if telemetry != "" && width-leftW-pillW-telemetryW-(minDividerEachSide*2) >= 0 {
+		gap := width - leftW - pillW - telemetryW
+		left1 := gap / 2
+		left2 := gap - left1
+		return left +
+			renderStageCardDivider(theme, left1, st.Status) +
+			telemetry +
+			renderStageCardDivider(theme, left2, st.Status) +
+			pill
+	}
+
 	gap := width - leftW - pillW
 	if gap < 1 {
 		gap = 1
@@ -363,18 +383,15 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 
 	bar := renderStageBar(theme, st, model.pipeline.pulsePhase, idx, innerW)
 
-	// When the stage has telemetry to show, reserve the bottom-most body
-	// row for the stats line so the card height stays unchanged. The
-	// viewport simply renders one fewer line of AI output.
-	statsLine := renderStageStatsLine(theme, st, innerW)
-	viewportRows := bodyRows
-	if statsLine != "" && bodyRows > 1 {
-		viewportRows = bodyRows - 1
-	}
+	// Telemetry is laid out as the centered "middle" section of the
+	// title row (see renderTitledPanel). The body now holds nothing but
+	// the AI output viewport plus the bottom bar — bodyRows is consumed
+	// fully by the viewport.
+	stageTelemetry := renderStageTelemetry(theme, st)
 
 	vp := model.stageViewportModel(stageID(idx))
 	vp.SetWidth(innerW)
-	vp.SetHeight(viewportRows)
+	vp.SetHeight(bodyRows)
 	// Content is rendered fresh each frame so it adapts to width changes
 	// (panel resize, focus growth) and stays in sync with the latest model
 	// outputs without a separate cache.
@@ -384,15 +401,11 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 	// Some viewports return fewer rows than requested when the source is
 	// empty. Pad so the underline stays anchored to the bottom border.
 	bodyLineCount := strings.Count(bodyRendered, "\n") + 1
-	if bodyLineCount < viewportRows {
-		bodyRendered += strings.Repeat("\n", viewportRows-bodyLineCount)
+	if bodyLineCount < bodyRows {
+		bodyRendered += strings.Repeat("\n", bodyRows-bodyLineCount)
 	}
 
-	content := bodyRendered
-	if statsLine != "" {
-		content += "\n" + statsLine
-	}
-	content += "\n" + bar
+	content := bodyRendered + "\n" + bar
 
 	icon := stageIcon(st.Status, model.pipeline.spinner.View())
 	titleText := fmt.Sprintf("stage %d · %s", idx+1, strings.ToLower(st.Title))
@@ -419,6 +432,8 @@ func (model *Model) renderStageCard(idx, width, height, bodyRows int) string {
 		title:       titleText,
 		hintRight:   pill,
 		hintRaw:     true,
+		middle:      stageTelemetry,
+		middleRaw:   true,
 		content:     content,
 		width:       width,
 		height:      height,
@@ -569,28 +584,76 @@ func (model *Model) stageViewportModel(id stageID) *viewport.Model {
 	return nil
 }
 
+// renderStageTelemetry is the title-row variant of the per-stage stats —
+// same content as renderStageStatsLine but rendered without a width cap
+// so the caller (renderTitledPanel) can decide how to lay it out and
+// truncate it if needed.
+func renderStageTelemetry(theme *styles.Theme, st *pipelineStage) string {
+	// 0 width disables the truncation pass; renderTitledPanel will
+	// truncate the middle slot if it doesn't fit between title and hint.
+	return renderStageStatsLine(theme, st, 0, false)
+}
+
+// renderStageTelemetryDim is the collapsed-card variant — same content as
+// the focused-card telemetry but every color is clamped to the muted /
+// subtle palette so the line reads as background information.
+func renderStageTelemetryDim(theme *styles.Theme, st *pipelineStage) string {
+	return renderStageStatsLine(theme, st, 0, true)
+}
+
 // renderStageStatsLine renders a single compact telemetry row for a stage:
 // "↳ 1.2k tok (in 1.1k · out 87) · 318ms". Returns the empty string when
 // no telemetry is available for the stage so the caller can skip the line
-// (and the row reservation that goes with it).
-func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int) string {
+// (and the row reservation that goes with it). When dim is true every
+// color is clamped to the muted/subtle palette so the line reads as
+// background information — used by the collapsed (non-focused) card.
+func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int, dim bool) string {
 	if !st.HasStats || st.TotalTokens <= 0 {
 		return ""
 	}
 	base := theme.AppStyles().Base
-	arrow := base.Foreground(theme.Muted).Render("↳ ")
-	tokens := base.Foreground(theme.FG).Render(formatTokenCount(st.TotalTokens) + " tok")
-	breakdown := base.Foreground(theme.Muted).Render(fmt.Sprintf(
-		" (in %s · out %s)",
-		formatTokenCount(st.PromptTokens),
-		formatTokenCount(st.CompletionTokens),
-	))
-	sep := base.Foreground(theme.Subtle).Render(" · ")
+
+	arrowColor := theme.Muted
+	tokensColor := theme.FG
+	breakdownColor := theme.Muted
+	inColor := theme.AI
+	outColor := theme.Success
+	sepColor := theme.Subtle
+	durColor := theme.Secondary
+	tpmEmptyColor := theme.Subtle
+	pctColor := theme.Muted
+	if dim {
+		arrowColor = theme.Subtle
+		tokensColor = theme.Muted
+		breakdownColor = theme.Subtle
+		inColor = theme.Muted
+		outColor = theme.Muted
+		sepColor = theme.Subtle
+		durColor = theme.Muted
+		tpmEmptyColor = theme.Subtle
+		pctColor = theme.Subtle
+	}
+
+	arrow := base.Foreground(arrowColor).Render("↳ ")
+	tokens := base.Foreground(tokensColor).Render(formatTokenCount(st.TotalTokens) + " tok")
+	// Breakdown values get distinctive accent colors so the user can
+	// tell input from output at a glance: "in" rides the AI palette
+	// (blue → matches the running pulse) and "out" rides Success (green
+	// → matches the done bar). Labels stay muted so the values pop.
+	openParen := base.Foreground(breakdownColor).Render(" (")
+	inLabel := base.Foreground(breakdownColor).Render("in ")
+	inValue := base.Foreground(inColor).Bold(true).Render(formatTokenCount(st.PromptTokens))
+	innerSep := base.Foreground(sepColor).Render(" · ")
+	outLabel := base.Foreground(breakdownColor).Render("out ")
+	outValue := base.Foreground(outColor).Bold(true).Render(formatTokenCount(st.CompletionTokens))
+	closeParen := base.Foreground(breakdownColor).Render(")")
+	breakdown := openParen + inLabel + inValue + innerSep + outLabel + outValue + closeParen
+	sep := base.Foreground(sepColor).Render(" · ")
 	dur := st.Latency
 	if dur <= 0 && st.APITotalTime > 0 {
 		dur = st.APITotalTime
 	}
-	durStr := base.Foreground(theme.Secondary).Render(formatStageDuration(dur))
+	durStr := base.Foreground(durColor).Render(formatStageDuration(dur))
 	line := arrow + tokens + breakdown + sep + durStr
 
 	// Append a per-call TPM consumption bar when we know the model's
@@ -608,11 +671,19 @@ func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int) str
 		case pct >= 70:
 			barColor = theme.Warning
 		}
+		if dim {
+			// Even threshold colors get demoted in the collapsed view —
+			// the focused card is the source of truth for alarm signals.
+			barColor = theme.Muted
+		}
+		// Per-stage TPM bar uses the same invisible-blank empty rule as
+		// every other braille bar in the TUI — only the consumed cells
+		// are visible.
 		bar := renderBrailleRamp(
 			st.TotalTokens, st.TPMLimitAtCall, tpmBarCells,
-			base, barColor, theme.Subtle,
+			base, barColor, tpmEmptyColor,
 		)
-		pctText := base.Foreground(theme.Muted).Render(
+		pctText := base.Foreground(pctColor).Render(
 			fmt.Sprintf("%d%% TPM", pct),
 		)
 		line += sep + bar + " " + pctText
@@ -651,37 +722,100 @@ func formatStageDuration(d time.Duration) string {
 	return fmt.Sprintf("%.1fs", d.Seconds())
 }
 
-// renderStageBar draws the thick coloured underline at the bottom of
-// every stage card. We deliberately skip bubbles/progress so the stroke
-// matches the reference design (solid line, not gradient) and we don't
-// have to thread `progress.FrameMsg` through View().
+// renderStageBar draws the underline at the bottom of every stage card.
+// Filled portions use the same Braille fill blocks (`⣿`) as the quota
+// bars so every progress visual in the TUI shares one fill style. The
+// empty/track portion stays a heavy horizontal stroke (`━`) so idle
+// stages keep a visible underline. The bar is prefixed with a small
+// status word ("running", "done", …) in the matching color so the bar's
+// purpose is self-explanatory.
 func renderStageBar(theme *styles.Theme, st *pipelineStage, pulsePhase, idx, width int) string {
 	if width < 1 {
 		return ""
 	}
-	full := "━"
+	track := "━"
+	full := string(braille8Levels[8])
+	style := lipgloss.NewStyle()
+
+	word, wordColor := stageBarWord(theme, st.Status)
+	prefix := ""
+	prefixW := 0
+	if word != "" {
+		prefix = style.Foreground(wordColor).Render(word) + " "
+		prefixW = lipgloss.Width(prefix)
+	}
+	barW := width - prefixW
+	if barW < 1 {
+		// No room for the bar, render only the word so the user still has
+		// a visible status cue.
+		return prefix
+	}
+
 	switch st.Status {
 	case statusDone:
-		return lipgloss.NewStyle().Foreground(theme.Success).Render(strings.Repeat(full, width))
+		return prefix + style.Foreground(theme.Success).Render(strings.Repeat(full, barW))
 	case statusFailed:
-		return lipgloss.NewStyle().Foreground(theme.Error).Render(strings.Repeat(full, width))
+		return prefix + style.Foreground(theme.Error).Render(strings.Repeat(full, barW))
 	case statusCancelled:
-		return lipgloss.NewStyle().Foreground(theme.Warning).Render(strings.Repeat(full, width))
+		return prefix + style.Foreground(theme.Warning).Render(strings.Repeat(full, barW))
 	case statusRunning:
-		filled := int(float64(width) * indeterminateValue(pulsePhase, idx))
-		if filled < 1 {
-			filled = 1
+		// 8 sub-cell positions per cell so the indeterminate pulse moves
+		// smoothly even on a narrow card. The "head" is the rightmost
+		// edge of the fill, drawn with the appropriate partial Braille
+		// glyph; everything before is fully filled, everything after is
+		// the heavy-line track.
+		totalSubunits := barW * 8
+		filledSubunits := int(float64(totalSubunits) * indeterminateValue(pulsePhase, idx))
+		if filledSubunits < 1 {
+			filledSubunits = 1
 		}
-		if filled > width {
-			filled = width
+		if filledSubunits > totalSubunits {
+			filledSubunits = totalSubunits
 		}
-		head := lipgloss.NewStyle().Foreground(theme.AI).Render(strings.Repeat(full, filled))
-		tail := lipgloss.NewStyle().
-			Foreground(theme.Subtle).
-			Render(strings.Repeat(full, width-filled))
-		return head + tail
+		fullCells := filledSubunits / 8
+		partial := filledSubunits % 8
+
+		var b strings.Builder
+		b.WriteString(prefix)
+		if fullCells > 0 {
+			b.WriteString(style.Foreground(theme.AI).Render(strings.Repeat(full, fullCells)))
+		}
+		emptyCells := barW - fullCells
+		if partial > 0 && emptyCells > 0 {
+			b.WriteString(style.Foreground(theme.AI).Render(string(braille8Levels[partial])))
+			emptyCells--
+		}
+		if emptyCells > 0 {
+			b.WriteString(style.Foreground(theme.Subtle).Render(strings.Repeat(track, emptyCells)))
+		}
+		return b.String()
 	}
-	return lipgloss.NewStyle().Foreground(theme.Subtle).Render(strings.Repeat(full, width))
+	return prefix + style.Foreground(theme.Subtle).Render(strings.Repeat(track, barW))
+}
+
+// stageBarWord picks the status word + color rendered before the stage
+// bar. Words are aligned to a fixed width (8 chars) so all stage bars
+// share the same bar starting column regardless of which status they're
+// in — keeps the visual rhythm clean across cards.
+func stageBarWord(theme *styles.Theme, s stageStatus) (string, color.Color) {
+	const w = 9
+	pad := func(word string) string {
+		if len(word) >= w {
+			return word
+		}
+		return word + strings.Repeat(" ", w-len(word))
+	}
+	switch s {
+	case statusRunning:
+		return pad("running"), theme.AI
+	case statusDone:
+		return pad("done"), theme.Success
+	case statusFailed:
+		return pad("failed"), theme.Error
+	case statusCancelled:
+		return pad("cancelled"), theme.Warning
+	}
+	return pad("idle"), theme.Subtle
 }
 
 // indeterminateValue produces a smooth 0..1..0 pulse for the running
