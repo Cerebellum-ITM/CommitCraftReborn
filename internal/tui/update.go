@@ -140,6 +140,38 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeModelPickerMsg:
 		model.popup = nil
 		return model, nil
+	case closeStageHistoryMsg:
+		model.popup = nil
+		return model, nil
+	case stageHistoryApplyMsg:
+		model.popup = nil
+		entry, ok := model.pipeline.applyStageHistoryEntry(msg.stage, msg.index)
+		if !ok {
+			return model, nil
+		}
+		switch msg.stage {
+		case stageSummary:
+			model.iaSummaryOutput = entry.Text
+		case stageBody:
+			model.iaCommitRawOutput = entry.Text
+		case stageTitle:
+			model.iaTitleRawOutput = entry.Text
+		case stageChangelog:
+			model.iaChangelogEntry = entry.Text
+		}
+		model.commitTranslate = composeFinalCommitMessage(model)
+		if vp := model.stageViewportModel(msg.stage); vp != nil {
+			vp.GotoTop()
+		}
+		return model, model.WritingStatusBar.ShowMessageForDuration(
+			fmt.Sprintf("Applied %s history v%d/%d",
+				model.pipeline.stages[msg.stage].Title,
+				msg.index+1,
+				len(model.pipeline.stages[msg.stage].History),
+			),
+			statusbar.LevelSuccess,
+			2*time.Second,
+		)
 	case modelPickerOpenedMsg:
 		if msg.err != nil && len(msg.models) == 0 {
 			model.popup = nil
@@ -467,6 +499,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if model.changelogActive {
 			touched = append(touched, stageChangelog)
 		}
+		if msg.Err == nil {
+			model.pipeline.pushStageHistory(stageSummary, model.iaSummaryOutput)
+			model.pipeline.pushStageHistory(stageBody, model.iaCommitRawOutput)
+			model.pipeline.pushStageHistory(stageTitle, model.iaTitleRawOutput)
+			if model.changelogActive {
+				model.pipeline.pushStageHistory(stageChangelog, model.iaChangelogEntry)
+			}
+		}
 		cmds = append(cmds, model.applyPipelineResult(touched, msg.Err))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage
@@ -491,6 +531,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		touched1 := []stageID{stageSummary, stageBody, stageTitle}
 		if model.changelogActive {
 			touched1 = append(touched1, stageChangelog)
+		}
+		if msg.Err == nil {
+			model.pipeline.pushStageHistory(stageSummary, model.iaSummaryOutput)
+			model.pipeline.pushStageHistory(stageBody, model.iaCommitRawOutput)
+			model.pipeline.pushStageHistory(stageTitle, model.iaTitleRawOutput)
+			if model.changelogActive {
+				model.pipeline.pushStageHistory(stageChangelog, model.iaChangelogEntry)
+			}
 		}
 		cmds = append(cmds, model.applyPipelineResult(touched1, msg.Err))
 		if model.state != statePipeline {
@@ -517,6 +565,13 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if model.changelogActive {
 			touched2 = append(touched2, stageChangelog)
 		}
+		if msg.Err == nil {
+			model.pipeline.pushStageHistory(stageBody, model.iaCommitRawOutput)
+			model.pipeline.pushStageHistory(stageTitle, model.iaTitleRawOutput)
+			if model.changelogActive {
+				model.pipeline.pushStageHistory(stageChangelog, model.iaChangelogEntry)
+			}
+		}
 		cmds = append(cmds, model.applyPipelineResult(touched2, msg.Err))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage
@@ -542,6 +597,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if model.changelogActive {
 			touched3 = append(touched3, stageChangelog)
 		}
+		if msg.Err == nil {
+			model.pipeline.pushStageHistory(stageTitle, model.iaTitleRawOutput)
+			if model.changelogActive {
+				model.pipeline.pushStageHistory(stageChangelog, model.iaChangelogEntry)
+			}
+		}
 		cmds = append(cmds, model.applyPipelineResult(touched3, msg.Err))
 		if model.state != statePipeline {
 			model.state = stateWritingMessage
@@ -562,6 +623,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			model.WritingStatusBar.Content = "Changelog refiner produced no entry"
 			model.WritingStatusBar.Level = statusbar.LevelWarning
+		}
+		if msg.Err == nil {
+			model.pipeline.pushStageHistory(stageChangelog, model.iaChangelogEntry)
 		}
 		cmds = append(cmds, model.applyPipelineResult(
 			[]stageID{stageChangelog}, msg.Err,

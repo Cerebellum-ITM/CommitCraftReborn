@@ -2,6 +2,38 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.19.0 — 2026-04-28
+
+In-memory history of AI generations per pipeline stage. Every successful
+run captures a snapshot (text + tokens + latency) so the user can swap
+between alternatives mid-session before finalising the commit.
+
+- New `History []stageHistoryEntry` field on `pipelineStage`. Push
+  happens from each result-msg handler in `update.go` after the live
+  stage state has been updated, so the snapshot mirrors what the card
+  showed for that run.
+- New popup `internal/tui/stage_history_popup.go` modelled on
+  `scope_popup.go`. Lists every captured version newest-first with
+  timestamp, total/in/out tokens, latency, and a one-line text preview.
+  Cursor + Enter swaps the chosen entry into the live model fields and
+  the per-stage telemetry; the focused stage card shows a `vN/M` badge
+  whenever there is more than one version.
+- History is per-session only — nothing new in SQLite. Cleared after a
+  successful `CreateCommit`/`FinalizeCommit`; preserved across
+  `SaveDraft` so the user can keep iterating.
+
+### Usage
+
+- Run the pipeline (`Ctrl+W`) or re-run a single stage (`1` / `2` / `3`
+  / `4` on the Pipeline tab). Every successful generation is appended.
+- Press `H` (capital) on a focused stage card (Pipeline tab) or on the
+  pipeline-models row of the Compose tab to open the history popup for
+  that stage. `↑↓` / `jk` navigate, `Enter` applies, `Esc` cancels.
+- A `vN/M` badge appears on the stage's telemetry line when there is
+  more than one version, indicating which one is currently active.
+- Finalising the commit (Enter on `stateWritingMessage` after all
+  stages are done) clears the history; saving as draft does not.
+
 ## v0.18.4 — 2026-04-28
 
 Course-correct on the rate-limit work after confirming via `Ctrl+L`

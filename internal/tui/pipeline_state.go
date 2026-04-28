@@ -60,6 +60,31 @@ type pipelineStage struct {
 	StatsModel       string
 	HasStats         bool
 	TPMLimitAtCall   int
+	// History keeps every successful AI response for this stage during
+	// the current session so the user can compare alternatives via the
+	// stage history popup (key `H`). Append-only; cleared on commit
+	// finalize. ActiveHistoryIndex points at the entry currently mirrored
+	// onto the live fields above (-1 when empty).
+	History            []stageHistoryEntry
+	ActiveHistoryIndex int
+}
+
+// stageHistoryEntry is a snapshot of one AI generation for a stage —
+// the raw text plus the per-call telemetry that was on screen when the
+// entry was captured. Lives only in memory; never persisted to SQLite.
+type stageHistoryEntry struct {
+	Text             string
+	Model            string
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+	QueueTime        time.Duration
+	PromptTime       time.Duration
+	CompletionTime   time.Duration
+	APITotalTime     time.Duration
+	RequestID        string
+	TPMLimitAtCall   int
+	CapturedAt       time.Time
 }
 
 // pipelineModel groups every Pipeline-tab-specific piece of state on the
@@ -107,9 +132,10 @@ func newPipelineModel() pipelineModel {
 	pm := pipelineModel{focusedStage: stageSummary, activeStages: 3}
 	for i := 0; i < len(pm.stages); i++ {
 		pm.stages[i] = pipelineStage{
-			ID:     stageID(i),
-			Title:  titles[i],
-			Status: statusIdle,
+			ID:                 stageID(i),
+			Title:              titles[i],
+			Status:             statusIdle,
+			ActiveHistoryIndex: -1,
 		}
 		pm.progress[i] = progress.New(
 			progress.WithDefaultBlend(),
@@ -225,6 +251,71 @@ func (pm *pipelineModel) resetFrom(from stageID, now time.Time) {
 		pm.stages[i].StatsModel = ""
 		pm.stages[i].TPMLimitAtCall = 0
 	}
+}
+
+// pushStageHistory snapshots the current per-stage telemetry plus the
+// freshly produced AI text into the stage's History slice and points
+// ActiveHistoryIndex at the new entry. No-op for invalid ids or empty
+// text (failed runs shouldn't pollute the picker).
+func (pm *pipelineModel) pushStageHistory(id stageID, text string) {
+	if int(id) < 0 || int(id) >= len(pm.stages) {
+		return
+	}
+	if text == "" {
+		return
+	}
+	st := &pm.stages[id]
+	st.History = append(st.History, stageHistoryEntry{
+		Text:             text,
+		Model:            st.StatsModel,
+		PromptTokens:     st.PromptTokens,
+		CompletionTokens: st.CompletionTokens,
+		TotalTokens:      st.TotalTokens,
+		QueueTime:        st.QueueTime,
+		PromptTime:       st.PromptTime,
+		CompletionTime:   st.CompletionTime,
+		APITotalTime:     st.APITotalTime,
+		RequestID:        st.RequestID,
+		TPMLimitAtCall:   st.TPMLimitAtCall,
+		CapturedAt:       time.Now(),
+	})
+	st.ActiveHistoryIndex = len(st.History) - 1
+}
+
+// clearAllHistory drops every per-stage history entry. Called from the
+// commit-finalize path so the next commit starts with a clean slate;
+// SaveDraft never calls this (the user may keep iterating).
+func (pm *pipelineModel) clearAllHistory() {
+	for i := range pm.stages {
+		pm.stages[i].History = nil
+		pm.stages[i].ActiveHistoryIndex = -1
+	}
+}
+
+// applyStageHistoryEntry mirrors a stored entry onto the live stage
+// fields so the card renders the chosen version's stats.
+func (pm *pipelineModel) applyStageHistoryEntry(id stageID, index int) (stageHistoryEntry, bool) {
+	if int(id) < 0 || int(id) >= len(pm.stages) {
+		return stageHistoryEntry{}, false
+	}
+	st := &pm.stages[id]
+	if index < 0 || index >= len(st.History) {
+		return stageHistoryEntry{}, false
+	}
+	entry := st.History[index]
+	st.PromptTokens = entry.PromptTokens
+	st.CompletionTokens = entry.CompletionTokens
+	st.TotalTokens = entry.TotalTokens
+	st.QueueTime = entry.QueueTime
+	st.PromptTime = entry.PromptTime
+	st.CompletionTime = entry.CompletionTime
+	st.APITotalTime = entry.APITotalTime
+	st.RequestID = entry.RequestID
+	st.StatsModel = entry.Model
+	st.TPMLimitAtCall = entry.TPMLimitAtCall
+	st.HasStats = true
+	st.ActiveHistoryIndex = index
+	return entry, true
 }
 
 // anyRunning reports whether the pulse/spinner ticks should keep firing.

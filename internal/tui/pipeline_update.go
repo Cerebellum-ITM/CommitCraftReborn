@@ -96,6 +96,11 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(m, model.keys.Toggle): // r — full retry
 			return model, model.pipelineStartFullRun()
+		}
+		if m.String() == "H" {
+			return model, openStageHistoryPopup(model, model.pipeline.focusedStage)
+		}
+		switch {
 		case key.Matches(m, model.keys.RerunStage1):
 			return model, model.pipelineRetryStage(stageSummary)
 		case key.Matches(m, model.keys.RerunStage2):

@@ -253,6 +253,9 @@ func (model *Model) View() tea.View {
 	case modelPickerPopup:
 		ok = true
 		popupView = popupModel.View()
+	case stageHistoryPopupModel:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}

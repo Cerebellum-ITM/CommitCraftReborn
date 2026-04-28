@@ -127,6 +127,24 @@ func stageLabelFor(m *Model, stage config.ModelStage) string {
 	return string(stage)
 }
 
+// stageIDForModelStage maps the public ModelStage identifier (used in
+// config + the model picker) onto the internal pipeline stageID enum.
+// Returns (-1, false) for ModelStages that do not correspond to a
+// pipeline card (e.g. release/translate).
+func stageIDForModelStage(s config.ModelStage) (stageID, bool) {
+	switch s {
+	case config.StageChangeAnalyzer:
+		return stageSummary, true
+	case config.StageCommitBody:
+		return stageBody, true
+	case config.StageCommitTitle:
+		return stageTitle, true
+	case config.StageChangelog:
+		return stageChangelog, true
+	}
+	return -1, false
+}
+
 // applyPipelineModelsToStages copies the model ids from globalConfig into
 // the pipeline view's per-stage state so the Pipeline tab reflects the
 // freshly chosen model without a restart.

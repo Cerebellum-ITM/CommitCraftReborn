@@ -126,6 +126,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	persistPipelineAICalls(model, model.currentCommit.ID)
+	model.pipeline.clearAllHistory()
 	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList, commitDb)
 	// The CHANGELOG file likely changed (we just prepended an entry) — refresh
 	// the indicator so the pill flips between auto/passive on the next render.

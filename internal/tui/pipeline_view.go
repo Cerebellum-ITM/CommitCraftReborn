@@ -689,6 +689,24 @@ func renderStageStatsLine(theme *styles.Theme, st *pipelineStage, width int, dim
 		line += sep + bar + " " + pctText
 	}
 
+	// Append a "vN/M" badge when the user has more than one captured
+	// version for this stage so the card shows whether they are looking
+	// at the latest run or a swapped-in earlier one.
+	if total := len(st.History); total > 1 {
+		active := st.ActiveHistoryIndex + 1
+		if active <= 0 || active > total {
+			active = total
+		}
+		badgeColor := pctColor
+		if !dim {
+			badgeColor = theme.AI
+		}
+		badge := base.Foreground(badgeColor).Render(
+			fmt.Sprintf("v%d/%d", active, total),
+		)
+		line += sep + badge
+	}
+
 	if w := ansi.StringWidth(line); w > width && width > 0 {
 		line = ansi.Truncate(line, width, "…")
 	}

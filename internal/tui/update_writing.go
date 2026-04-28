@@ -303,6 +303,12 @@ func handlePipelineModelsSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Mod
 	case "enter":
 		entry := stages[model.pipelineModelStageIndex]
 		return true, model, openModelPickerCmd(model, entry.stage, entry.label)
+	case "H":
+		entry := stages[model.pipelineModelStageIndex]
+		if id, ok := stageIDForModelStage(entry.stage); ok {
+			return true, model, openStageHistoryPopup(model, id)
+		}
+		return true, model, nil
 	}
 	return false, model, nil
 }
