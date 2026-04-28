@@ -2,12 +2,29 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/tui/styles"
 )
+
+// braille8Levels is the smoothing ramp used by renderThinQuotaBar. Each
+// glyph adds one dot row to the previous one, so as progress crosses a
+// cell the boundary "grows" in 8 steps instead of jumping. ⠀ is U+2800
+// (BRAILLE PATTERN BLANK), not ASCII space, so cell width stays uniform.
+var braille8Levels = [9]rune{
+	'⠀', // 0/8 empty
+	'⡀', // 1/8
+	'⣀', // 2/8
+	'⣄', // 3/8
+	'⣤', // 4/8
+	'⣦', // 5/8
+	'⣶', // 6/8
+	'⣷', // 7/8
+	'⣿', // 8/8 full
+}
 
 // renderThinQuotaBar draws a compact "label  ████░░░░  used / limit" row
 // used by the compose pipeline-models section and the model picker
@@ -55,13 +72,6 @@ func renderThinQuotaBar(
 	if barW > 32 {
 		barW = 32
 	}
-	filled := barW * pct / 100
-	if filled < 0 {
-		filled = 0
-	}
-	if filled > barW {
-		filled = barW
-	}
 	fillColor := theme.Primary
 	switch {
 	case pct >= 90:
@@ -69,10 +79,58 @@ func renderThinQuotaBar(
 	case pct >= 70:
 		fillColor = theme.Warning
 	}
-	bar := base.Foreground(fillColor).Render(strings.Repeat("█", filled)) +
-		base.Foreground(theme.Subtle).Render(strings.Repeat("░", barW-filled))
+	bar := renderBrailleRamp(used, limit, barW, base, fillColor, theme.Subtle)
 
 	return labelStyled + " " + bar + " " + usageStyled
+}
+
+// renderBrailleRamp draws a width-cell horizontal bar where each cell has
+// 8 sub-levels of fill, so the bar's leading edge grows in 8 steps as
+// progress crosses every cell. Filled cells share the foreground color;
+// empty cells use the muted subtle color so the track is always visible.
+func renderBrailleRamp(
+	used, total, width int,
+	base lipgloss.Style,
+	fill, track color.Color,
+) string {
+	if width <= 0 || total <= 0 {
+		return ""
+	}
+	if used < 0 {
+		used = 0
+	}
+	if used > total {
+		used = total
+	}
+	totalSubunits := width * 8
+	filledSubunits := used * totalSubunits / total
+	if filledSubunits < 0 {
+		filledSubunits = 0
+	}
+	if filledSubunits > totalSubunits {
+		filledSubunits = totalSubunits
+	}
+	fullCells := filledSubunits / 8
+	partial := filledSubunits % 8
+
+	var b strings.Builder
+	b.Grow(width * 4)
+	if fullCells > 0 {
+		b.WriteString(
+			base.Foreground(fill).Render(strings.Repeat(string(braille8Levels[8]), fullCells)),
+		)
+	}
+	emptyCells := width - fullCells
+	if partial > 0 && emptyCells > 0 {
+		b.WriteString(base.Foreground(fill).Render(string(braille8Levels[partial])))
+		emptyCells--
+	}
+	if emptyCells > 0 {
+		b.WriteString(
+			base.Foreground(track).Render(strings.Repeat(string(braille8Levels[0]), emptyCells)),
+		)
+	}
+	return b.String()
 }
 
 // formatQuantity prints an integer with a "k" suffix once it crosses

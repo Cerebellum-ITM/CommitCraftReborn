@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.18.1 — 2026-04-28
+
+- Updated progress bar rendering in the terminal UI to use a Braille-based smoothing ramp, allowing for finer granularity and a more nuanced visual representation of quota usage.
+
 ## v0.18.0 — 2026-04-28
 
 Per-stage AI telemetry and live model quotas. Every Groq chat completion now
