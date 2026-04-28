@@ -283,6 +283,35 @@ func (model *Model) renderStageContent(id stageID, width int) string {
 	return model.renderCommitMessage(raw, max(1, width-glamourGutter))
 }
 
+// renderStageHistoryEntry formats an arbitrary `raw` string the same way
+// renderStageContent renders a stage's live output. Used by the history
+// popup so the preview matches what the user saw in the card when the
+// snapshot was captured.
+func (model *Model) renderStageHistoryEntry(id stageID, raw string, width int) string {
+	if strings.TrimSpace(raw) == "" {
+		return ""
+	}
+	if width < 1 {
+		width = 1
+	}
+	if id == stageSummary {
+		renderer, err := glamour.NewTermRenderer(
+			glamour.WithStyles(glamourstyles.TokyoNightStyleConfig),
+			glamour.WithWordWrap(width),
+		)
+		if err != nil {
+			return raw
+		}
+		out, err := renderer.Render(raw)
+		if err != nil {
+			return raw
+		}
+		return strings.TrimRight(out, "\n")
+	}
+	const glamourGutter = 3
+	return model.renderCommitMessage(raw, max(1, width-glamourGutter))
+}
+
 // renderStageCardCollapsed draws the one-line summary used for non-focused
 // stages: status icon, "stage N · title", optional dim telemetry, and
 // the right-aligned status pill. No borders, no body — just a compact

@@ -2,6 +2,13 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.19.2 — 2026-04-28
+
+- Unified the rendering path for stage history entries, using the same logic as the live stage card.
+- Introduced a new function to abstract the rendering method.
+- Removed unnecessary imports and deleted redundant rendering logic.
+- Updated the popup functionality to use the new unified rendering function.
+
 ## v0.19.1 — 2026-04-28
 
 - Improved the stage history popup UI by refactoring its rendering and navigation logic, providing clearer separation and consistent spacing of the version list and preview pane.

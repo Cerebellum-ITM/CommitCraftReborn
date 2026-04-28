@@ -7,13 +7,18 @@ import (
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/glamour/v2"
-	glamourstyles "charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/tui/statusbar"
 	"commit_craft_reborn/internal/tui/styles"
 )
+
+// stageHistoryRenderFunc is a function that produces the displayable
+// form of a history entry's raw text. The popup defers to it instead of
+// running its own glamour pass so the preview matches whatever
+// rendering the underlying stage card uses (glamour for the analyzer,
+// renderCommitMessage for the body/title/changelog).
+type stageHistoryRenderFunc func(raw string, width int) string
 
 // stageHistoryApplyMsg is fired when the user picks an entry in the
 // history popup. The Update loop swaps that entry's text and stats
@@ -39,6 +44,7 @@ type stageHistoryPopupModel struct {
 	theme         *styles.Theme
 	preview       viewport.Model
 	previewWidth  int
+	renderEntry   stageHistoryRenderFunc
 }
 
 func newStageHistoryPopup(
@@ -48,6 +54,7 @@ func newStageHistoryPopup(
 	activeIndex int,
 	width, height int,
 	theme *styles.Theme,
+	render stageHistoryRenderFunc,
 ) stageHistoryPopupModel {
 	cursor := activeIndex
 	if cursor < 0 || cursor >= len(entries) {
@@ -67,6 +74,7 @@ func newStageHistoryPopup(
 		theme:        theme,
 		preview:      viewport.New(),
 		previewWidth: max(20, width-6),
+		renderEntry:  render,
 	}
 	m.preview.SetWidth(m.previewWidth)
 	m.refreshPreviewContent()
@@ -87,7 +95,14 @@ func (m *stageHistoryPopupModel) refreshPreviewContent() {
 		width = 40
 	}
 	entry := m.entries[m.cursor]
-	m.preview.SetContent(renderStageHistoryPreview(entry.Text, width))
+	rendered := entry.Text
+	if m.renderEntry != nil {
+		rendered = m.renderEntry(entry.Text, width)
+	}
+	if strings.TrimSpace(rendered) == "" {
+		rendered = "(empty entry)"
+	}
+	m.preview.SetContent(rendered)
 	m.preview.GotoTop()
 }
 
@@ -295,31 +310,6 @@ func (m stageHistoryPopupModel) renderPreview(width, height int) string {
 	return vp.View()
 }
 
-// renderStageHistoryPreview applies a glamour pass on raw text so the
-// preview matches the rendering used in the stage cards. Falls back to
-// the plain text when the renderer can't be built.
-func renderStageHistoryPreview(raw string, width int) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "(empty entry)"
-	}
-	if width < 4 {
-		width = 4
-	}
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithStyles(glamourstyles.TokyoNightStyleConfig),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
-		return raw
-	}
-	out, err := renderer.Render(raw)
-	if err != nil {
-		return raw
-	}
-	return out
-}
-
 // formatHistoryDuration prints a per-call latency in a compact form
 // (Nms / N.Ns / NmNs) so the entry header stays narrow.
 func formatHistoryDuration(d time.Duration) string {
@@ -365,11 +355,15 @@ func openStageHistoryPopup(model *Model, id stageID) tea.Cmd {
 	if h > model.height-4 {
 		h = model.height - 4
 	}
+	stage := id
+	render := func(raw string, width int) string {
+		return model.renderStageHistoryEntry(stage, raw, width)
+	}
 	model.popup = newStageHistoryPopup(
 		id, st.Title,
 		append([]stageHistoryEntry(nil), st.History...),
 		st.ActiveHistoryIndex,
-		w, h, model.Theme,
+		w, h, model.Theme, render,
 	)
 	return nil
 }
