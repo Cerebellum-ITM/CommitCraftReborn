@@ -249,6 +249,10 @@ type Model struct {
 	globalConfig         config.Config
 	Version              string
 	themeName            string
+	// currentBranch is the git branch the TUI was launched from. Cached
+	// so the persistent CWD/branch pill in the top tab bar doesn't shell
+	// out on every render.
+	currentBranch string
 }
 
 // NewModel is the constructor for our model.
@@ -417,12 +421,20 @@ func NewModel(
 		pendingRewordHash = full
 	}
 
+	branch, branchErr := git.GetCurrentGitBranch()
+	if branchErr != nil {
+		// Non-fatal: the pill just stays empty and we keep going.
+		log.Debug("could not resolve current git branch", "err", branchErr)
+		branch = ""
+	}
+
 	m := &Model{
 		AppMode:                 appMode,
 		ToolsInfo:               toolInfo,
 		finalCommitTypes:        finalCommitTypes,
 		log:                     log,
 		pwd:                     pwd,
+		currentBranch:           branch,
 		db:                      database,
 		apiKeyInput:             apiKeyInput,
 		state:                   initalState,

@@ -2,6 +2,30 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.20.11 — 2026-04-28
+
+Added a persistent git-branch pill next to the CWD pill in the top bar.
+
+- New `statusbar.RenderBranchPill` renders a `GIT <branch>` two-segment
+  pill using the INFO palette (`#2c4360`/`#d6e4f4` label,
+  `#182230`/`#b8c5d4` body) so it sits visually next to the existing
+  CWD pill but reads as its own tag.
+- `Model.currentBranch` is resolved once at startup via
+  `git.GetCurrentGitBranch` and reused on every render — no shell-out
+  per frame. When git fails (e.g. not a repo) the branch is left empty
+  and the branch pill is omitted, falling back to the previous CWD-only
+  layout.
+- Top tab bar splits the pill budget between the CWD (60%) and branch
+  (40%) pills with a 1-cell gap between them. Below the combined
+  width threshold the branch pill is dropped first; below the CWD
+  threshold the spacer reverts to plain whitespace.
+
+### Usage
+
+Purely visual; no new keys or config. The branch pill reflects the
+branch the TUI was launched from. If you switch branches outside
+CommitCraft mid-session, restart the TUI to refresh the pill.
+
 ## v0.20.10 — 2026-04-28
 
 Tightened the compose metadata header further and tweaked section labels.

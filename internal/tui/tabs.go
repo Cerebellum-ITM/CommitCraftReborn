@@ -227,22 +227,38 @@ func (model *Model) renderTabBar(width int) string {
 	rightW := lipgloss.Width(rightBar)
 	pad := max(2, width-leftW-rightW)
 
-	// Render the persistent CWD pill centered inside the spacer between
-	// the tabs (left) and the keyboard-shortcut hints (right). The pill
-	// only appears when there's enough breathing room — at least 2 spaces
-	// of margin on each side — otherwise we keep the original plain
-	// spacer so narrow terminals don't crush the layout.
+	// Render the persistent CWD + branch pills centered inside the
+	// spacer between the tabs (left) and the keyboard-shortcut hints
+	// (right). Pills only appear when there's enough breathing room —
+	// at least 2 spaces of margin on each side and a 1-cell gap between
+	// pills — otherwise we keep the original plain spacer so narrow
+	// terminals don't crush the layout. The branch pill is dropped
+	// first when space is tight; the CWD pill is dropped next.
 	cwd := cwdDisplayPath(model.pwd)
+	branch := model.currentBranch
 	const minMargin = 2
+	const pillsGap = " "
 	if pad >= minMargin*2+5 {
-		pillBudget := pad - minMargin*2
-		pill := statusbar.RenderCwdPill(cwd, pillBudget)
-		pillW := lipgloss.Width(pill)
-		// Center the pill across the available pad: equal-ish gaps on
-		// each side, with any odd leftover space going to the right.
+		budget := pad - minMargin*2
+		var combined string
+		switch {
+		case branch != "" && budget >= 14:
+			// Split the budget between the two pills, biased toward the
+			// CWD which is usually the longer string. Reserve room for
+			// the 1-cell gap.
+			gapW := lipgloss.Width(pillsGap)
+			cwdBudget := (budget - gapW) * 6 / 10
+			branchBudget := budget - gapW - cwdBudget
+			cwdPill := statusbar.RenderCwdPill(cwd, cwdBudget)
+			branchPill := statusbar.RenderBranchPill(branch, branchBudget)
+			combined = cwdPill + pillsGap + branchPill
+		default:
+			combined = statusbar.RenderCwdPill(cwd, budget)
+		}
+		pillW := lipgloss.Width(combined)
 		leftGap := (pad - pillW) / 2
 		rightGap := pad - pillW - leftGap
-		spacer := strings.Repeat(" ", leftGap) + pill + strings.Repeat(" ", rightGap)
+		spacer := strings.Repeat(" ", leftGap) + combined + strings.Repeat(" ", rightGap)
 		return leftBar + spacer + rightBar
 	}
 

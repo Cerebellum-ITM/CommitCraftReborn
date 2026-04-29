@@ -288,6 +288,31 @@ func RenderCwdPill(path string, maxWidth int) string {
 	)
 }
 
+// RenderBranchPill draws a "GIT <branch>" two-segment pill using the
+// INFO palette (blue label + dark-blue body). Mirrors RenderCwdPill so
+// the top bar can show CWD and branch side by side.
+//
+// maxWidth caps the total pill width; when the branch name doesn't fit,
+// it is truncated from the LEFT with a leading "…" so the trailing
+// segment (the most informative for nested branch namespaces like
+// "feature/foo/bar") stays visible.
+func RenderBranchPill(branch string, maxWidth int) string {
+	pill := pillInfo.Render("GIT")
+	pillW := lipgloss.Width(pill)
+	bodyAvail := maxWidth - pillW - 2
+	if bodyAvail < 3 {
+		bodyAvail = 3
+	}
+	runes := []rune(branch)
+	if len(runes) > bodyAvail {
+		runes = append([]rune{'…'}, runes[len(runes)-bodyAvail+1:]...)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		pill,
+		msgInfo.Render(string(runes)),
+	)
+}
+
 // RenderMentionPill draws an inline `@<token>` chip using the success
 // palette. Used by callers that render commit input/output themselves
 // (key-points list, AI suggestion panel) so file references the user
