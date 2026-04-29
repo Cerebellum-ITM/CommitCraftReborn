@@ -163,3 +163,80 @@ func CommitTypeMsgStyle(theme *Theme, tag string) lipgloss.Style {
 	p := CommitTypePalette(theme, tag)
 	return lipgloss.NewStyle().Background(p.BgMsg).Foreground(p.FgMsg)
 }
+
+// commitTypeNerdIcons maps each canonical commit-type tag to a Nerd Font
+// glyph that telegraphs the tag's semantics at a glance. Lookups go
+// through the same alias table (`commitTypeAliases`) the colour palette
+// uses, so legacy/custom tags inherit their alias's icon.
+//
+// Codepoints are written as explicit `\uXXXX` escapes (instead of the
+// pasted glyph character) so the source bytes match the rune the font
+// actually has. Pasting a raw nerd-font glyph through an editor that
+// normalises private-use codepoints can silently rewrite it; escapes
+// are immune.
+var commitTypeNerdIcons = map[string]string{
+	"ADD":      "", // nf-oct-diff_added
+	"DEL":      "", // nf-fa-delete_left
+	"FIX":      "", // nf-fa-bandage
+	"DOC":      "", // nf-fa-book_journal_whills
+	"WIP":      "", // nf-fa-hammer
+	"STYLE":    "", // nf-seti-stylelint
+	"UI":       "", // nf-fa-window_restore
+	"REFACTOR": "", // nf-fa-recycle
+	"TEST":     "", // nf-fa-flask
+	"PERF":     "", // nf-fa-tachometer
+	"CHORE":    "", // nf-fa-broom
+	"BUILD":    "", // nf-fa-cogs
+	"CI":       "", // nf-fa-server
+	"REVERT":   "", // nf-fa-undo
+	"SEC":      "", // nf-fa-shield
+}
+
+// commitTypeAsciiIcons is the no-nerd-fonts fallback. ASCII bullets give
+// each tag a distinct silhouette without depending on a glyph patched
+// font.
+var commitTypeAsciiIcons = map[string]string{
+	"ADD":      "+",
+	"DEL":      "-",
+	"FIX":      "*",
+	"DOC":      "@",
+	"WIP":      "~",
+	"STYLE":    "/",
+	"REFACTOR": "&",
+	"TEST":     "!",
+	"PERF":     "^",
+	"CHORE":    ".",
+	"BUILD":    "#",
+	"CI":       "$",
+	"REVERT":   "<",
+	"SEC":      "|",
+}
+
+// IconForCommitTag returns the per-tag glyph rendered next to the
+// type chip in the Release inspect list (and anywhere else that wants
+// a tag-aware icon). Falls back to ASCII when nerd fonts are off and
+// to the bandage glyph for tags that don't have a dedicated entry yet,
+// so the row never collapses to no icon at all.
+func IconForCommitTag(tag string, useNerdFonts bool) string {
+	upper := strings.ToUpper(tag)
+	if useNerdFonts {
+		if icon, ok := commitTypeNerdIcons[upper]; ok {
+			return icon
+		}
+		if alias, ok := commitTypeAliases[upper]; ok {
+			if icon, ok := commitTypeNerdIcons[alias]; ok {
+				return icon
+			}
+		}
+		return "" // nf-fa-bandage as the generic catch-all
+	}
+	if icon, ok := commitTypeAsciiIcons[upper]; ok {
+		return icon
+	}
+	if alias, ok := commitTypeAliases[upper]; ok {
+		if icon, ok := commitTypeAsciiIcons[alias]; ok {
+			return icon
+		}
+	}
+	return "#"
+}

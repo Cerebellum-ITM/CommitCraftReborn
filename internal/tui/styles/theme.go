@@ -60,6 +60,12 @@ type Theme struct {
 
 	styles  *Styles
 	symbols *Symbols
+
+	// UseNerdFonts mirrors the user-config flag the theme was built
+	// with. Set by applySymbols; renderers that need to branch on font
+	// support (per-tag icons, ascii fallbacks, etc.) read this directly
+	// instead of re-plumbing the config object through the model.
+	UseNerdFonts bool
 }
 
 type Symbols struct {
@@ -73,6 +79,15 @@ type Symbols struct {
 	ClipboardEnable  string
 	ClipboardMissing string
 	KeyPoint         string
+	// GitCommit is the rounded "git commit" glyph (nf-cod-git_commit)
+	// shown next to the short hash in the release inspect commits list.
+	// Falls back to "*" when the user has nerd fonts disabled so the
+	// row still aligns visually.
+	GitCommit string
+	// Tag is the small "bandage" glyph (nf-fa-bandage) shown next to
+	// the extracted commit-type tag in the release inspect commits
+	// list. Falls back to "#" without nerd fonts.
+	Tag string
 }
 
 type Styles struct {
@@ -253,8 +268,12 @@ func (t *Theme) buildStyles() *Styles {
 }
 
 // applySymbols selects the symbol set based on the user's nerd-font flag.
-// Called by every theme constructor to keep them DRY.
+// Called by every theme constructor to keep them DRY. Also stores the
+// flag on the theme so renderers that need to branch on font support
+// (per-tag icons in the Release inspect list, etc.) can read it
+// without re-plumbing the config.
 func (t *Theme) applySymbols(useNerdFont bool) {
+	t.UseNerdFonts = useNerdFont
 	if useNerdFont {
 		t.symbols = NerdFontSymbols()
 	} else {

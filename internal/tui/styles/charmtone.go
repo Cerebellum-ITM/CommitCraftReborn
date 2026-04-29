@@ -17,6 +17,8 @@ func NerdFontSymbols() *Symbols {
 		ClipboardEnable:  "󱄗",
 		ClipboardMissing: "󱘛",
 		KeyPoint:         ">",
+		GitCommit:        "", // nf-cod-git_commit
+		Tag:              "", // nf-fa-bandage
 	}
 }
 
@@ -32,6 +34,8 @@ func DefaultSymbols() *Symbols {
 		GhMissing:        "X",
 		CommitCraft:      "📇",
 		KeyPoint:         ">",
+		GitCommit:        "*",
+		Tag:              "#",
 	}
 }
 

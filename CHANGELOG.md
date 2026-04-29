@@ -2,6 +2,93 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.29.2 — 2026-04-29
+
+Tag-icon refresh in the Release inspect commits list.
+
+- Wider gap between the per-tag glyph and the short hash in each
+  commit row (`tag_icon  hash`) so the icon reads as a distinct
+  token from the colored hash pill.
+- New glyphs: ADD → `nf-oct-diff_added`, DEL → `nf-fa-delete_left`,
+  DOC → `nf-fa-book_journal_whills`, WIP → `nf-fa-hammer`,
+  STYLE → `nf-seti-stylelint`. UI gets its own
+  `nf-fa-window_restore` glyph (still aliased to STYLE for colour).
+- `IconForCommitTag` now resolves the direct tag before falling
+  back through `commitTypeAliases`, so tags like UI can carry their
+  own icon while still inheriting the alias palette.
+
+## v0.29.1 — 2026-04-29
+
+Final layout pass on the Release inspect commits list.
+
+- Commit row collapses to `tag_icon  hash`. The per-tag glyph
+  (`styles.IconForCommitTag`) carries the tag identity on its own —
+  no chip, no separator — so each row stays a single compact token.
+  Untagged commits fall back to the generic `nf-cod-git_commit`
+  glyph. The hash keeps the tag's pill colour; the icon stays on
+  the neutral muted/FG palette.
+- The preview title row now leads with the `nf-cod-git_commit`
+  glyph (muted) before the `[TAG]` pill so the preview header
+  echoes the inspect-list row identity without repeating the
+  per-tag glyph.
+
+## v0.29.0 — 2026-04-29
+
+Per-tag icons + uniform tag chips in the Release inspect commits list.
+
+- New `styles.IconForCommitTag(tag, useNerdFonts)` returns a per-type
+  Nerd Font glyph (with ASCII fallbacks): `nf-oct-diff_added` for ADD,
+  `nf-oct-diff_removed` for DEL, `nf-fa-bandage` for FIX,
+  `nf-cod-book` for DOC, `nf-fa-spinner` for WIP,
+  `nf-fa-paint_brush` for STYLE, `nf-cod-refresh` for REFACTOR,
+  `nf-fa-flask` for TEST, `nf-fa-tachometer` for PERF, `nf-md-broom`
+  for CHORE, `nf-fa-cogs` for BUILD, `nf-cod-server_process` for CI,
+  `nf-fa-undo` for REVERT, `nf-fa-shield` for SEC. Aliases (`UI →
+  STYLE`, `REL → BUILD`, etc.) inherit the alias's icon.
+- The release commit row now renders the tag itself as a
+  uniform-width chip (same `CommitTypeChipInnerWidth` + center
+  align + padding the History MasterList uses for its type block),
+  so every row's chip lines up perfectly regardless of tag length.
+- `Theme.UseNerdFonts` exposed on the theme struct so renderers can
+  branch on font support without re-plumbing the config object
+  through the model. Set by `applySymbols`.
+
+### Usage
+
+- Open Release mode and inspect any release. Each commit row reads
+  `commit_icon  hash  -  tag_icon  TAG_CHIP`, where the chip is
+  always the same width whether the tag is `ADD` or `REFACTOR`, and
+  every tag carries its own glyph.
+
+## v0.28.3 — 2026-04-29
+
+Release inspect commits row: icons now sit on a neutral palette and the
+tag glyph has breathing room from its label.
+
+- `commit_icon` / `tag_icon` switch to `theme.Muted` (and `theme.FG`
+  bold when the row is active) instead of inheriting the pill colour.
+  The coloured pill is now exclusively the hash + tag duo, so the
+  icons read as decoration around the chip rather than part of it.
+- Added a second space between `tag_icon` and `TAG` so the bandage
+  glyph — wide on most nerd-font terminals — doesn't crowd the
+  coloured tag token.
+
+## v0.28.2 — 2026-04-29
+
+Release inspect commits list: brought the tag back as a sibling to the
+hash, both wearing the same chip palette, and prefixed each side with
+its own nerd-font glyph.
+
+- New `Symbols.GitCommit` and `Symbols.Tag` entries — ``
+  (nf-cod-git_commit) and `` (nf-fa-bandage) when nerd fonts
+  are on; `*` and `#` as ASCII fallbacks otherwise.
+- Commit rows now render as `commit_icon hash - tag_icon TAG` with
+  every coloured token sharing the same `CommitTypeMsgStyle` /
+  `CommitTypeBlockStyle` chip (strong palette under the cursor, dim
+  otherwise). The dim `-` separator stays neutral so the eye reads
+  the two halves as one composite chip. Untagged commits collapse to
+  `commit_icon hash`.
+
 ## v0.28.1 — 2026-04-29
 
 Fix the loading popup flashing top-left before centering on Release-mode

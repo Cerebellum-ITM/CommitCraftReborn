@@ -553,42 +553,50 @@ func (p ReleaseDualPanel) renderEntriesBody(width, height int) string {
 
 // renderCommitListRow paints one commit row in the inspect list. Format:
 //
-//	·  abc1234
+//	abc1234
 //
-// The hash is the only payload; when the subject begins with a `[TAG]`
-// cue the tag's palette is applied to the hash itself (same chrome the
-// History list uses for commit type chips), so the row reads as a
-// colored pill instead of carrying a separate badge. Hashes without a
-// resolved tag fall back to the muted Accent color.
+// Per-tag glyph (picked by `styles.IconForCommitTag`) + the short
+// hash. The icon carries the tag identity on its own — no separate
+// chip — so the row stays single-token. Untagged commits fall back
+// to the generic `nf-cod-git_commit` glyph as the leading icon. The
+// hash carries the tag's pill colour; the icon stays on a neutral
+// palette so it reads as decoration.
 func (p ReleaseDualPanel) renderCommitListRow(
 	e releaseInspectEntry,
 	selected bool,
 ) string {
-	glyphColor := p.theme.Muted
-	if selected {
-		glyphColor = p.theme.Secondary
-	}
-	glyph := lipgloss.NewStyle().Foreground(glyphColor).Render("·")
+	syms := p.theme.AppSymbols()
 
 	short := e.hash
 	if len(short) > releaseEntryHashLen {
 		short = short[:releaseEntryHashLen]
 	}
 
-	var hashStyle lipgloss.Style
+	var pillStyle lipgloss.Style
 	switch {
 	case e.tag != "" && selected:
-		hashStyle = styles.CommitTypeBlockStyle(p.theme, e.tag).Bold(true)
+		pillStyle = styles.CommitTypeBlockStyle(p.theme, e.tag).Bold(true)
 	case e.tag != "":
-		hashStyle = styles.CommitTypeMsgStyle(p.theme, e.tag)
+		pillStyle = styles.CommitTypeMsgStyle(p.theme, e.tag)
 	case selected:
-		hashStyle = lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true)
+		pillStyle = lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true)
 	default:
-		hashStyle = lipgloss.NewStyle().Foreground(p.theme.Accent)
+		pillStyle = lipgloss.NewStyle().Foreground(p.theme.Accent)
 	}
-	hashRendered := hashStyle.Padding(0, 1).Render(short)
 
-	return fmt.Sprintf("%s %s", glyph, hashRendered)
+	iconStyle := lipgloss.NewStyle().Foreground(p.theme.Muted)
+	if selected {
+		iconStyle = iconStyle.Foreground(p.theme.FG).Bold(true)
+	}
+
+	icon := syms.GitCommit
+	if e.tag != "" {
+		icon = styles.IconForCommitTag(e.tag, p.theme.UseNerdFonts)
+	}
+	iconRendered := iconStyle.Render(icon)
+	hashRendered := pillStyle.Render(short)
+
+	return fmt.Sprintf("%s  %s", iconRendered, hashRendered)
 }
 
 // renderCommitPreview builds the right viewport content for a commit
@@ -613,8 +621,15 @@ func (p ReleaseDualPanel) renderCommitPreview(e releaseInspectEntry, width int) 
 
 	var titleRow string
 	if e.tag != "" {
+		// Commit-icon glyph (nf-cod-git_commit) sits ahead of the tag
+		// pill so the preview echoes the inspect-list row identity
+		// without repeating the per-tag glyph. Stays on the muted
+		// palette to read as decoration around the coloured pill.
+		commitIcon := lipgloss.NewStyle().
+			Foreground(p.theme.Muted).
+			Render(p.theme.AppSymbols().GitCommit)
 		pill := styles.CommitTypeMsgStyle(p.theme, e.tag).Padding(0, 1).Render(e.tag)
-		titleRow = pill + " " + titleStyle.Render(subject)
+		titleRow = commitIcon + " " + pill + " " + titleStyle.Render(subject)
 	} else {
 		titleRow = titleStyle.Render(subject)
 	}
