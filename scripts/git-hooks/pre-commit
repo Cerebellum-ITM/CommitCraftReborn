@@ -32,8 +32,27 @@ fi
 
 if command -v goimports-reviser >/dev/null 2>&1; then
   say info "goimports-reviser ${#existing[@]} file(s)"
+  # goimports-reviser prints "Paths: […]" / "Processing …" via Go's log
+  # package on stderr for every file. Re-emit those through `say debug`
+  # so they ride the same gum-styled stream as the rest of the hook
+  # (and respect GUM_LOG_LEVEL — hidden by default, visible when the
+  # user opts into debug). Strip the leading "YYYY/MM/DD HH:MM:SS "
+  # timestamp since gum adds its own. Anything else on stderr is a real
+  # problem and goes through `say error` at the matching level.
+  ts_re='^[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9:]+ '
+  noise_re='(Paths:|Processing )'
   for f in "${existing[@]}"; do
-    goimports-reviser -output file "$f" >/dev/null
+    goimports-reviser -output file "$f" >/dev/null 2> >(
+      while IFS= read -r line; do
+        stripped="${line}"
+        [[ "$stripped" =~ $ts_re ]] && stripped="${stripped#$BASH_REMATCH}"
+        if [[ "$stripped" =~ ^$noise_re ]]; then
+          say debug "$stripped"
+        else
+          say error "$stripped"
+        fi
+      done
+    )
   done
   ran_any=1
 fi

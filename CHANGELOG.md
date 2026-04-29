@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.30.3 — 2026-04-29
+
+- Updated the pre-commit hook to pipe the output of `goimports-reviser` through a custom handler, enabling styled log messages and respect for the `GUM_LOG_LEVEL` setting.
+
 ## v0.30.2 — 2026-04-29
 
 Fix: page-key scrolling on the inspect panel was being reset to top on
