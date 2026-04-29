@@ -248,6 +248,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.iaSummaryOutput = commit.IaSummary
 				model.iaCommitRawOutput = commit.IaCommitRaw
 				model.iaTitleRawOutput = commit.IaTitle
+				model.iaChangelogEntry = commit.IaChangelog
 				model.useDbCommmit = true
 				model.scopeDataStale = true
 				model.syncScopeStaleIndicator()
@@ -289,6 +290,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.iaSummaryOutput = commit.IaSummary
 				model.iaCommitRawOutput = commit.IaCommitRaw
 				model.iaTitleRawOutput = commit.IaTitle
+				model.iaChangelogEntry = commit.IaChangelog
 				model.useDbCommmit = true
 				model.scopeDataStale = true
 				model.syncScopeStaleIndicator()
@@ -375,26 +377,33 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 // moved the cursor or rebuilt the items.
 func syncHistoryViewSelection(model *Model) {
 	if item, ok := model.mainList.SelectedItem().(HistoryCommitItem); ok {
-		model.historyView.SetCommit(item.commit, commitUsedChangelogStage(model, item.commit.ID))
+		model.historyView.SetCommit(item.commit, commitUsedChangelogStage(model, item.commit))
 	} else {
 		model.historyView.ClearCommit()
 	}
 }
 
-// commitUsedChangelogStage returns true when the commit row has at least
-// one ai_calls record tagged as the changelog stage. Used by the History
-// inspect panel to decide whether stage 4 belongs in the stages list.
-func commitUsedChangelogStage(model *Model, commitID int) bool {
-	if model == nil || model.db == nil || commitID <= 0 {
+// commitUsedChangelogStage decides whether the inspect panel should show a
+// 4th "changelog" entry for the given commit. The persisted output column
+// (commits.ia_changelog) is the primary source — non-empty means the
+// refiner ran and we have its text. As a fallback, we still query
+// ai_calls for the changelog stage so commits saved before the
+// ia_changelog column existed keep their list entry (the right viewport
+// then renders the "(stage output not stored)" placeholder).
+func commitUsedChangelogStage(model *Model, c storage.Commit) bool {
+	if strings.TrimSpace(c.IaChangelog) != "" {
+		return true
+	}
+	if model == nil || model.db == nil || c.ID <= 0 {
 		return false
 	}
-	calls, err := model.db.GetAICallsByCommitID(commitID)
+	calls, err := model.db.GetAICallsByCommitID(c.ID)
 	if err != nil {
-		model.log.Warn("ai_calls lookup failed", "commit_id", commitID, "error", err)
+		model.log.Warn("ai_calls lookup failed", "commit_id", c.ID, "error", err)
 		return false
 	}
-	for _, c := range calls {
-		if c.Stage == stageDBLabel[stageChangelog] {
+	for _, ac := range calls {
+		if ac.Stage == stageDBLabel[stageChangelog] {
 			return true
 		}
 	}

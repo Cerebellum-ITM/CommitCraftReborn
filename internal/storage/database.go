@@ -170,6 +170,12 @@ func applySchemaMigrations(db *sql.DB) error {
 			defaultValue: "''",
 		},
 		{
+			tableName:    "commits",
+			columnName:   "ia_changelog",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+		{
 			tableName:    "ai_calls",
 			columnName:   "tpm_limit_at_call",
 			columnType:   "INTEGER",

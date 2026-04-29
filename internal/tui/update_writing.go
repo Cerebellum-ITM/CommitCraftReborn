@@ -109,6 +109,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.currentCommit.IaSummary = model.iaSummaryOutput
 			model.currentCommit.IaCommitRaw = model.iaCommitRawOutput
 			model.currentCommit.IaTitle = model.iaTitleRawOutput
+			model.currentCommit.IaChangelog = model.iaChangelogEntry
 			if err := model.db.SaveDraft(&model.currentCommit); err != nil {
 				model.err = err
 				return model, nil

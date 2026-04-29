@@ -2,6 +2,36 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.24.0 — 2026-04-29
+
+Persist the changelog refiner output on the commit row so the History
+inspect panel can show stage 4 with its actual content.
+
+- New `commits.ia_changelog` column added through
+  `applySchemaMigrations`. Existing rows backfill to `''` so legacy
+  commits keep working.
+- `storage.Commit` gains `IaChangelog string`; every CRUD path
+  (`GetCommits`, `CreateCommit`, `SaveDraft` insert + update,
+  `FinalizeCommit`) now reads/writes the column.
+- TUI plumbing: the model's `iaChangelogEntry` is mirrored onto
+  `currentCommit.IaChangelog` at the same points the other AI fields
+  are flushed (`transitions.commitMessage`, draft save in
+  `update_writing.go`). When a commit is opened from the History tab
+  (Edit / Continue draft), `iaChangelogEntry` is now rehydrated from
+  the row.
+- `HistoryDualPanel.SetCommit` uses `c.IaChangelog` as the stage 4
+  output. `commitUsedChangelogStage` short-circuits on the persisted
+  text and only consults `ai_calls` as a fallback for legacy commits
+  saved before the column existed (those still get the list entry but
+  the right viewport prints the placeholder).
+
+### Usage
+
+- Rerun the AI pipeline so the changelog refiner produces an entry,
+  then save the commit (or save it as a draft). On the History tab
+  you'll now see the actual rendered text under `[4] changelog` in
+  Stages / Response mode.
+
 ## v0.23.0 — 2026-04-29
 
 History inspect-panel polish: rebound the swap-mode key, made the AI

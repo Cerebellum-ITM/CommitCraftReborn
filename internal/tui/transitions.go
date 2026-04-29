@@ -84,6 +84,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	model.currentCommit.IaSummary = model.iaSummaryOutput
 	model.currentCommit.IaCommitRaw = model.iaCommitRawOutput
 	model.currentCommit.IaTitle = model.iaTitleRawOutput
+	model.currentCommit.IaChangelog = model.iaChangelogEntry
 	model.currentCommit.CreatedAt = time.Now()
 
 	// Reword flows rewrite an existing commit's message; staging a new

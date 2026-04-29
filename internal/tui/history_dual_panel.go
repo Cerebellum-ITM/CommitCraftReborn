@@ -105,7 +105,7 @@ func (p *HistoryDualPanel) SetCommit(c storage.Commit, hasChangelog bool) {
 		p.stages = append(p.stages, historyStage{
 			idx:    4,
 			name:   "changelog",
-			output: "",
+			output: c.IaChangelog,
 		})
 	}
 	if p.stageIndex >= len(p.stages) {
