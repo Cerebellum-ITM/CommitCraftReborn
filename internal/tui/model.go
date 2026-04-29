@@ -115,30 +115,35 @@ const (
 
 // model is the main struct that holds the entire application state.
 type Model struct {
-	AppMode                 appMode
-	Theme                   *styles.Theme
-	pwd                     string
-	log                     *logger.Logger
-	db                      *storage.DB
-	ToolsInfo               Tools
-	finalCommitTypes        []commit.CommitType
-	state                   appState
-	err                     error
-	apiKeyInput             textinput.Model
-	keyPoints               []string
-	commitsKeysInput        textarea.Model
-	mainList                list.Model
-	historyView             HistoryView
-	releaseCommitList       list.Model
-	commitsKeysViewport     viewport.Model
-	releaseViewport         viewport.Model
-	releaseEditText         *textarea.Model
-	releaseViewState        *releaseViewState
-	releaseText             string
-	releaseType             string
-	releaseBranch           string
-	releaseMainList         list.Model
-	releaseHistoryView      ReleaseHistoryView
+	AppMode             appMode
+	Theme               *styles.Theme
+	pwd                 string
+	log                 *logger.Logger
+	db                  *storage.DB
+	ToolsInfo           Tools
+	finalCommitTypes    []commit.CommitType
+	state               appState
+	err                 error
+	apiKeyInput         textinput.Model
+	keyPoints           []string
+	commitsKeysInput    textarea.Model
+	mainList            list.Model
+	historyView         HistoryView
+	releaseCommitList   list.Model
+	commitsKeysViewport viewport.Model
+	releaseViewport     viewport.Model
+	releaseEditText     *textarea.Model
+	releaseViewState    *releaseViewState
+	releaseText         string
+	releaseType         string
+	releaseBranch       string
+	releaseMainList     list.Model
+	releaseHistoryView  ReleaseHistoryView
+	// releaseLoading is set when an async releaseHistorySync command is
+	// in flight. The view renders a centered loading panel for
+	// stateReleaseMainMenu while it's true so the user sees a clean
+	// "Loading…" frame instead of half-painted chrome on entry.
+	releaseLoading          bool
 	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string
 	commitTypeList          list.Model
@@ -495,10 +500,13 @@ func NewModel(
 	m.releaseHistoryView.SetBodyRenderer(func(text string, width int) string {
 		return m.renderCommitMessage(text, width)
 	})
-	// Hydrate the release dual panel with the initial selection (if any)
-	// so the inspect panel isn't blank on first render when the user
-	// boots straight into Release mode.
-	syncReleaseHistorySelection(m)
+	// When the user boots straight into Release mode, flag the loading
+	// state here so the very first frame is the loading panel; Init()
+	// then dispatches the async sync. The CommitMode startup path
+	// doesn't need this — the workspace history is fast to render.
+	if m.state == stateReleaseMainMenu {
+		m.releaseLoading = true
+	}
 	return m, nil
 }
 
@@ -508,6 +516,12 @@ func (model *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{waitForLogLineCmd(model.logsCh)}
 	if model.pendingRewordHash != "" {
 		cmds = append(cmds, openRewordChooserCmd(model))
+	}
+	// If the app booted straight into Release mode, kick off the async
+	// release-history sync (and the spinner that animates the loading
+	// frame) before any user input arrives.
+	if model.releaseLoading {
+		cmds = append(cmds, startReleaseHistorySync(model), model.spinner.Tick)
 	}
 	return tea.Batch(cmds...)
 }

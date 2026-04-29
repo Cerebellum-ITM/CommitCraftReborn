@@ -7,6 +7,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
 
@@ -146,6 +147,27 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeKeybindingsPopupMsg:
 		model.popup = nil
 		return model, nil
+	case releaseHistorySyncMsg:
+		// Async result of startReleaseHistorySync — apply it to the
+		// dual panel and clear the loading flag so the regular release
+		// chrome takes over the next frame.
+		if msg.cleared {
+			model.releaseHistoryView.ClearRelease()
+		} else {
+			model.releaseHistoryView.SetRelease(msg.release, msg.messages, msg.calls)
+		}
+		model.releaseLoading = false
+		return model, nil
+	case spinner.TickMsg:
+		// Drive the model-level spinner used by the release loading
+		// screen. Other tabs own their own spinners and are unaffected
+		// because spinner.Update silently ignores ticks for spinner ids
+		// it didn't issue.
+		if model.releaseLoading {
+			var spCmd tea.Cmd
+			model.spinner, spCmd = model.spinner.Update(msg)
+			return model, spCmd
+		}
 	case stageHistoryApplyMsg:
 		model.popup = nil
 		entry, ok := model.pipeline.applyStageHistoryEntry(msg.stage, msg.index)

@@ -126,7 +126,7 @@ func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 	model.AppMode = ReleaseMode
 	model.state = stateReleaseMainMenu
 	model.keys = releaseMainListKeys()
-	syncReleaseHistorySelection(model)
+	loadCmd := enterReleaseHistoryLoading(model)
 	model.WritingStatusBar.Content = fmt.Sprintf(
 		"choose, create, or edit a release ::: %s",
 		model.Theme.AppStyles().
@@ -134,5 +134,5 @@ func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 			SetString(model.releaseMainList.Title),
 	)
 	model.WritingStatusBar.Level = statusbar.LevelInfo
-	return model, nil
+	return model, loadCmd
 }

@@ -325,7 +325,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.AppMode = ReleaseMode
 			model.state = stateReleaseMainMenu
 			model.keys = releaseMainListKeys()
-			syncReleaseHistorySelection(model)
+			loadCmd := enterReleaseHistoryLoading(model)
 			model.WritingStatusBar.Content = fmt.Sprintf(
 				"choose, create, or edit a release ::: %s",
 				model.Theme.AppStyles().
@@ -337,7 +337,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				statusbar.LevelWarning,
 				2*time.Second,
 			)
-			return model, cmd
+			return model, tea.Batch(loadCmd, cmd)
 
 		case key.Matches(msg, model.keys.ToggleDrafts):
 			model.draftMode = !model.draftMode

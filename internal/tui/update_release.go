@@ -130,9 +130,10 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 }
 
 // syncReleaseHistorySelection mirrors the master list's current selection
-// into the ReleaseHistoryView's DualPanel. Loads commit subjects from
-// git and ai_calls from SQLite once per selection so cycling through the
-// inspect entries stays free of git/db round-trips.
+// into the ReleaseHistoryView's DualPanel. Synchronous — used after every
+// cursor move where the lookup is fast enough to feel instant. The
+// initial-entry path uses startReleaseHistorySync (async) so the UI
+// stays responsive while the first git lookup runs.
 func syncReleaseHistorySelection(model *Model) {
 	item, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem)
 	if !ok {
@@ -147,6 +148,58 @@ func syncReleaseHistorySelection(model *Model) {
 	}
 	calls := loadReleaseAICalls(model, r.ID)
 	model.releaseHistoryView.SetRelease(r, messages, calls)
+}
+
+// releaseHistorySyncMsg is the result of an async release-history load.
+// `cleared` is true when the master list had no selection; the
+// dual panel is cleared instead of hydrated in that case.
+type releaseHistorySyncMsg struct {
+	cleared  bool
+	release  storage.Release
+	messages map[string]git.CommitMessage
+	calls    []storage.AICall
+}
+
+// enterReleaseHistoryLoading flips the model into the loading screen
+// state and returns the batch of commands that drive it: the async
+// release-history sync (which produces the data the dual panel needs)
+// plus the spinner tick that animates the "Loading…" frame. Used at
+// every entry point into stateReleaseMainMenu where the lookup might
+// be slow enough to flash the chrome.
+func enterReleaseHistoryLoading(model *Model) tea.Cmd {
+	model.releaseLoading = true
+	return tea.Batch(
+		startReleaseHistorySync(model),
+		model.spinner.Tick,
+	)
+}
+
+// startReleaseHistorySync kicks off the slow git+db lookups for the
+// currently selected release on a background command. The returned cmd
+// resolves to a releaseHistorySyncMsg that the global update handler
+// applies to the dual panel.
+func startReleaseHistorySync(model *Model) tea.Cmd {
+	item, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem)
+	if !ok {
+		return func() tea.Msg { return releaseHistorySyncMsg{cleared: true} }
+	}
+	r := item.release
+	// Capture only what we need so the closure doesn't pin the whole
+	// model into the goroutine spawned by tea.
+	logger := model.log
+	calls := loadReleaseAICalls(model, r.ID)
+	hashes := strings.Split(r.CommitList, ",")
+	return func() tea.Msg {
+		messages, err := git.LookupCommitMessages(hashes)
+		if err != nil && logger != nil {
+			logger.Warn("git commit lookup failed", "release_id", r.ID, "error", err)
+		}
+		return releaseHistorySyncMsg{
+			release:  r,
+			messages: messages,
+			calls:    calls,
+		}
+	}
 }
 
 // loadReleaseAICalls is the release counterpart of loadCommitAICalls. It

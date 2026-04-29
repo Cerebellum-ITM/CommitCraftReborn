@@ -179,13 +179,13 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb)
 	model.state = stateReleaseMainMenu
 	model.keys = releaseMainListKeys()
-	syncReleaseHistorySelection(model)
+	loadCmd := enterReleaseHistoryLoading(model)
 	cmd := model.WritingStatusBar.ShowMessageForDuration(
 		"Record created in the db successfully",
 		statusbar.LevelSuccess,
 		2*time.Second,
 	)
-	return model, cmd
+	return model, tea.Batch(loadCmd, cmd)
 }
 
 func switchFocusElement(model *Model) tea.Cmd {

@@ -84,6 +84,17 @@ func (model *Model) setColorVariables(state string) (textColor, lineColor ansi.C
 
 // View renders the UI based on the current state of the model.
 func (model *Model) View() tea.View {
+	// Skip the first frame before bubbletea has delivered the initial
+	// tea.WindowSizeMsg. Without dimensions, lipgloss.Place can't center
+	// content (the loading panel ends up flush top-left, then jumps to
+	// the middle once size lands). An empty frame here is invisible and
+	// the next render — already armed with width/height — paints
+	// correctly the very first time the user sees anything.
+	if model.width <= 0 || model.height <= 0 {
+		empty := tea.NewView("")
+		empty.AltScreen = true
+		return empty
+	}
 	var mainContent string
 
 	appStyle := lipgloss.NewStyle().
@@ -176,10 +187,18 @@ func (model *Model) View() tea.View {
 		masterListView := model.mainList.View()
 		mainContent = model.historyView.View(masterListView, histW, histH)
 	case stateReleaseMainMenu:
-		// Same chrome as stateChoosingCommit but bound to the release
-		// history view (its own filter modes, dual panel, etc.).
 		histW := model.width
 		histH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
+		// While the async release-history sync is in flight, render a
+		// centered loading panel instead of the half-painted chrome.
+		// Without this, the user sees the master list flash in before
+		// the dual panel hydrates — visually noisy on slow git lookups.
+		if model.releaseLoading {
+			mainContent = model.renderReleaseLoading(histW, histH)
+			break
+		}
+		// Same chrome as stateChoosingCommit but bound to the release
+		// history view (its own filter modes, dual panel, etc.).
 		listW, listH := model.releaseHistoryView.MasterListSize(histW, histH)
 		model.releaseMainList.SetSize(listW, listH)
 		model.releaseHistoryView.SetCounts(

@@ -2,6 +2,54 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.28.1 — 2026-04-29
+
+Fix the loading popup flashing top-left before centering on Release-mode
+boot.
+
+- `View()` now short-circuits to an empty (alt-screen) frame while
+  `model.width` / `model.height` are still zero. bubbletea delivers
+  the initial `tea.WindowSizeMsg` shortly after `Init()`; the previous
+  first frame ran with zero dimensions, so `lipgloss.Place(0, 0, …)`
+  rendered the loading panel flush at (0, 0) and re-centered only once
+  the size landed. Skipping that frame removes the visible jump — the
+  user only ever sees the centered version.
+
+## v0.28.0 — 2026-04-29
+
+Loading screen on Release mode entry so the slow git+db lookups don't
+flash a half-painted UI.
+
+- New `releaseLoading` flag on the Model + `releaseHistorySyncMsg` for
+  the async result. While true, `view.go` renders a centered loading
+  panel (`release_loading.go`) instead of the release chrome — a
+  rounded box with the bubbles spinner glyph, a "Loading releases"
+  title, a muted "resolving commit subjects…" subtitle, and the
+  workspace path as a hint.
+- `enterReleaseHistoryLoading(model)` is the helper used at every
+  entry point (`startup` via `Init`, post-create-release transition,
+  CommitMode→ReleaseMode swap, reword setup) — flips the flag and
+  returns the batch of commands that drive the loading state:
+  `startReleaseHistorySync` (which runs the per-hash git lookups +
+  ai_calls fetch off the main goroutine) plus the spinner tick.
+- The model-level spinner is now ticked through a global
+  `spinner.TickMsg` handler in `update.go` while
+  `releaseLoading` is set, so the loading frame animates smoothly.
+  The pipeline tab keeps owning its own spinner — `spinner.Update`
+  only consumes ticks for the matching id, so the two never collide.
+- Cursor moves inside `stateReleaseMainMenu` keep the synchronous
+  sync (the per-release lookup is still N git calls but the user is
+  already inside the screen — a brief pause feels expected, and
+  swapping the dual panel out for a loading frame on every move
+  would be jarring).
+
+### Usage
+
+- Enter Release mode (`ctrl+s` from the workspace, or boot the app
+  with `--release`-equivalent state). You'll see a centered
+  "Loading releases" panel with the spinner glyph until the lookup
+  finishes; the regular framed view takes over the next frame.
+
 ## v0.27.1 — 2026-04-29
 
 Release inspect list: simplified rows + visual separator above the commits.
