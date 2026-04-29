@@ -441,11 +441,21 @@ func (model *Model) assembleComposeLeftBody(innerW, innerH int) string {
 	dividerTop := model.renderComposeDivider(innerW)
 	dividerBottom := model.renderComposeDivider(innerW)
 
+	// Try to fit type and scope on the same line. The 4-cell gap is
+	// the visual separator between the two sections; when their joined
+	// width plus that gap exceeds the available column they fall back
+	// to the original stacked layout.
+	const metaGap = "    "
+	var metaRow string
+	if lipgloss.Width(typeRow)+lipgloss.Width(metaGap)+lipgloss.Width(scopeRow) <= innerW {
+		metaRow = lipgloss.JoinHorizontal(lipgloss.Center, typeRow, metaGap, scopeRow)
+	} else {
+		metaRow = lipgloss.JoinVertical(lipgloss.Left, typeRow, "", scopeRow)
+	}
+
 	header := lipgloss.JoinVertical(lipgloss.Left,
 		"",
-		typeRow,
-		"",
-		scopeRow,
+		metaRow,
 		"",
 		dividerTop,
 	)

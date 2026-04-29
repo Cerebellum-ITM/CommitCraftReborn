@@ -2,6 +2,50 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.20.10 — 2026-04-28
+
+Tightened the compose metadata header further and tweaked section labels.
+
+- `commit type` and `scope` now share a single horizontal row when the
+  compose panel is wide enough to fit both with a 4-cell gap. When the
+  panel is narrower they fall back to the previous two-row stack so
+  nothing gets clipped.
+- Blurred section-label pills (`SectionPill`) now use the theme
+  Secondary colour instead of Muted, so the labels stay readable as
+  brand chrome rather than fading into the background when out of
+  focus. Focused pills are unchanged (Primary background, BG text).
+
+### Usage
+
+Purely visual; no new keys. The two-row fallback kicks in
+automatically below the width threshold — there is nothing to
+configure.
+
+## v0.20.9 — 2026-04-28
+
+Collapsed the compose metadata header so each row uses a single line.
+
+- `commit type` row now renders inline as `[label] [selected pill]`
+  instead of stacking the label above a wrapped grid of every available
+  type. Switching type still happens through the type popup, so the
+  compose panel only displays the active selection — recovering the
+  vertical space the previous grid consumed.
+- `scope` row now renders inline as `[label] [file pill] [edit]` on a
+  single horizontal line. The bordered chip is gone; the file is
+  rendered as a flat coloured pill in the commit-type style with a
+  per-file deterministic palette (FNV-hashed onto the existing
+  commit-type colour set), so the same file always gets the same colour
+  and different files are visually distinct.
+- `edit` is also a flat pill now so it visually aligns with the file
+  chip on the same row.
+
+### Usage
+
+No new keys. Picking a different commit type still goes through the
+type popup; picking a scope still goes through the file picker. The
+change is purely visual — the metadata block is now two lines tall
+instead of six, leaving more room for the keypoints area.
+
 ## v0.20.8 — 2026-04-28
 
 Unified the commit-type chip across every surface.

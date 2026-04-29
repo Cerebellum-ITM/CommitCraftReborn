@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"hash/fnv"
 	"image/color"
 	"regexp"
 	"strings"
@@ -49,9 +50,10 @@ func styleMentions(s string, textStyle lipgloss.Style) string {
 	return b.String()
 }
 
-// renderComposeTypeRow renders the "commit type" section: label on top,
-// horizontal pills underneath that wrap to additional rows when they
-// don't fit the column width.
+// renderComposeTypeRow renders the "commit type" section as a single
+// horizontal line: the section label followed by the chip of the
+// currently selected commit type. Other types are not displayed here —
+// the picker popup is the place to switch.
 func (model *Model) renderComposeTypeRow(width int, focused bool) string {
 	theme := model.Theme
 	base := theme.AppStyles().Base
@@ -60,21 +62,11 @@ func (model *Model) renderComposeTypeRow(width int, focused bool) string {
 
 	if len(model.finalCommitTypes) == 0 {
 		empty := base.Foreground(theme.Muted).Italic(true).Render("(no commit types configured)")
-		return lipgloss.JoinVertical(lipgloss.Left, label, empty)
+		return lipgloss.JoinHorizontal(lipgloss.Center, label, " ", empty)
 	}
 
-	pills := make([]string, 0, len(model.finalCommitTypes))
-	for _, ct := range model.finalCommitTypes {
-		active := ct.Tag == model.commitType
-		pills = append(pills, model.commitTypeChip(ct.Tag, ct.Color, active))
-	}
-
-	// Pills wrap onto multiple rows when the joined width exceeds the
-	// available column. Without wrapping the row would overflow and get
-	// truncated by the panel's hard right edge.
-	rowsText := wrapPillsToRows(pills, width, " ")
-
-	return lipgloss.JoinVertical(lipgloss.Left, append([]string{label, ""}, rowsText...)...)
+	chip := model.commitTypeChip(model.commitType, "", true)
+	return lipgloss.JoinHorizontal(lipgloss.Center, label, " ", chip)
 }
 
 // commitTypeChip renders a single commit-type pill. The active tag uses
@@ -135,63 +127,66 @@ func wrapPillsToRows(pills []string, maxWidth int, sep string) []string {
 	return rows
 }
 
-// renderComposeScopeRow renders the "scope" section: label on top, the
-// single scope chip (or nothing) and an "edit" button. Scope is a
-// single value — when the user picks a new scope the chip is replaced.
+// renderComposeScopeRow renders the "scope" section on a single
+// horizontal line: section label, the file chip (when set) and the
+// "edit" affordance. The chip uses the commit-type pill palette with a
+// per-file deterministic colour so the scope reads as a coloured tag
+// rather than a neutral box.
 func (model *Model) renderComposeScopeRow(width int, focused bool) string {
 	theme := model.Theme
 
-	labelText := "scope"
-	label := theme.SectionPill(focused).Render(labelText)
+	label := theme.SectionPill(focused).Render("scope")
 
-	var cells []string
+	cells := []string{label}
 	if len(model.commitScopes) > 0 {
-		cells = append(cells, model.scopeChip(model.commitScopes[0], focused))
+		cells = append(cells, " ", model.scopeChip(model.commitScopes[0], focused))
 	}
-	cells = append(cells, model.scopeEditButton(focused && len(model.commitScopes) == 0))
-	row := lipgloss.JoinHorizontal(lipgloss.Top, joinWithSep(cells, " ")...)
+	cells = append(cells, " ", model.scopeEditButton(focused && len(model.commitScopes) == 0))
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		label,
-		"",
-		row,
-	)
+	return lipgloss.JoinHorizontal(lipgloss.Center, cells...)
 }
 
-// scopeChip renders one scope entry styled like a bordered pill, e.g.
-// `· internal/tui/layout.go ×`.
-func (model *Model) scopeChip(value string, highlighted bool) string {
-	theme := model.Theme
-	border := theme.Subtle
-	fg := theme.FG
-	if highlighted {
-		border = theme.Primary
-		fg = theme.Primary
-	}
-	return theme.AppStyles().Base.
-		Foreground(fg).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(border).
+// scopeChip renders the selected file as a flat coloured pill in the
+// commit-type style. The palette is picked deterministically from the
+// file path so the same file always renders with the same colour, but
+// different files get visually distinguishable tags.
+func (model *Model) scopeChip(value string, _ bool) string {
+	tag := pickCommitTypeTag(value)
+	return styles.CommitTypeBlockStyle(model.Theme, tag).
+		Bold(true).
 		Padding(0, 1).
-		Render(fmt.Sprintf("· %s ×", value))
+		Render(value)
 }
 
-// scopeEditButton mirrors the chip styling but reads "edit" — the user
-// activates it with `e` to open the file picker popup.
+// scopeEditButton renders the "edit" affordance as a flat pill so it
+// aligns visually with the scope chip on the same single-line row.
 func (model *Model) scopeEditButton(highlighted bool) string {
 	theme := model.Theme
-	border := theme.Subtle
+	bg := theme.Surface
 	fg := theme.Muted
 	if highlighted {
-		border = theme.Primary
-		fg = theme.Primary
+		bg = theme.Primary
+		fg = theme.BG
 	}
 	return theme.AppStyles().Base.
+		Background(bg).
 		Foreground(fg).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(border).
 		Padding(0, 1).
 		Render("edit")
+}
+
+// pickCommitTypeTag deterministically maps a string (typically a file
+// path) to one of the commit-type palette keys, so chips for the same
+// file always look identical between renders while different files get
+// distinct colours.
+func pickCommitTypeTag(seed string) string {
+	tags := []string{
+		"ADD", "FIX", "DOC", "WIP", "STYLE", "REFACTOR",
+		"TEST", "PERF", "CHORE", "DEL", "BUILD", "CI", "REVERT", "SEC",
+	}
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(seed))
+	return tags[int(h.Sum32())%len(tags)]
 }
 
 // renderComposeSummaryArea renders the textarea section labelled "summary"

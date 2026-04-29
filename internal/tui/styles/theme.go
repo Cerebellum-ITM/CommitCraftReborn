@@ -142,7 +142,7 @@ func (t *Theme) SectionPill(focused bool) lipgloss.Style {
 	}
 	return lipgloss.NewStyle().
 		Background(t.Surface).
-		Foreground(t.Muted).
+		Foreground(t.Secondary).
 		Padding(0, 1)
 }
 
