@@ -2,6 +2,16 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.21.2 — 2026-04-29
+
+Themed the helper hint inside the scope popup so keys and descriptions
+match the rest of the UI's help styling.
+
+- `scope_popup.go` now renders the bottom hint by composing
+  `theme.AppStyles().Help` (`ShortKey` for keys, `ShortDesc` for
+  descriptions, `ShortSeparator` for the `·` divider) instead of a
+  single muted-coloured string.
+
 ## v0.21.1 — 2026-04-28
 
 Fixed the workspace filter pill rendering blank on the first frame.

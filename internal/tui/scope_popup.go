@@ -152,9 +152,25 @@ func (m scopePopupModel) View() tea.View {
 		Render(fmt.Sprintf("· %s", TruncatePath(m.pwd, 3)))
 	header := lipgloss.JoinHorizontal(lipgloss.Top, title, " ", pathLabel)
 
-	hint := base.Foreground(m.theme.Muted).Render(
-		"type to filter · ↑↓ nav · ←/→ or tab/shift+tab dirs · ctrl+r modified-only · enter pick · esc clear/close",
-	)
+	helpStyles := m.theme.AppStyles().Help
+	hintPairs := [][2]string{
+		{"type", "filter"},
+		{"↑↓", "nav"},
+		{"←/→ tab/shift+tab", "dirs"},
+		{"ctrl+r", "modified-only"},
+		{"enter", "pick"},
+		{"esc", "clear/close"},
+	}
+	hintParts := make([]string, 0, len(hintPairs)*2-1)
+	for i, p := range hintPairs {
+		if i > 0 {
+			hintParts = append(hintParts, helpStyles.ShortSeparator.Render(" · "))
+		}
+		hintParts = append(hintParts,
+			helpStyles.ShortKey.Render(p[0])+" "+helpStyles.ShortDesc.Render(p[1]),
+		)
+	}
+	hint := strings.Join(hintParts, "")
 
 	listH := max(3, innerH-lipgloss.Height(header)-lipgloss.Height(hint)-2)
 	m.list.SetWidth(innerW)
