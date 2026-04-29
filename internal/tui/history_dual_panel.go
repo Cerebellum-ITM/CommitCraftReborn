@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -83,8 +84,12 @@ func (p *HistoryDualPanel) SetSize(width, height int) {
 	p.refreshContent()
 }
 
-// SetCommit re-hydrates both modes against a new commit.
-func (p *HistoryDualPanel) SetCommit(c storage.Commit) {
+// SetCommit re-hydrates both modes against a new commit. hasChangelog is
+// true when the commit has a stored ai_calls row for the changelog stage,
+// in which case stage 4 is appended to the inspect list. The changelog
+// output text isn't persisted today, so the right viewport falls back to
+// a placeholder when the user lands on it.
+func (p *HistoryDualPanel) SetCommit(c storage.Commit, hasChangelog bool) {
 	p.commit = c
 	p.hasCommit = true
 	p.keypoints = c.KeyPoints
@@ -95,6 +100,13 @@ func (p *HistoryDualPanel) SetCommit(c storage.Commit) {
 		{idx: 1, name: "summary", output: c.IaSummary},
 		{idx: 2, name: "body", output: c.IaCommitRaw},
 		{idx: 3, name: "title", output: c.IaTitle},
+	}
+	if hasChangelog {
+		p.stages = append(p.stages, historyStage{
+			idx:    4,
+			name:   "changelog",
+			output: "",
+		})
 	}
 	if p.stageIndex >= len(p.stages) {
 		p.stageIndex = 0
@@ -128,7 +140,16 @@ func (p *HistoryDualPanel) refreshContent() {
 	p.bodyVP.GotoTop()
 
 	if p.stageIndex >= 0 && p.stageIndex < len(p.stages) {
-		p.stageVP.SetContent(p.renderText(p.stages[p.stageIndex].output, p.stageVP.Width()))
+		out := p.stages[p.stageIndex].output
+		if strings.TrimSpace(out) == "" {
+			out = lipgloss.NewStyle().
+				Foreground(p.theme.Muted).
+				Italic(true).
+				Render("(stage output not stored)")
+		} else {
+			out = p.renderText(out, p.stageVP.Width())
+		}
+		p.stageVP.SetContent(out)
 	}
 	p.stageVP.GotoTop()
 }
@@ -167,11 +188,13 @@ func (p *HistoryDualPanel) CycleLeftCursor(delta int) {
 	if len(p.stages) == 0 {
 		return
 	}
-	p.stageIndex = clampInt(p.stageIndex+delta, 0, len(p.stages)-1)
-	if p.stageIndex >= 0 && p.stageIndex < len(p.stages) {
-		p.stageVP.SetContent(p.renderText(p.stages[p.stageIndex].output, p.stageVP.Width()))
-		p.stageVP.GotoTop()
-	}
+	// Stages list wraps around: stepping past the last entry returns to the
+	// first one and vice versa. Go's % keeps the sign of the dividend, so
+	// add `n` before reducing to keep negative deltas in range.
+	n := len(p.stages)
+	p.stageIndex = ((p.stageIndex+delta)%n + n) % n
+	p.stageVP.SetContent(p.renderText(p.stages[p.stageIndex].output, p.stageVP.Width()))
+	p.stageVP.GotoTop()
 }
 
 func clampInt(v, lo, hi int) int {

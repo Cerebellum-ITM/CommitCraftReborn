@@ -183,8 +183,8 @@ func mainListKeys() KeyMap {
 			key.WithHelp("ctrl+s", "Switch Mode"),
 		),
 		SwapMode: key.NewBinding(
-			key.WithKeys("ctrl+m"),
-			key.WithHelp("ctrl+m", "Swap inspect mode"),
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("ctrl+e", "Swap inspect mode"),
 		),
 		CycleNext: key.NewBinding(
 			key.WithKeys("ctrl+]"),

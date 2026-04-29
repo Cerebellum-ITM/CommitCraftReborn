@@ -384,7 +384,7 @@ func (model *Model) renderStateHelpLine() string {
 		// readable while the popup remains discoverable.
 		extra := []helpEntry{
 			{"^]/^[", cycleLabel},
-			{"^m", "swap inspect"},
+			{"^e", "swap inspect"},
 			{"?", "more"},
 		}
 		entries = append(entries, extra...)

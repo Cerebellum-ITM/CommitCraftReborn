@@ -39,8 +39,10 @@ func NewHistoryView(theme *styles.Theme) HistoryView {
 // as the live compose view.
 func (h *HistoryView) SetBodyRenderer(r DualPanelRenderFunc) { h.dualPanel.SetRenderer(r) }
 
-func (h *HistoryView) SetCommit(c storage.Commit) { h.dualPanel.SetCommit(c) }
-func (h *HistoryView) ClearCommit()               { h.dualPanel.Clear() }
+func (h *HistoryView) SetCommit(c storage.Commit, hasChangelog bool) {
+	h.dualPanel.SetCommit(c, hasChangelog)
+}
+func (h *HistoryView) ClearCommit() { h.dualPanel.Clear() }
 
 func (h *HistoryView) IsFilterFocused() bool { return h.filterBar.IsFocused() }
 func (h *HistoryView) FocusFilter() tea.Cmd  { return h.filterBar.Focus() }
@@ -125,7 +127,7 @@ func (h *HistoryView) MasterListSize(width, totalHeight int) (int, int) {
 //	│ ─────────────────────────────────  │
 //	│ master list rows…                  │
 //	│ ─────────────────────────────────  │
-//	│ [● KP/Body]  [○ Stages/Out]    ⌃M  │
+//	│ [● KP/Body]  [○ Stages/Out]    ⌃E  │
 //	│ ─────────────────────────────────  │
 //	│ key points     │ commit body       │
 //	│ › item         │ wrapped body…     │

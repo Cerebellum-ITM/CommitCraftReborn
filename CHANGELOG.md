@@ -2,6 +2,35 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.23.0 — 2026-04-29
+
+History inspect-panel polish: rebound the swap-mode key, made the AI
+stages list wrap, and exposed the optional stage 4 (changelog) when it
+ran for the inspected commit.
+
+- Swap inspect mode now lives on `ctrl+e` (was `ctrl+m`). Helper bar,
+  popup hint, mode-bar pill caption and ascii diagrams in the source
+  comments updated to match.
+- `HistoryDualPanel.CycleLeftCursor` now wraps the stages list at both
+  ends (modular index) so `ctrl+]` past the last stage lands on the
+  first one and vice versa. Key-points navigation keeps its clamped
+  behaviour (hard limits read better there).
+- `SetCommit` accepts a `hasChangelog` flag and appends a 4th entry
+  ("changelog") to the stages list when the inspected commit has a
+  stored ai_calls row tagged as `changelog`. The changelog output text
+  isn't persisted yet, so the right viewport prints a muted
+  "(stage output not stored)" placeholder; the entry is still useful
+  because it confirms the refiner ran for that commit.
+- `update_commit.commitUsedChangelogStage` looks up `ai_calls` on every
+  cursor sync to derive the flag.
+
+### Usage
+
+- On the History tab: `ctrl+e` swaps between `KeyPoints / Body` and
+  `Stages / Response`. In the latter, `ctrl+]` / `ctrl+[` walk the
+  stages list and now cycle around the ends. If the changelog stage
+  ran, a 4th `[4] changelog` entry appears in the list automatically.
+
 ## v0.22.2 — 2026-04-29
 
 Themed the keybindings popup hint and codified the rule.

@@ -17,7 +17,7 @@ const (
 
 // HistoryModeBar renders the segmented mode switcher:
 //
-//	[●  KeyPoints / Body]  [○  Stages / Response]              ⌃M swap
+//	[●  KeyPoints / Body]  [○  Stages / Response]              ⌃E swap
 //
 // The pills use a rounded border (matching the design); the right-hand hint
 // is vertically centered against the pill row so it lines up with the dots
@@ -97,7 +97,7 @@ func (m HistoryModeBar) View() string {
 	// JoinHorizontal silently drops the spacer on rows ≥1 and the hint
 	// slides to column 0 on rows that have no spacer — that is the cause
 	// of "swap" wrapping under the active pill.
-	rawHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("⌃M swap")
+	rawHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("⌃E swap")
 	rightWidth := m.width - pillsW
 	if rightWidth < 1 {
 		rightWidth = 1

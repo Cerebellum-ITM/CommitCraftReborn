@@ -148,7 +148,7 @@ func workspaceKeybindings() []keybindingGroup {
 		{
 			title: "Inspect panel",
 			entries: []helpEntry{
-				{"^m", "swap inspect mode (KP/Body ↔ Stages/Response)"},
+				{"^e", "swap inspect mode (KP/Body ↔ Stages/Response)"},
 				{"^]", "next stage / key point"},
 				{"^[", "prev stage / key point"},
 				{"pgup/pgdn", "scroll right viewport"},

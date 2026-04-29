@@ -375,8 +375,28 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 // moved the cursor or rebuilt the items.
 func syncHistoryViewSelection(model *Model) {
 	if item, ok := model.mainList.SelectedItem().(HistoryCommitItem); ok {
-		model.historyView.SetCommit(item.commit)
+		model.historyView.SetCommit(item.commit, commitUsedChangelogStage(model, item.commit.ID))
 	} else {
 		model.historyView.ClearCommit()
 	}
+}
+
+// commitUsedChangelogStage returns true when the commit row has at least
+// one ai_calls record tagged as the changelog stage. Used by the History
+// inspect panel to decide whether stage 4 belongs in the stages list.
+func commitUsedChangelogStage(model *Model, commitID int) bool {
+	if model == nil || model.db == nil || commitID <= 0 {
+		return false
+	}
+	calls, err := model.db.GetAICallsByCommitID(commitID)
+	if err != nil {
+		model.log.Warn("ai_calls lookup failed", "commit_id", commitID, "error", err)
+		return false
+	}
+	for _, c := range calls {
+		if c.Stage == stageDBLabel[stageChangelog] {
+			return true
+		}
+	}
+	return false
 }
