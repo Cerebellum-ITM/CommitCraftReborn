@@ -21,18 +21,80 @@ type ReleaseHistoryView struct {
 	filterBar ReleaseFilterBar
 	modeBar   HistoryModeBar
 	dualPanel ReleaseDualPanel
+
+	// commitsCache holds the resolved git messages keyed by release ID so
+	// re-selecting a release doesn't re-fork-exec `git show` per hash. The
+	// map values are the same shape as git.LookupCommitMessages returns,
+	// so they can flow straight into SetRelease.
+	commitsCache map[int]map[string]git.CommitMessage
+	// inFlight tracks release IDs whose commits are currently being
+	// fetched in a background goroutine. Used both to stop the prefetch
+	// path from doubling up work on the selected entry and to suppress
+	// the spinner once the fetch lands.
+	inFlight map[int]bool
+	// currentReleaseID is the release ID currently displayed in the dual
+	// panel. The async fetch handler compares it against the resolved
+	// msg's release ID to decide whether to update the dual panel
+	// directly or just warm the cache.
+	currentReleaseID int
 }
 
 func NewReleaseHistoryView(theme *styles.Theme) ReleaseHistoryView {
 	mb := NewHistoryModeBar(theme)
 	mb.SetLabels("Commits / Body", "Stages / Response")
 	return ReleaseHistoryView{
-		theme:     theme,
-		filterBar: NewReleaseFilterBar(theme),
-		modeBar:   mb,
-		dualPanel: NewReleaseDualPanel(theme),
+		theme:        theme,
+		filterBar:    NewReleaseFilterBar(theme),
+		modeBar:      mb,
+		dualPanel:    NewReleaseDualPanel(theme),
+		commitsCache: make(map[int]map[string]git.CommitMessage),
+		inFlight:     make(map[int]bool),
 	}
 }
+
+// CachedCommits returns the cached git messages for a release ID and a
+// flag indicating whether the cache holds an entry. A nil map with
+// `ok == true` is impossible because StoreCommits never stores nil.
+func (h *ReleaseHistoryView) CachedCommits(releaseID int) (map[string]git.CommitMessage, bool) {
+	m, ok := h.commitsCache[releaseID]
+	return m, ok
+}
+
+// StoreCommits caches the resolved git messages for a release and clears
+// the in-flight flag for that ID. Pass an empty (but non-nil) map when
+// the lookup returned no commits so the cache distinguishes "fetched,
+// nothing found" from "never fetched".
+func (h *ReleaseHistoryView) StoreCommits(releaseID int, msgs map[string]git.CommitMessage) {
+	if msgs == nil {
+		msgs = map[string]git.CommitMessage{}
+	}
+	h.commitsCache[releaseID] = msgs
+	delete(h.inFlight, releaseID)
+}
+
+// BeginFetch atomically reserves a release ID for a background fetch.
+// Returns true when the caller should actually run the lookup; false
+// when the release is already cached or another goroutine is already
+// resolving it.
+func (h *ReleaseHistoryView) BeginFetch(releaseID int) bool {
+	if _, ok := h.commitsCache[releaseID]; ok {
+		return false
+	}
+	if h.inFlight[releaseID] {
+		return false
+	}
+	h.inFlight[releaseID] = true
+	return true
+}
+
+// CurrentReleaseID returns the release ID currently bound to the dual
+// panel. Zero when nothing is selected.
+func (h *ReleaseHistoryView) CurrentReleaseID() int { return h.currentReleaseID }
+
+// SetCurrentReleaseID records which release the dual panel is showing.
+// Updated by the selection handler before kicking off any async work
+// so the resolved-msg handler can tell whether to draw or just cache.
+func (h *ReleaseHistoryView) SetCurrentReleaseID(id int) { h.currentReleaseID = id }
 
 // SetBodyRenderer wires the project's commit-message renderer into the
 // dual panel so the right viewport renders release bodies with the same

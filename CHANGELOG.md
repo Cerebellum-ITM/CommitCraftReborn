@@ -2,6 +2,39 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.30.0 — 2026-04-29
+
+Cache + prefetch for the release history selection, with an inline
+spinner on cache misses.
+
+- `ReleaseHistoryView` now owns a per-release-ID cache of the resolved
+  `git.LookupCommitMessages` map plus an in-flight set so the same
+  fetch can't be spawned twice. Re-selecting a previously visited
+  release is instant; the cache lives for the session.
+- Cursor moves through the master list trigger a background prefetch
+  of the ±2 neighbour releases as a `tea.Batch` of fetch commands, so
+  steady scrolling stays inside the cache. Already-cached or
+  in-flight neighbours are skipped.
+- Cache misses on the selected release now keep the previous dual
+  panel content on screen and light the existing `WritingStatusBar`
+  spinner. The spinner stops the moment the resolved message lands;
+  stale prefetch results that arrive after the cursor has moved on
+  warm the cache without touching the visible chrome.
+- New `releaseCommitsResolvedMsg` carries `(releaseID, release,
+  messages, calls, fromSelected)` so the dispatch loop can tell
+  on-demand fetches (which redraw + stop the spinner) from prefetch
+  fetches (which only seed the cache).
+- The full-screen `releaseHistorySyncMsg` path now also seeds the
+  cache and triggers a neighbour prefetch when it lands, so the very
+  first cursor move after entering release mode is already warm.
+
+### Usage
+
+No new keys. Navigation in the release master list is the same; the
+spinner appears automatically on the right of the status bar while a
+release's commit messages are being fetched and disappears once the
+data is on screen.
+
 ## v0.29.2 — 2026-04-29
 
 Tag-icon refresh in the Release inspect commits list.

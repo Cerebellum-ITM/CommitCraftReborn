@@ -34,8 +34,8 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.releaseMainList.SetFilterText(val)
 				model.releaseMainList.SetFilterState(list.Filtering)
 			}
-			syncReleaseHistorySelection(model)
-			return model, nil
+			syncCmd := syncReleaseHistorySelection(model)
+			return model, syncCmd
 		}
 		// FilterBar focus: route keys to the textinput. Esc clears+blurs;
 		// Enter blurs; every other key forwards to the input and the
@@ -61,7 +61,7 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				} else {
 					model.releaseMainList.SetFilterState(list.Filtering)
 				}
-				syncReleaseHistorySelection(model)
+				cmd = tea.Batch(cmd, syncReleaseHistorySelection(model))
 			}
 			return model, cmd
 		}
@@ -125,29 +125,124 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	model.releaseMainList, cmd = model.releaseMainList.Update(msg)
-	syncReleaseHistorySelection(model)
-	return model, cmd
+	syncCmd := syncReleaseHistorySelection(model)
+	return model, tea.Batch(cmd, syncCmd)
 }
 
+// releaseCommitsResolvedMsg is the result of a single async git lookup
+// for one release's commit list — both the on-demand path triggered by
+// a cache miss on the selected entry and the prefetch path that warms
+// the cache for the cursor's ±N neighbours. The handler in update.go
+// always writes the messages to the view's cache; only the on-demand
+// kind (fromSelected == true) goes on to refresh the dual panel and
+// clear the inline spinner.
+type releaseCommitsResolvedMsg struct {
+	releaseID    int
+	release      storage.Release
+	messages     map[string]git.CommitMessage
+	calls        []storage.AICall
+	fromSelected bool
+}
+
+// releasePrefetchRadius is how many neighbours of the selected release
+// get their commit messages fetched in the background. With ±2 the
+// cursor can scroll five entries deep without a single cache miss; any
+// wider just multiplies the git-show fork+exec cost the user will not
+// see anyway because most navigation is short-range.
+const releasePrefetchRadius = 2
+
 // syncReleaseHistorySelection mirrors the master list's current selection
-// into the ReleaseHistoryView's DualPanel. Synchronous — used after every
-// cursor move where the lookup is fast enough to feel instant. The
-// initial-entry path uses startReleaseHistorySync (async) so the UI
-// stays responsive while the first git lookup runs.
-func syncReleaseHistorySelection(model *Model) {
+// into the ReleaseHistoryView's DualPanel. Cache-aware: a hit applies
+// synchronously; a miss applies whatever was already on screen, starts
+// the inline spinner on the WritingStatusBar, and dispatches an async
+// git lookup for the selected entry. Either way it kicks off prefetch
+// commands for the ±releasePrefetchRadius neighbours so the next cursor
+// step is also a hit. The returned tea.Cmd is the batch of async work
+// the caller has to thread back into Update.
+func syncReleaseHistorySelection(model *Model) tea.Cmd {
 	item, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem)
 	if !ok {
 		model.releaseHistoryView.ClearRelease()
-		return
+		model.releaseHistoryView.SetCurrentReleaseID(0)
+		model.WritingStatusBar.StopSpinner()
+		return nil
 	}
 	r := item.release
-	hashes := strings.Split(r.CommitList, ",")
-	messages, err := git.LookupCommitMessages(hashes)
-	if err != nil && model.log != nil {
-		model.log.Warn("git commit lookup failed", "release_id", r.ID, "error", err)
-	}
+	model.releaseHistoryView.SetCurrentReleaseID(r.ID)
 	calls := loadReleaseAICalls(model, r.ID)
-	model.releaseHistoryView.SetRelease(r, messages, calls)
+
+	if cached, hit := model.releaseHistoryView.CachedCommits(r.ID); hit {
+		model.releaseHistoryView.SetRelease(r, cached, calls)
+		model.WritingStatusBar.StopSpinner()
+		return prefetchReleaseNeighbors(model)
+	}
+
+	// Cache miss: keep whatever the dual panel already shows so the user
+	// doesn't see a flash of empty chrome, light the spinner, and run
+	// the lookup in the background. Prefetch goes on the same batch so
+	// neighbours warm in parallel.
+	cmds := []tea.Cmd{model.WritingStatusBar.StartSpinner()}
+	if model.releaseHistoryView.BeginFetch(r.ID) {
+		cmds = append(cmds, fetchReleaseCommits(r, calls, true))
+	}
+	if pre := prefetchReleaseNeighbors(model); pre != nil {
+		cmds = append(cmds, pre)
+	}
+	return tea.Batch(cmds...)
+}
+
+// prefetchReleaseNeighbors returns a batch of background git lookups
+// for the ±releasePrefetchRadius releases around the master list's
+// current cursor. Releases that are already cached (or already being
+// fetched) are skipped, so a steady scroll only enqueues the freshly
+// uncovered edge and reuses everything else.
+func prefetchReleaseNeighbors(model *Model) tea.Cmd {
+	items := model.releaseMainList.VisibleItems()
+	if len(items) == 0 {
+		return nil
+	}
+	center := model.releaseMainList.Index()
+	var cmds []tea.Cmd
+	for delta := -releasePrefetchRadius; delta <= releasePrefetchRadius; delta++ {
+		if delta == 0 {
+			continue
+		}
+		idx := center + delta
+		if idx < 0 || idx >= len(items) {
+			continue
+		}
+		hri, ok := items[idx].(HistoryReleaseItem)
+		if !ok {
+			continue
+		}
+		if !model.releaseHistoryView.BeginFetch(hri.release.ID) {
+			continue
+		}
+		cmds = append(cmds, fetchReleaseCommits(hri.release, nil, false))
+	}
+	if len(cmds) == 0 {
+		return nil
+	}
+	return tea.Batch(cmds...)
+}
+
+// fetchReleaseCommits is the actual goroutine body — a tea.Cmd that runs
+// git.LookupCommitMessages off the UI thread and emits a
+// releaseCommitsResolvedMsg the dispatch loop will route back to the
+// view's cache. `calls` is precomputed by the caller (only the on-demand
+// path needs it; prefetch passes nil to skip the DB roundtrip).
+func fetchReleaseCommits(r storage.Release, calls []storage.AICall, fromSelected bool) tea.Cmd {
+	hashes := strings.Split(r.CommitList, ",")
+	return func() tea.Msg {
+		messages, _ := git.LookupCommitMessages(hashes)
+		return releaseCommitsResolvedMsg{
+			releaseID:    r.ID,
+			release:      r,
+			messages:     messages,
+			calls:        calls,
+			fromSelected: fromSelected,
+		}
+	}
 }
 
 // releaseHistorySyncMsg is the result of an async release-history load.
@@ -318,7 +413,7 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			case ReleaseMode:
 				model.state = stateReleaseMainMenu
 				model.keys = releaseMainListKeys()
-				syncReleaseHistorySelection(model)
+				return model, syncReleaseHistorySelection(model)
 			}
 			return model, nil
 		}

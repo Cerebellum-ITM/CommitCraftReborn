@@ -150,13 +150,32 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case releaseHistorySyncMsg:
 		// Async result of startReleaseHistorySync — apply it to the
 		// dual panel and clear the loading flag so the regular release
-		// chrome takes over the next frame.
+		// chrome takes over the next frame. Also seeds the in-memory
+		// cache so the very next cursor move on the same release skips
+		// the git lookup, and immediately kicks off a prefetch for the
+		// neighbouring entries so the second/third moves stay hot.
 		if msg.cleared {
 			model.releaseHistoryView.ClearRelease()
-		} else {
-			model.releaseHistoryView.SetRelease(msg.release, msg.messages, msg.calls)
+			model.releaseHistoryView.SetCurrentReleaseID(0)
+			model.releaseLoading = false
+			return model, nil
 		}
+		model.releaseHistoryView.StoreCommits(msg.release.ID, msg.messages)
+		model.releaseHistoryView.SetCurrentReleaseID(msg.release.ID)
+		model.releaseHistoryView.SetRelease(msg.release, msg.messages, msg.calls)
 		model.releaseLoading = false
+		return model, prefetchReleaseNeighbors(model)
+	case releaseCommitsResolvedMsg:
+		// Async result of an on-demand or prefetch git lookup. Always
+		// seeds the cache; the dual panel is only refreshed when this
+		// message corresponds to the release currently selected (so
+		// stale prefetches that landed after the cursor moved on never
+		// stomp the visible content).
+		model.releaseHistoryView.StoreCommits(msg.releaseID, msg.messages)
+		if msg.fromSelected && model.releaseHistoryView.CurrentReleaseID() == msg.releaseID {
+			model.releaseHistoryView.SetRelease(msg.release, msg.messages, msg.calls)
+			model.WritingStatusBar.StopSpinner()
+		}
 		return model, nil
 	case spinner.TickMsg:
 		// Drive the model-level spinner used by the release loading
