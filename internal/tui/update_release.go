@@ -2,11 +2,15 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
+	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/statusbar"
 )
 
@@ -15,7 +19,69 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// ctrl+f cycles the release filter mode at any time. Mirrors the
+		// workspace history flow: empty query → just swap the pill;
+		// non-empty → reset+set so DefaultFilter re-runs against the new
+		// FilterValue source.
+		if msg.String() == "ctrl+f" {
+			model.releaseHistoryView.CycleFilterMode()
+			val := model.releaseHistoryView.FilterValue()
+			if val == "" {
+				model.releaseMainList.SetFilterText("")
+				model.releaseMainList.SetFilterState(list.Unfiltered)
+			} else {
+				model.releaseMainList.SetFilterText("")
+				model.releaseMainList.SetFilterText(val)
+				model.releaseMainList.SetFilterState(list.Filtering)
+			}
+			syncReleaseHistorySelection(model)
+			return model, nil
+		}
+		// FilterBar focus: route keys to the textinput. Esc clears+blurs;
+		// Enter blurs; every other key forwards to the input and the
+		// master list filter is kept in sync.
+		if model.releaseHistoryView.IsFilterFocused() {
+			switch msg.String() {
+			case "esc":
+				model.releaseHistoryView.ResetFilter()
+				model.releaseHistoryView.BlurFilter()
+				model.releaseMainList.SetFilterText("")
+				model.releaseMainList.SetFilterState(list.Unfiltered)
+				return model, nil
+			case "enter":
+				model.releaseHistoryView.BlurFilter()
+				return model, nil
+			}
+			cmd, changed := model.releaseHistoryView.UpdateFilter(msg)
+			if changed {
+				val := model.releaseHistoryView.FilterValue()
+				model.releaseMainList.SetFilterText(val)
+				if val == "" {
+					model.releaseMainList.SetFilterState(list.Unfiltered)
+				} else {
+					model.releaseMainList.SetFilterState(list.Filtering)
+				}
+				syncReleaseHistorySelection(model)
+			}
+			return model, cmd
+		}
 		switch {
+		case key.Matches(msg, model.keys.SwapMode):
+			model.releaseHistoryView.ToggleMode()
+			return model, nil
+		case key.Matches(msg, model.keys.CycleNext):
+			model.releaseHistoryView.CycleLeftCursor(+1)
+			return model, nil
+		case key.Matches(msg, model.keys.CyclePrev):
+			model.releaseHistoryView.CycleLeftCursor(-1)
+			return model, nil
+		case key.Matches(msg, model.keys.EditIaCommit):
+			// Repurposed on this screen: jump back to the synthetic
+			// release entry without holding ctrl+[.
+			model.releaseHistoryView.JumpToRelease()
+			return model, nil
+		case key.Matches(msg, model.keys.Filter):
+			return model, model.releaseHistoryView.FocusFilter()
 		case key.Matches(msg, model.keys.ReleaseCommit):
 			model.WritingStatusBar.Content = "Select the commits to create a release"
 			model.state = stateReleaseChoosingCommits
@@ -59,7 +125,40 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	}
 
 	model.releaseMainList, cmd = model.releaseMainList.Update(msg)
+	syncReleaseHistorySelection(model)
 	return model, cmd
+}
+
+// syncReleaseHistorySelection mirrors the master list's current selection
+// into the ReleaseHistoryView's DualPanel. Loads commit subjects from
+// git and ai_calls from SQLite once per selection so cycling through the
+// inspect entries stays free of git/db round-trips.
+func syncReleaseHistorySelection(model *Model) {
+	item, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem)
+	if !ok {
+		model.releaseHistoryView.ClearRelease()
+		return
+	}
+	r := item.release
+	hashes := strings.Split(r.CommitList, ",")
+	messages, err := git.LookupCommitMessages(hashes)
+	if err != nil && model.log != nil {
+		model.log.Warn("git commit lookup failed", "release_id", r.ID, "error", err)
+	}
+	calls := loadReleaseAICalls(model, r.ID)
+	model.releaseHistoryView.SetRelease(r, messages, calls)
+}
+
+// loadReleaseAICalls is the release counterpart of loadCommitAICalls. It
+// reads the release-side telemetry rows so the dual panel can render the
+// stages telemetry strip. Today we don't have a release_ai_calls table
+// yet, so this returns nil — a follow-up phase will add the table and
+// flush the create-release pipeline through it. The hook lives here now
+// so the dual panel doesn't have to know whether persistence is wired.
+func loadReleaseAICalls(model *Model, releaseID int) []storage.AICall {
+	_ = model
+	_ = releaseID
+	return nil
 }
 
 func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -166,6 +265,7 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			case ReleaseMode:
 				model.state = stateReleaseMainMenu
 				model.keys = releaseMainListKeys()
+				syncReleaseHistorySelection(model)
 			}
 			return model, nil
 		}

@@ -2,6 +2,145 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.27.1 — 2026-04-29
+
+Release inspect list: simplified rows + visual separator above the commits.
+
+- The synthetic top entry stays type-aware (`[release]` / `[merge]`)
+  but now carries a muted `· output` suffix so the user reads it as
+  "the AI output of this record" instead of confusing it with one of
+  the inner commits. The right header echoes the same identity —
+  `release output` / `merge output`.
+- Added a non-selectable separator row between the output entry and
+  the first commit. `CycleLeftCursor` skips entries flagged as
+  `isSeparator`, so `ctrl+]` from the output row lands on the first
+  commit (and `ctrl+[` from the first commit jumps back to the
+  output row) without resting on the gap. The row paints as a muted
+  rule sized to the inner column.
+- Commit rows compacted to `· short_hash` only — and the tag's
+  palette (`CommitTypeMsgStyle` / `CommitTypeBlockStyle`) is applied
+  to the hash itself, so each row reads as a colored chip rather
+  than carrying a separate `[TAG]` badge. The scope pill and title
+  are gone from the list; subject and body live in the right
+  viewport, where the user actually reads them.
+- The "commits" header counter now skips the output entry and the
+  separator so it reflects the real number of commits in the release.
+
+## v0.27.0 — 2026-04-29
+
+Release inspect panel: redesigned commits list and commit preview.
+
+- Inspect list rows now show a bare 7-char short hash (sliced — never
+  appended with `…`).
+- When a commit subject leads with a `[TAG]` cue (the project's
+  convention: `[ADD]`, `[UI]`, `[FIX]`, …), the tag is extracted and
+  rendered as a pill using the same `CommitTypeMsgStyle` /
+  `CommitTypeBlockStyle` palette the History list uses for commits, so
+  visual identity stays consistent across screens. The bracketed prefix
+  is stripped from the displayed subject so the chip and the title
+  don't repeat the tag.
+- Right preview is now multi-section for commit entries: bold subject
+  (with the tag pill restored at the front when present) → blank →
+  muted rule → blank → body. Empty bodies fall back to a muted
+  `(no body)` so the panel never collapses.
+- Right header for commit entries no longer parrots the hash. It now
+  simply reads `commit  preview` — the hash lives only in the inspect
+  list on the left, where it's actually useful for picking. Release /
+  merge entries keep their existing labels.
+- `git.LookupCommitMessages` replaces `LookupCommitSubjects` — same
+  per-hash strategy but `--format=%s%x00%b` so subject + body come
+  back in a single call. The dual panel now hydrates both fields per
+  selection.
+
+### Usage
+
+- On the Release tab, select any release. The Commits / Body inspect
+  shows each commit with its short hash, optional `[TAG]` pill and
+  remaining subject. Cycle entries with `ctrl+]` / `ctrl+[`. The
+  right viewport shows the title, a separator, and the full commit
+  body.
+
+## v0.26.1 — 2026-04-29
+
+Fix the empty subjects in the Release inspect panel's commit list.
+
+- `git.LookupCommitSubjects` was using a single bulk
+  `git log --no-walk <hashes…>` call. The moment one revision is
+  invalid (rebased away, shallow clone, typo), git exits non-zero and
+  the entire batch returns empty, leaving every commit row in the
+  inspect panel rendering `(no subject)`.
+- Switched to per-hash `git show -s --format=%s <hash>`, dropping
+  stderr and inserting `""` for unresolved hashes. Releases usually
+  carry well under 50 commits, so the per-hash cost is below
+  user-perceptible while making the lookup robust against stale
+  history.
+
+## v0.26.0 — 2026-04-29
+
+Brought the Release main menu in line with the History (workspace)
+redesign: framed view with filter, master list, mode bar and dual inspect
+panel. The create-release flow stays untouched.
+
+- New `release_filter_bar.go` with mode pills `TITLE` / `TYPE` /
+  `VERSION` / `BRANCH`. `TYPE` filters by `REL` / `MERGE`.
+  `currentReleaseFilterMode` is the shared cursor read by
+  `HistoryReleaseItem.FilterValue`.
+- `release_main_menu_list.go` rewritten with a dense single-line
+  delegate that mirrors `HistoryCommitDelegate` — id + type chip +
+  version pill + title + date. REL rides the `ADD` (green) palette,
+  MERGE rides `STYLE` (purple).
+- `release_dual_panel.go` mirrors `HistoryDualPanel`. Modes:
+  - **Commits / Body**: left list shows a synthetic `[release]` /
+    `[merge]` row first (✦ glyph) and one row per commit hash from
+    `Release.CommitList`, enriched with the subject resolved via
+    `git.LookupCommitSubjects`. Right viewport renders the body of
+    the active entry — release body when `[release]` is active,
+    commit subject otherwise.
+  - **Stages / Response**: single `[1] ✦ Release Builder` entry today.
+    Right side reuses the same header → blank → output → blank →
+    rule → blank → telemetry layout. Telemetry strip wired through
+    `renderStageStatsLine` reading from `stageStats[4]`. The
+    create-release flow doesn't flush ai_calls yet, so the strip
+    prints `(no telemetry stored)` until phase C.
+- `release_history_view.go` orchestrates filter + master list + mode
+  bar + dual panel inside one rounded outer frame, identical to
+  `HistoryView`. `HistoryModeBar.SetLabels` reused so the same
+  component renders "Commits / Body" / "Stages / Response" pills
+  instead of the workspace defaults.
+- New keymap on `releaseMainListKeys`: `ctrl+e` swap inspect mode,
+  `ctrl+]` / `ctrl+[` cycle entries (wraps around), `R` jumps back to
+  the synthetic release row, `?` opens the popup with the new
+  `releaseKeybindings` group, `/` focuses filter, `ctrl+f` cycles
+  modes. Helper bar trimmed accordingly.
+- `git.LookupCommitSubjects(hashes)` does one `git log --no-walk`
+  call to map abbreviated hashes back to subjects; cached on the
+  dual panel per release so cycling stays git-call-free.
+- `syncReleaseHistorySelection` is the release counterpart of
+  `syncHistoryViewSelection`. Hooked at every transition into
+  `stateReleaseMainMenu` (model init, post-create-release,
+  CommitMode→ReleaseMode swap, reword setup, esc back from
+  build-text) so the dual panel is hydrated from frame zero.
+- Tiny pre-existing fix while in the area: the post-create-release
+  transition was setting `mainListKeys()` instead of
+  `releaseMainListKeys()`; corrected.
+
+### Usage
+
+- Switch to Release mode (`ctrl+s` from the workspace) to land on
+  the new framed view.
+- `/` focuses the filter input; `ctrl+f` cycles between
+  `TITLE/TYPE/VERSION/BRANCH`.
+- `ctrl+e` toggles inspect mode between `Commits / Body` and
+  `Stages / Response`.
+- In `Commits / Body`, `ctrl+]` / `ctrl+[` walk the commits list
+  (wrap-around). `R` jumps to the synthetic `[release]` row from any
+  commit. The right viewport shows the release body or the selected
+  commit's subject.
+- In `Stages / Response`, the single `Release Builder` stage shows
+  the same telemetry strip as the workspace pipeline; once
+  `release_ai_calls` lands, it'll start filling in.
+- `?` opens the keybindings popup with the full release shortcut set.
+
 ## v0.25.1 — 2026-04-29
 
 History inspect polish in Stages/Response mode.

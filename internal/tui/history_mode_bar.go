@@ -7,7 +7,9 @@ import (
 )
 
 // HistoryDualMode picks which view the DualPanel is rendering on the right
-// half of the History layout.
+// half of the History layout. The same enum is reused for the Release
+// variant — the labels rendered in the pills come from HistoryModeBar's
+// Labels field, not the enum value, so the two screens stay independent.
 type HistoryDualMode int
 
 const (
@@ -26,10 +28,22 @@ type HistoryModeBar struct {
 	theme *styles.Theme
 	mode  HistoryDualMode
 	width int
+	// labels override the default pill captions. Index 0 = ModeKeyPointsBody,
+	// index 1 = ModeStagesResponse. Empty entries fall back to the History
+	// defaults so existing callers stay source-compatible.
+	labels [2]string
 }
 
 func NewHistoryModeBar(theme *styles.Theme) HistoryModeBar {
 	return HistoryModeBar{theme: theme}
+}
+
+// SetLabels overrides the pill captions. Used by the Release variant to
+// render "Commits / Body" / "Stages / Response" without spawning a second
+// component.
+func (m *HistoryModeBar) SetLabels(left, right string) {
+	m.labels[0] = left
+	m.labels[1] = right
 }
 
 func (m *HistoryModeBar) SetSize(width int)            { m.width = width }
@@ -85,8 +99,16 @@ func (m HistoryModeBar) renderPill(label string, active bool) string {
 }
 
 func (m HistoryModeBar) View() string {
-	left := m.renderPill("KeyPoints / Body", m.mode == ModeKeyPointsBody)
-	right := m.renderPill("Stages / Response", m.mode == ModeStagesResponse)
+	leftLabel := "KeyPoints / Body"
+	rightLabel := "Stages / Response"
+	if m.labels[0] != "" {
+		leftLabel = m.labels[0]
+	}
+	if m.labels[1] != "" {
+		rightLabel = m.labels[1]
+	}
+	left := m.renderPill(leftLabel, m.mode == ModeKeyPointsBody)
+	right := m.renderPill(rightLabel, m.mode == ModeStagesResponse)
 	pills := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right)
 
 	pillsH := lipgloss.Height(pills)

@@ -126,6 +126,7 @@ func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 	model.AppMode = ReleaseMode
 	model.state = stateReleaseMainMenu
 	model.keys = releaseMainListKeys()
+	syncReleaseHistorySelection(model)
 	model.WritingStatusBar.Content = fmt.Sprintf(
 		"choose, create, or edit a release ::: %s",
 		model.Theme.AppStyles().

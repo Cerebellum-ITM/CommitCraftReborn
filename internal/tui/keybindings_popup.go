@@ -128,8 +128,53 @@ func keybindingsForState(s appState) ([]keybindingGroup, bool) {
 	switch s {
 	case stateChoosingCommit:
 		return workspaceKeybindings(), true
+	case stateReleaseMainMenu:
+		return releaseKeybindings(), true
 	}
 	return nil, false
+}
+
+// releaseKeybindings lists the shortcuts available on the Release history
+// tab. Mirrors workspaceKeybindings but with release-flavoured labels —
+// filter modes are TITLE/TYPE/VERSION/BRANCH and the dual panel cycles
+// commits/stages instead of key points/stages.
+func releaseKeybindings() []keybindingGroup {
+	return []keybindingGroup{
+		{
+			title: "Navigate",
+			entries: []helpEntry{
+				{"↑↓", "move cursor"},
+				{"↵", "open release"},
+				{"/", "filter"},
+				{"^f", "cycle filter mode (TITLE/TYPE/VERSION/BRANCH)"},
+			},
+		},
+		{
+			title: "Inspect panel",
+			entries: []helpEntry{
+				{"^e", "swap inspect mode (Commits/Body ↔ Stages/Response)"},
+				{"^]", "next commit / stage"},
+				{"^[", "prev commit / stage"},
+				{"R", "jump to release entry"},
+				{"pgup/pgdn", "scroll right viewport"},
+			},
+		},
+		{
+			title: "Releases",
+			entries: []helpEntry{
+				{"r / tab", "create a release"},
+				{"d / x", "delete"},
+			},
+		},
+		{
+			title: "App",
+			entries: []helpEntry{
+				{"^s", "switch app mode"},
+				{"^l", "logs"},
+				{"^x", "quit"},
+			},
+		},
+	}
 }
 
 // workspaceKeybindings lists the shortcuts available on the History tab,

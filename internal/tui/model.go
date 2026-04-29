@@ -138,6 +138,7 @@ type Model struct {
 	releaseType             string
 	releaseBranch           string
 	releaseMainList         list.Model
+	releaseHistoryView      ReleaseHistoryView
 	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string
 	commitTypeList          list.Model
@@ -442,6 +443,7 @@ func NewModel(
 		mainList:                workspaceCommitsList,
 		historyView:             NewHistoryView(theme),
 		releaseMainList:         releaseList,
+		releaseHistoryView:      NewReleaseHistoryView(theme),
 		releaseViewport:         releaseViewport,
 		releaseViewState:        &releaseViewState{selecting: false, releaseCreated: false},
 		commitTypeList:          commitTypesList,
@@ -490,6 +492,13 @@ func NewModel(
 	m.historyView.SetBodyRenderer(func(text string, width int) string {
 		return m.renderCommitMessage(text, width)
 	})
+	m.releaseHistoryView.SetBodyRenderer(func(text string, width int) string {
+		return m.renderCommitMessage(text, width)
+	})
+	// Hydrate the release dual panel with the initial selection (if any)
+	// so the inspect panel isn't blank on first render when the user
+	// boots straight into Release mode.
+	syncReleaseHistorySelection(m)
 	return m, nil
 }
 

@@ -311,11 +311,14 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 		return []helpEntry{
 			{"↑↓", "navigate"},
 			{"↵", "open"},
-			{"n", "new release"},
+			{"r", "new release"},
 			{"x", "delete"},
 			{"/", "filter"},
-			{"esc", "back"},
+			{"^]/^[", "cycle entry"},
+			{"^e", "swap inspect"},
+			{"R", "jump to release"},
 			{"^x", "quit"},
+			{"?", "more"},
 		}
 	case stateChoosingType:
 		return []helpEntry{

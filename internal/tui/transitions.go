@@ -178,7 +178,8 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 
 	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb)
 	model.state = stateReleaseMainMenu
-	model.keys = mainListKeys()
+	model.keys = releaseMainListKeys()
+	syncReleaseHistorySelection(model)
 	cmd := model.WritingStatusBar.ShowMessageForDuration(
 		"Record created in the db successfully",
 		statusbar.LevelSuccess,

@@ -270,6 +270,58 @@ func ResolveCommitHash(rev string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// CommitMessage is the resolved subject + body for a single commit hash.
+// Either field can be empty (subject usually isn't, but body very often
+// is for one-line commits).
+type CommitMessage struct {
+	Subject string
+	Body    string
+}
+
+// LookupCommitMessages resolves the subject and body for each hash via
+// `git show -s --format=%s%x00%b <hash>` per hash. The returned map is
+// keyed by the same strings the caller passed in (full or abbreviated).
+// Hashes that don't resolve (rebased away, shallow clones, typos) get a
+// zero-value CommitMessage in the map so the UI can distinguish "not
+// found" from "no lookup attempted".
+//
+// Per-hash calls (instead of a single bulk `git log --no-walk <hashes…>`)
+// are deliberate: bulk fails entirely the moment one revision is invalid,
+// which silently wipes every subject for the whole release. Releases
+// usually carry under 50 commits, and `git show -s` is cheap, so the
+// per-hash cost is well below user-perceptible.
+func LookupCommitMessages(hashes []string) (map[string]CommitMessage, error) {
+	out := make(map[string]CommitMessage, len(hashes))
+	for _, h := range hashes {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			continue
+		}
+		if _, ok := out[h]; ok {
+			continue
+		}
+		// %s = subject (first line), %x00 = NUL separator, %b = body.
+		// NUL is safe — commit messages are 8-bit-clean text and git
+		// guarantees they don't contain NUL bytes.
+		cmd := exec.Command("git", "show", "-s", "--format=%s%x00%b", h)
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = nil
+		if err := cmd.Run(); err != nil {
+			out[h] = CommitMessage{}
+			continue
+		}
+		raw := strings.TrimRight(stdout.String(), "\n")
+		parts := strings.SplitN(raw, "\x00", 2)
+		msg := CommitMessage{Subject: parts[0]}
+		if len(parts) == 2 {
+			msg.Body = strings.TrimSpace(parts[1])
+		}
+		out[h] = msg
+	}
+	return out, nil
+}
+
 // GetLastGitTag returns the most recent tag using natural-version sort order.
 // Empty string + nil error means the repo has no tags yet.
 func GetLastGitTag() (string, error) {

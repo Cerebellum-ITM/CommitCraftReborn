@@ -176,8 +176,18 @@ func (model *Model) View() tea.View {
 		masterListView := model.mainList.View()
 		mainContent = model.historyView.View(masterListView, histW, histH)
 	case stateReleaseMainMenu:
-		model.releaseMainList.SetSize(availableWidthForMainContent/2, availableHeightForMainContent)
-		mainContent = model.releaseMainList.View()
+		// Same chrome as stateChoosingCommit but bound to the release
+		// history view (its own filter modes, dual panel, etc.).
+		histW := model.width
+		histH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
+		listW, listH := model.releaseHistoryView.MasterListSize(histW, histH)
+		model.releaseMainList.SetSize(listW, listH)
+		model.releaseHistoryView.SetCounts(
+			len(model.releaseMainList.VisibleItems()),
+			len(model.releaseMainList.Items()),
+		)
+		masterListView := model.releaseMainList.View()
+		mainContent = model.releaseHistoryView.View(masterListView, histW, histH)
 	case stateChoosingType:
 		model.commitTypeList.SetSize(availableWidthForMainContent, availableHeightForMainContent)
 		mainContent = model.commitTypeList.View()

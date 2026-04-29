@@ -207,18 +207,39 @@ func releaseMainListKeys() KeyMap {
 			key.WithKeys("r", "tab"),
 			key.WithHelp("r/tab", "Create a release"),
 		),
-		Up:           key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down:         key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-		Enter:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
-		Delete:       key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
-		Quit:         key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
-		GlobalQuit:   key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
-		Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-		EditIaCommit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Edit commit")),
-		Filter:       key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+		Up:         key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:       key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+		Delete:     key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
+		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		SwitchMode: key.NewBinding(
 			key.WithKeys("ctrl+s"),
 			key.WithHelp("ctrl+s", "Switch Mode"),
+		),
+		SwapMode: key.NewBinding(
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("ctrl+e", "Swap inspect mode"),
+		),
+		CycleNext: key.NewBinding(
+			key.WithKeys("ctrl+]"),
+			key.WithHelp("ctrl+]", "Next entry"),
+		),
+		CyclePrev: key.NewBinding(
+			key.WithKeys("ctrl+["),
+			key.WithHelp("ctrl+[", "Prev entry"),
+		),
+		// Edit binding repurposed on this screen as "jump to release" — the
+		// uppercase R reads like "release" and avoids stomping on lowercase
+		// r (Create a release).
+		EditIaCommit: key.NewBinding(
+			key.WithKeys("R"),
+			key.WithHelp("R", "Jump to release entry"),
+		),
+		Help: key.NewBinding(
+			key.WithKeys("?"),
+			key.WithHelp("?", "More keys"),
 		),
 	}
 }
