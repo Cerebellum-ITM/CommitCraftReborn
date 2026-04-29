@@ -105,12 +105,29 @@ var commitTypePalette = map[string]CommitTypeColors{
 	},
 }
 
+// commitTypeAliases routes tags that don't have their own palette entry
+// to the closest semantic match in the spec. Legacy CommitCraft tags
+// (IMP/REM/REF/MOV/REL) and common project-specific tags (UI) get
+// colored this way until the user defines their own palette entries.
+var commitTypeAliases = map[string]string{
+	"IMP": "REFACTOR", // improvements ≈ refactor
+	"REM": "DEL",      // removal
+	"REF": "REFACTOR", // refactor
+	"MOV": "CHORE",    // file moves = housekeeping
+	"REL": "BUILD",    // release involves build/packaging
+	"UI":  "STYLE",    // ui changes are visual style
+}
+
 // CommitTypePalette returns the four-color set associated with a commit type
-// tag. Lookups are case-insensitive. Tags outside the spec (e.g. legacy
-// IMP/REM/REF/MOV/REL) fall back to a neutral palette derived from the theme
-// so the row still renders without a hard-coded color.
+// tag. Lookups are case-insensitive. Tags are first resolved through
+// commitTypeAliases so legacy/custom tags get colored too; anything
+// still unmatched falls back to a neutral palette derived from the theme.
 func CommitTypePalette(theme *Theme, tag string) CommitTypeColors {
-	if p, ok := commitTypePalette[strings.ToUpper(tag)]; ok {
+	upper := strings.ToUpper(tag)
+	if alias, ok := commitTypeAliases[upper]; ok {
+		upper = alias
+	}
+	if p, ok := commitTypePalette[upper]; ok {
 		return p
 	}
 	return CommitTypeColors{
@@ -119,4 +136,22 @@ func CommitTypePalette(theme *Theme, tag string) CommitTypeColors {
 		BgMsg:   theme.BG,
 		FgMsg:   theme.Blur,
 	}
+}
+
+// CommitTypeBlockStyle returns a Style configured with the "block" colors
+// of the commit-type palette (BgBlock + FgBlock). Use it for high-emphasis
+// chips/pills like the type chip on the left of a row or the scope pill
+// inside the message column. The style intentionally has no padding or
+// width set — the caller decides those depending on the chip layout.
+func CommitTypeBlockStyle(theme *Theme, tag string) lipgloss.Style {
+	p := CommitTypePalette(theme, tag)
+	return lipgloss.NewStyle().Background(p.BgBlock).Foreground(p.FgBlock)
+}
+
+// CommitTypeMsgStyle returns a Style configured with the "message" colors
+// of the commit-type palette (BgMsg + FgMsg). Use it for the dimmer
+// surface of a row — typically the commit title.
+func CommitTypeMsgStyle(theme *Theme, tag string) lipgloss.Style {
+	p := CommitTypePalette(theme, tag)
+	return lipgloss.NewStyle().Background(p.BgMsg).Foreground(p.FgMsg)
 }

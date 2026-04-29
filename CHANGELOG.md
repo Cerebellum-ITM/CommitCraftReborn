@@ -2,6 +2,95 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.20.6 — 2026-04-28
+
+History MasterList ID and date columns now share the title's selection
+treatment: msg-palette colors + Bold under the cursor, plain Muted text
+on the rest of the rows. The whole row reads as a single styled unit
+when focused.
+
+## v0.20.5 — 2026-04-28
+
+History MasterList type chip now follows the same selection rule as the
+scope pill and title: strong (block) palette under the cursor, dim (msg)
+palette on the rest of the rows. The chip is still always rendered, only
+its intensity changes — so the cursor row reads as a fully lit-up
+identity card while the surrounding list stays calm.
+
+## v0.20.4 — 2026-04-28
+
+Refined how the four-color commit-type palette is applied in the
+History MasterList so the cursor row pops without making the rest of
+the list visually noisy.
+
+- Type chip stays **always active** (block colors, bold, fixed width).
+  It is the row's primary identity marker so it does not dim with
+  selection state.
+- Scope and title now switch on selection:
+  - **Selected row**: scope is rendered as a pill with the dimmer
+    `bg msg` + `fg msg` colors (helper `CommitTypeMsgStyle` +
+    `Padding(0,1)`); title uses the same msg colors with `Bold`.
+  - **Unselected row**: original look restored — scope is plain
+    `Secondary`-colored text with a `": "` separator and the title is
+    `Muted` text without a background.
+
+### Usage
+
+No new keybindings. The cursor row is the only one that "lights up"
+with the full palette, leaving the rest of the list as a clean stream.
+
+## v0.20.3 — 2026-04-28
+
+Activated colored chips/pills across the History list using the full
+4-color commit-type palette.
+
+- Added a `commitTypeAliases` map so legacy CommitCraft tags (`IMP`,
+  `REM`, `REF`, `MOV`, `REL`) and the project-specific `UI` resolve to
+  the closest semantic palette entry (`IMP`/`REF` → `REFACTOR`, `REM` →
+  `DEL`, `MOV` → `CHORE`, `REL` → `BUILD`, `UI` → `STYLE`). Tags still
+  unmatched fall back to the neutral theme palette.
+- New shared helpers in `internal/tui/styles/commit_type_palette.go`:
+  - `CommitTypeBlockStyle(theme, tag)` returns the bg/fg pair for chips
+    and pills.
+  - `CommitTypeMsgStyle(theme, tag)` returns the dimmer bg/fg pair for
+    surfaces like the row title.
+- Applied the new helpers to the MasterList delegate:
+  - Type chip: bg block + fg block (already used; now goes through the
+    helper).
+  - Scope: rendered as a pill with the same bg/fg block colors as the
+    type chip, padded `0 1` for visual breathing room.
+  - Title: bg msg + fg msg dim companions of the type, with `Bold` on
+    the selected row to keep the cursor distinguishable.
+
+### Usage
+
+Other panels can opt into the same palette by calling
+`styles.CommitTypeBlockStyle(theme, tag)` /
+`styles.CommitTypeMsgStyle(theme, tag)` on top of any base style.
+
+## v0.20.2 — 2026-04-28
+
+Visual polish on the History layout following the v0.20.0 redesign.
+
+- Outer rounded frame now uses the brand primary color so the History
+  view stands out against the surrounding chrome.
+- MasterList type chips are width-stabilised: every chip occupies the
+  same `Width(maxTypeTagLen)+Padding(0,1)` cells, so the message column
+  starts at the same column on every row regardless of tag length. Tags
+  longer than the cap (e.g. `REFACTOR`) are hard-truncated to fit.
+- ModeBar pills restored to `●` / `○` bullets (active / idle) and now
+  share the secondary brand color on the border. Active state is
+  signalled through bold text + brand-primary fg, not via border color.
+- DualPanel left column widened by 30 % (28 → 37 cells) so key points
+  have room to breathe. The keypoint list now renders with the same
+  `"  > "` prompt + secondary-color style used by the compose
+  KeyPointsInput, keeping the History and Compose surfaces visually
+  consistent.
+
+### Usage
+
+No new keybindings or config knobs.
+
 ## v0.20.1 — 2026-04-28
 
 Render fixes for the History layout introduced in v0.20.0. The four-zone

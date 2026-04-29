@@ -75,7 +75,7 @@ func (h *HistoryView) CycleLeftCursor(delta int) { h.dualPanel.CycleLeftCursor(d
 func (h HistoryView) outerFrame() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(h.theme.Subtle)
+		BorderForeground(h.theme.Primary)
 }
 
 // innerWidth returns the width available for content sections after the outer

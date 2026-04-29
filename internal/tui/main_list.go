@@ -60,39 +60,64 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	}
 
 	commit := it.commit
-	palette := styles.CommitTypePalette(d.Theme, commit.Type)
 	selected := index == m.Index()
 
 	idStr := fmt.Sprintf("#%-4d", commit.ID)
 	typeTag := strings.ToUpper(commit.Type)
+	// Standardize the chip's content width so every row's message column
+	// starts at the same column. Tags longer than maxTypeTagLen are
+	// hard-truncated (REFACTOR → REFACT) so the chip itself never grows.
+	const maxTypeTagLen = 6
+	if len(typeTag) > maxTypeTagLen {
+		typeTag = typeTag[:maxTypeTagLen]
+	}
 
-	// Type block (chip on the left of the row): per-type bg + fg.
-	typeBlock := lipgloss.NewStyle().
-		Background(palette.BgBlock).
-		Foreground(palette.FgBlock).
-		Bold(true).
+	// Type chip uses the strong (block) palette when selected and the
+	// dim (msg) palette otherwise. The chip is always shown so the
+	// row's type identity is legible, but it intensifies under the
+	// cursor along with the scope pill and title.
+	var typeChipStyle lipgloss.Style
+	if selected {
+		typeChipStyle = styles.CommitTypeBlockStyle(d.Theme, commit.Type).Bold(true)
+	} else {
+		typeChipStyle = styles.CommitTypeMsgStyle(d.Theme, commit.Type)
+	}
+	typeBlock := typeChipStyle.
+		Width(maxTypeTagLen).
 		Padding(0, 1).
 		Render(typeTag)
 
-	idStyle := lipgloss.NewStyle().Foreground(d.Theme.Muted)
+	// ID and date mirror the title's selection treatment: msg-palette
+	// colors + Bold under the cursor, plain Muted text otherwise.
+	var idStyle lipgloss.Style
 	if selected {
-		idStyle = idStyle.Foreground(d.Theme.Primary).Bold(true)
+		idStyle = styles.CommitTypeMsgStyle(d.Theme, commit.Type).Bold(true)
+	} else {
+		idStyle = lipgloss.NewStyle().Foreground(d.Theme.Muted)
 	}
 	idRendered := idStyle.Render(idStr)
 
-	scopeStyle := lipgloss.NewStyle().Foreground(d.Theme.Secondary)
+	// Scope and title only "light up" with palette colors when the row
+	// is selected. Unselected rows render the original (pre-palette)
+	// look — plain Secondary scope with a `": "` separator and a Muted
+	// title — so the History list reads as a clean stream and only the
+	// cursor row pops with the four-color identity.
+	var scopePillStyle, titleStyle lipgloss.Style
 	colonStyle := lipgloss.NewStyle().Foreground(d.Theme.Muted)
-	titleStyle := lipgloss.NewStyle().Foreground(d.Theme.FG)
 	if selected {
-		titleStyle = titleStyle.Bold(true)
+		scopePillStyle = styles.CommitTypeMsgStyle(d.Theme, commit.Type).Padding(0, 1)
+		titleStyle = styles.CommitTypeMsgStyle(d.Theme, commit.Type).Bold(true)
 	} else {
-		titleStyle = titleStyle.Foreground(d.Theme.Muted)
+		scopePillStyle = lipgloss.NewStyle().Foreground(d.Theme.Secondary)
+		titleStyle = lipgloss.NewStyle().Foreground(d.Theme.Muted)
 	}
 
 	dateStr := commit.CreatedAt.Format("01-02 15:04")
-	dateStyle := lipgloss.NewStyle().Foreground(d.Theme.Subtle)
+	var dateStyle lipgloss.Style
 	if selected {
-		dateStyle = dateStyle.Foreground(d.Theme.Primary)
+		dateStyle = styles.CommitTypeMsgStyle(d.Theme, commit.Type).Bold(true)
+	} else {
+		dateStyle = lipgloss.NewStyle().Foreground(d.Theme.Muted)
 	}
 	dateRendered := dateStyle.Render(dateStr)
 
@@ -133,13 +158,32 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 
 	var msgBlock string
 	if scopePart != "" {
-		head := scopeStyle.Render(scopePart) + colonStyle.Render(": ")
-		headPlain := scopePart + ": "
-		titleAvail := available - lipgloss.Width(headPlain)
+		// Truncate the scope text so a long scope doesn't crowd the
+		// title column.
+		const maxScopeLen = 12
+		shownScope := scopePart
+		if len(shownScope) > maxScopeLen {
+			shownScope = shownScope[:maxScopeLen]
+		}
+		var scopeRendered, separator string
+		if selected {
+			// Pill with padding(0,1) — the pill chrome itself acts as
+			// the separator, followed by a single space.
+			scopeRendered = scopePillStyle.Render(shownScope)
+			separator = " "
+		} else {
+			// Original look: plain Secondary text + ": " separator.
+			scopeRendered = scopePillStyle.Render(shownScope)
+			separator = colonStyle.Render(": ")
+		}
+		consumed := lipgloss.Width(scopeRendered) + lipgloss.Width(separator)
+		titleAvail := available - consumed
 		if titleAvail < 1 {
 			titleAvail = 1
 		}
-		msgBlock = head + titleStyle.Render(TruncateString(titlePart, titleAvail))
+		msgBlock = scopeRendered + separator + titleStyle.Render(
+			TruncateString(titlePart, titleAvail),
+		)
 	} else {
 		msgBlock = titleStyle.Render(TruncateString(titlePart, available))
 	}

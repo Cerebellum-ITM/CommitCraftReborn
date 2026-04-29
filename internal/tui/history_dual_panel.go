@@ -11,7 +11,11 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 )
 
-const dualPanelLeftWidth = 28
+// dualPanelLeftWidth is the fixed width of the left column (key points /
+// stages list). Bumped from 28 to 37 (+30 %) so long key points have
+// breathing room and the column lines up with the compose-side keypoints
+// input visual ("  > " prompt).
+const dualPanelLeftWidth = 37
 
 type historyStage struct {
 	idx    int
@@ -261,16 +265,22 @@ func (p HistoryDualPanel) renderKeyPointsBody(width, height int) string {
 			PaddingLeft(1).
 			Render("(no key points)")
 	}
+	// Mirror the compose-side KeyPointsInput visual: a leading "  > "
+	// prompt rendered in the brand secondary color, with continuation
+	// lines using "::: " instead. The cursor on the History side is
+	// purely visual (no input editing), so we just bold the active
+	// keypoint's text.
+	prompt := lipgloss.NewStyle().Foreground(p.theme.Secondary).Render("  > ")
+	promptW := lipgloss.Width(prompt)
+
 	var lines []string
 	for i, kp := range p.keypoints {
-		marker := "  "
 		style := lipgloss.NewStyle().Foreground(p.theme.Muted)
 		if i == p.keypointIndex {
-			marker = "> "
 			style = lipgloss.NewStyle().Foreground(p.theme.FG).Bold(true)
 		}
-		text := TruncateString(kp, width-3)
-		lines = append(lines, lipgloss.NewStyle().PaddingLeft(1).Render(marker+style.Render(text)))
+		text := TruncateString(kp, width-promptW-1)
+		lines = append(lines, prompt+style.Render(text))
 		if len(lines) >= height {
 			break
 		}

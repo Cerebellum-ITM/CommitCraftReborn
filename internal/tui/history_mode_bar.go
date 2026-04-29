@@ -44,15 +44,17 @@ func (m *HistoryModeBar) Toggle() {
 }
 
 func (m HistoryModeBar) renderPill(label string, active bool) string {
-	dot := "o"
+	dot := "○"
 	if active {
-		dot = "*"
+		dot = "●"
 	}
-	borderColor := m.theme.Subtle
+	// Both pills share the secondary brand color on the border so they
+	// read as a segmented unit. Active vs idle is differentiated through
+	// text/background instead of border color.
+	borderColor := m.theme.Secondary
 	textColor := m.theme.Muted
 	dotColor := m.theme.Muted
 	if active {
-		borderColor = m.theme.Primary
 		textColor = m.theme.Primary
 		dotColor = m.theme.Primary
 	}
@@ -93,7 +95,7 @@ func (m HistoryModeBar) View() string {
 	// JoinHorizontal silently drops the spacer on rows ≥1 and the hint
 	// slides to column 0 on rows that have no spacer — that is the cause
 	// of "swap" wrapping under the active pill.
-	rawHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("^M swap")
+	rawHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("⌃M swap")
 	rightWidth := m.width - pillsW
 	if rightWidth < 1 {
 		rightWidth = 1
