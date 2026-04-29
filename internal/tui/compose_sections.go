@@ -13,6 +13,7 @@ import (
 	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/tui/statusbar"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
 // mentionRenderRegex matches `@token` chips (filename, path, identifier)
@@ -76,30 +77,27 @@ func (model *Model) renderComposeTypeRow(width int, focused bool) string {
 	return lipgloss.JoinVertical(lipgloss.Left, append([]string{label, ""}, rowsText...)...)
 }
 
-// commitTypeChip renders a single commit-type pill. Active gets a filled
-// background using the type's configured color (with a primary fallback);
-// inactive pills sit in a thin border so the row reads as a control bar
-// even when nothing is selected yet.
-func (model *Model) commitTypeChip(tag string, hex string, active bool) string {
-	theme := model.Theme
-	base := theme.AppStyles().Base
-	if active {
-		bg := lipgloss.Color(hex)
-		if hex == "" {
-			bg = colorOrFallback(theme.Primary)
-		}
-		return base.
-			Foreground(theme.BG).
-			Background(bg).
-			Bold(true).
-			Padding(0, 1).
-			Render(tag)
+// commitTypeChip renders a single commit-type pill. The active tag uses
+// the strong (block) palette of its commit type; the rest use the dim
+// (msg) palette. Width is fixed (CommitTypeChipInnerWidth) and content
+// is centered, so every pill measures the same and reads as a uniform
+// row of badges.
+func (model *Model) commitTypeChip(tag string, _ string, active bool) string {
+	upper := strings.ToUpper(tag)
+	if len(upper) > styles.CommitTypeChipInnerWidth {
+		upper = upper[:styles.CommitTypeChipInnerWidth]
 	}
-	return base.
-		Foreground(theme.Muted).
-		Border(lipgloss.NormalBorder(), false, false, false, false).
+	var chipStyle lipgloss.Style
+	if active {
+		chipStyle = styles.CommitTypeBlockStyle(model.Theme, tag).Bold(true)
+	} else {
+		chipStyle = styles.CommitTypeMsgStyle(model.Theme, tag)
+	}
+	return chipStyle.
+		Width(styles.CommitTypeChipInnerWidth).
 		Padding(0, 1).
-		Render(tag)
+		Align(lipgloss.Center).
+		Render(upper)
 }
 
 // wrapPillsToRows splits an ordered list of already-rendered pills into

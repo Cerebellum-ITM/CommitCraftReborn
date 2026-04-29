@@ -2,6 +2,50 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.20.8 — 2026-04-28
+
+Unified the commit-type chip across every surface.
+
+- New shared constant `styles.CommitTypeChipInnerWidth = 8` is the
+  canonical content width of any commit-type chip. Chips render as
+  `Width(8) + Padding(0,1) + Align(Center)`, so every pill measures
+  exactly 10 cells regardless of tag length and the tag sits visually
+  centered (no lopsided trailing whitespace). The cap fits every
+  default tag fully — `REFACTOR` (the longest at 8 chars) is the
+  upper bound; longer custom tags are hard-truncated by the caller.
+- Compose-view commit-type pills (`commitTypeChip` in
+  `compose_sections.go`) now use the shared palette helpers
+  (`CommitTypeBlockStyle` / `CommitTypeMsgStyle`) and the same fixed
+  Width + Center alignment — replacing the previous flow where the
+  active pill used the per-type `hex` color and inactive pills had a
+  ghost border. Active = block (strong); inactive = msg (dim).
+- History MasterList and the commit-type popup selector picked up the
+  same constant + alignment, so a tag's chip looks identical on every
+  surface where it can appear.
+
+### Usage
+
+No new keybindings. Visual change only.
+
+## v0.20.7 — 2026-04-28
+
+Applied the History MasterList styling rules to the commit-type
+selector — both the full-screen `stateChoosingType` list and the
+in-place compose popup (`Ctrl+T`) now render rows the same way:
+
+- Type chip uses the strong (block) palette under the cursor and the
+  dim (msg) palette on the rest of the rows — fixed inner width
+  (`commitTypeMaxTagLen=6`) so descriptions line up across rows.
+- Description gets msg-palette + Bold under the cursor, plain Muted
+  text otherwise (mirroring the History title behaviour).
+- Cursor `❯` indicator preserved on the selected row in `theme.Secondary`.
+- Per-type `Color` field from the user TOML config is no longer used —
+  the new shared palette helpers
+  (`styles.CommitTypeBlockStyle` / `CommitTypeMsgStyle`) drive the
+  colors so every surface stays consistent.
+- `CommitTypePopupContentWidth` updated to match the new fixed-chip
+  row shape (`"❯ [chip] desc"`) so the popup sizes correctly.
+
 ## v0.20.6 — 2026-04-28
 
 History MasterList ID and date columns now share the title's selection

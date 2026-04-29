@@ -7,6 +7,14 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// CommitTypeChipInnerWidth is the canonical content width of a commit-type
+// chip across every surface (History MasterList, type popup, compose
+// pills). Combined with Padding(0, 1) and Align(Center), it produces a
+// chip that is always CommitTypeChipInnerWidth+2 cells wide with the tag
+// visually centered. The cap fits every default tag fully (longest is
+// `REFACTOR` at 8 chars). Tags longer than this width are hard-truncated.
+const CommitTypeChipInnerWidth = 8
+
 // CommitTypeColors holds the four-color palette assigned to a commit type:
 // the type-block background/foreground (the chip on the left of a row) and
 // the inline-message background/foreground (the [TYPE] tag rendered inside

@@ -65,11 +65,11 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	idStr := fmt.Sprintf("#%-4d", commit.ID)
 	typeTag := strings.ToUpper(commit.Type)
 	// Standardize the chip's content width so every row's message column
-	// starts at the same column. Tags longer than maxTypeTagLen are
-	// hard-truncated (REFACTOR → REFACT) so the chip itself never grows.
-	const maxTypeTagLen = 6
-	if len(typeTag) > maxTypeTagLen {
-		typeTag = typeTag[:maxTypeTagLen]
+	// starts at the same column. Tags longer than the cap are
+	// hard-truncated (REVERT → REVER, REFACTOR → REFAC) so the chip
+	// itself never grows.
+	if len(typeTag) > styles.CommitTypeChipInnerWidth {
+		typeTag = typeTag[:styles.CommitTypeChipInnerWidth]
 	}
 
 	// Type chip uses the strong (block) palette when selected and the
@@ -83,8 +83,9 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		typeChipStyle = styles.CommitTypeMsgStyle(d.Theme, commit.Type)
 	}
 	typeBlock := typeChipStyle.
-		Width(maxTypeTagLen).
+		Width(styles.CommitTypeChipInnerWidth).
 		Padding(0, 1).
+		Align(lipgloss.Center).
 		Render(typeTag)
 
 	// ID and date mirror the title's selection treatment: msg-palette

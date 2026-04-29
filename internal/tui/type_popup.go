@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -149,16 +147,17 @@ func (m commitTypePopupModel) View() tea.View {
 // CommitTypePopupContentWidth returns the minimum width the popup
 // needs in order to render every item without truncation. It mirrors
 // the row shape used by CommitTypeDelegate.Render
-// ("❯ <formattedTag> - <desc>"), plus a small margin for the box
-// padding/border so the caller can decide whether to widen the popup.
+// ("❯ [chip] <desc>"), plus a small margin for the box padding/border
+// so the caller can decide whether to widen the popup.
 func CommitTypePopupContentWidth(types []commit.CommitType, typeFormat string) int {
-	const prefix = 2 // "❯ " or "  "
-	const sep = 3    // " - "
-	const margin = 8 // box padding + border + scrollbar/cursor breathing room
+	const prefix = 2                                 // "❯ " or "  "
+	const chip = styles.CommitTypeChipInnerWidth + 2 // Width + Padding(0,1)
+	const sep = 1                                    // " " between chip and desc
+	const margin = 8                                 // box padding + border + breathing room
+	_ = typeFormat                                   // no longer used by the row shape
 	maxW := 0
 	for _, ct := range types {
-		formatted := fmt.Sprintf(typeFormat, ct.Tag)
-		w := prefix + lipgloss.Width(formatted) + sep + lipgloss.Width(ct.Description)
+		w := prefix + chip + sep + lipgloss.Width(ct.Description)
 		if w > maxW {
 			maxW = w
 		}

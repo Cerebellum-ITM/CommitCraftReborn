@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"fmt"
 	"io"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -37,47 +37,50 @@ func (d CommitTypeDelegate) Render(w io.Writer, m list.Model, index int, listIte
 		return
 	}
 
-	commitType := it.Title()
-	commitDesc := it.Description()
-	commitColor := it.Color()
-	formattedCommitType := fmt.Sprintf(d.TypeFormat, commitType)
-
-	var renderedType, renderedDesc string
-
-	if index == m.Index() {
-		styleType := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(commitColor)).
-			Bold(true)
-
-		styleDesc := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("229")) // Amarillo claro
-
-		var cursor string
-		if d.Theme != nil && d.Theme.Secondary != nil {
-			cursor = lipgloss.NewStyle().
-				Foreground(d.Theme.Secondary).
-				Bold(true).
-				Render("❯")
-		} else {
-			cursor = "❯"
-		}
-
-		renderedType = styleType.Render(formattedCommitType)
-		renderedDesc = styleDesc.Render(commitDesc)
-
-		fmt.Fprintf(w, "%s %s - %s", cursor, renderedType, renderedDesc)
-	} else {
-		styleType := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")) // Gris
-
-		styleDesc := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244")) // Gris más oscuro
-
-		renderedType = styleType.Render(formattedCommitType)
-		renderedDesc = styleDesc.Render(commitDesc)
-
-		fmt.Fprintf(w, "  %s - %s", renderedType, renderedDesc)
+	tag := strings.ToUpper(it.Title())
+	if len(tag) > styles.CommitTypeChipInnerWidth {
+		tag = tag[:styles.CommitTypeChipInnerWidth]
 	}
+	desc := it.Description()
+	selected := index == m.Index()
+
+	// Same selection rule as the History MasterList:
+	//   - chip uses Block (strong) palette on the cursor row, Msg (dim)
+	//     palette otherwise — and is always rendered with the same
+	//     fixed inner width + center alignment so descriptions line up
+	//     across rows and the tag sits balanced inside the chip.
+	//   - description uses Msg + Bold under the cursor, plain Muted
+	//     text otherwise.
+	var chipStyle, descStyle lipgloss.Style
+	if selected {
+		chipStyle = styles.CommitTypeBlockStyle(d.Theme, it.Title()).Bold(true)
+		descStyle = styles.CommitTypeMsgStyle(d.Theme, it.Title()).Bold(true)
+	} else {
+		chipStyle = styles.CommitTypeMsgStyle(d.Theme, it.Title())
+		descStyle = lipgloss.NewStyle().Foreground(d.Theme.Muted)
+	}
+	chip := chipStyle.
+		Width(styles.CommitTypeChipInnerWidth).
+		Padding(0, 1).
+		Align(lipgloss.Center).
+		Render(tag)
+
+	cursor := "  "
+	if selected && d.Theme != nil && d.Theme.Secondary != nil {
+		cursor = lipgloss.NewStyle().
+			Foreground(d.Theme.Secondary).
+			Bold(true).
+			Render("❯ ")
+	}
+
+	row := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		cursor,
+		chip,
+		" ",
+		descStyle.Render(desc),
+	)
+	io.WriteString(w, row)
 }
 
 func NewCommitTypeList(
