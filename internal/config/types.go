@@ -73,8 +73,24 @@ type Config struct {
 }
 
 type CommitFormatConfig struct {
-	TypeFormat       string            `toml:"type_format"`
-	CommitTypeColors map[string]string `toml:"-"` // Map of commit type tag to color
+	TypeFormat string `toml:"type_format"`
+	// CommitTypePalettes holds the per-tag four-color overrides resolved
+	// from `[[commit_types.types]]`. Populated at startup by
+	// `PopulateCommitTypePalettes` and forwarded to the styles package
+	// so the renderer's chip + message colors honor the user's TOML.
+	CommitTypePalettes map[string]CommitTypePalette `toml:"-"`
+}
+
+// CommitTypePalette is the wire-format mirror of `styles.CommitTypeColors`:
+// raw hex strings for the chip background/foreground (`bg_block`/`fg_block`)
+// and the message-row background/foreground (`bg_msg`/`fg_msg`). Kept here
+// (instead of in `styles`) to avoid pulling the TUI package into config and
+// creating an import cycle. Empty fields are skipped at registration time.
+type CommitTypePalette struct {
+	BgBlock string
+	FgBlock string
+	BgMsg   string
+	FgMsg   string
 }
 
 type CommitTypesConfig struct {
@@ -85,7 +101,10 @@ type CommitTypesConfig struct {
 type CustomCommitType struct {
 	Tag         string `toml:"tag"`
 	Description string `toml:"description"`
-	Color       string
+	BgBlock     string `toml:"bg_block"`
+	FgBlock     string `toml:"fg_block"`
+	BgMsg       string `toml:"bg_msg"`
+	FgMsg       string `toml:"fg_msg"`
 }
 
 func NewDefaultConfig() Config {
@@ -136,7 +155,10 @@ func GetDefaultConfigWithTypes() Config {
 		cfg.CommitTypes.Types[i] = CustomCommitType{
 			Tag:         dc.Tag,
 			Description: dc.Description,
-			Color:       dc.Color,
+			BgBlock:     dc.BgBlock,
+			FgBlock:     dc.FgBlock,
+			BgMsg:       dc.BgMsg,
+			FgMsg:       dc.FgMsg,
 		}
 	}
 	cfg.CommitTypes.Behavior = "replace"
@@ -152,7 +174,10 @@ func GetDefaultLocalConfig() Config {
 		cfg.CommitTypes.Types[i] = CustomCommitType{
 			Tag:         dc.Tag,
 			Description: dc.Description,
-			Color:       dc.Color,
+			BgBlock:     dc.BgBlock,
+			FgBlock:     dc.FgBlock,
+			BgMsg:       dc.BgMsg,
+			FgMsg:       dc.FgMsg,
 		}
 	}
 	return cfg

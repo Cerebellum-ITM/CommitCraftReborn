@@ -114,7 +114,6 @@ func (model *Model) initFreshCompose() tea.Cmd {
 	model.resetScopes()
 	if len(model.finalCommitTypes) > 0 {
 		model.commitType = model.finalCommitTypes[0].Tag
-		model.commitTypeColor = model.finalCommitTypes[0].Color
 	}
 	model.commitsKeysInput.SetValue("")
 	model.commitTranslate = ""

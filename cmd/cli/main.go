@@ -14,9 +14,10 @@ import (
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui"
+	"commit_craft_reborn/internal/tui/styles"
 )
 
-var version = "v0.30.5"
+var version = "v0.31.1"
 
 func main() {
 	log := logger.New()
@@ -45,7 +46,8 @@ func main() {
 	}
 
 	finalCommitTypes := config.ResolveCommitTypes(globalCfg, localCfg)
-	config.PopulateCommitTypeColors(&globalCfg, finalCommitTypes)
+	config.PopulateCommitTypePalettes(&globalCfg, finalCommitTypes)
+	registerCommitTypePalettes(globalCfg.CommitFormat.CommitTypePalettes)
 	config.ResolveReleaseConfig(&globalCfg, localCfg)
 	config.ResolveTUIConfig(&globalCfg, localCfg)
 
@@ -124,4 +126,23 @@ func main() {
 			fmt.Print(m.FinalMessage)
 		}
 	}
+}
+
+// registerCommitTypePalettes adapts the config-side palette mirror (raw
+// hex strings) into the anonymous-struct shape `styles` expects, keeping
+// the styles package free of any config-package import.
+func registerCommitTypePalettes(palettes map[string]config.CommitTypePalette) {
+	if len(palettes) == 0 {
+		styles.RegisterCustomCommitTypePalettes(nil)
+		return
+	}
+	out := make(map[string]struct {
+		BgBlock, FgBlock, BgMsg, FgMsg string
+	}, len(palettes))
+	for tag, p := range palettes {
+		out[tag] = struct {
+			BgBlock, FgBlock, BgMsg, FgMsg string
+		}{p.BgBlock, p.FgBlock, p.BgMsg, p.FgMsg}
+	}
+	styles.RegisterCustomCommitTypePalettes(out)
 }

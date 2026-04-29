@@ -507,14 +507,3 @@ func (m *Model) resetScopes() {
 	m.commitScope = ""
 	m.scopeChipIndex = 0
 }
-
-// lookupTypeColor resolves a commit type tag to its configured color.
-func lookupTypeColor(colors map[string]string, tag string, fallback color.Color) color.Color {
-	if colors == nil {
-		return fallback
-	}
-	if hex, ok := colors[tag]; ok && hex != "" {
-		return lipgloss.Color(hex)
-	}
-	return fallback
-}

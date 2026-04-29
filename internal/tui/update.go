@@ -98,7 +98,6 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case setCommitTypeMsg:
 		model.popup = nil
 		model.commitType = msg.tag
-		model.commitTypeColor = msg.color
 		return model, nil
 	case closeScopePopupMsg:
 		model.popup = nil

@@ -208,16 +208,12 @@ func handleTypeSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cm
 	case "left", "h":
 		i := indexOfCommitType(model.finalCommitTypes, model.commitType)
 		i = (i - 1 + len(model.finalCommitTypes)) % len(model.finalCommitTypes)
-		ct := model.finalCommitTypes[i]
-		model.commitType = ct.Tag
-		model.commitTypeColor = ct.Color
+		model.commitType = model.finalCommitTypes[i].Tag
 		return true, model, nil
 	case "right", "l":
 		i := indexOfCommitType(model.finalCommitTypes, model.commitType)
 		i = (i + 1) % len(model.finalCommitTypes)
-		ct := model.finalCommitTypes[i]
-		model.commitType = ct.Tag
-		model.commitTypeColor = ct.Color
+		model.commitType = model.finalCommitTypes[i].Tag
 		return true, model, nil
 	}
 	return false, model, nil

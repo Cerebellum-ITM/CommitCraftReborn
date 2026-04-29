@@ -15,7 +15,6 @@ import (
 type CommitTypeDelegate struct {
 	list.DefaultDelegate
 	TypeFormat string
-	Color      string
 	Theme      *styles.Theme
 }
 type CommitTypeItem struct {
@@ -23,7 +22,6 @@ type CommitTypeItem struct {
 }
 
 func (cti CommitTypeItem) Title() string { return cti.CommitType.Tag }
-func (cti CommitTypeItem) Color() string { return cti.CommitType.Color }
 
 func (cti CommitTypeItem) Description() string { return cti.CommitType.Description }
 

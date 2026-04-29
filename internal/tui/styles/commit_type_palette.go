@@ -1,7 +1,9 @@
 package styles
 
 import (
+	"fmt"
 	"image/color"
+	"os"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -126,24 +128,86 @@ var commitTypeAliases = map[string]string{
 	"UI":  "STYLE",    // ui changes are visual style
 }
 
+// customCommitTypePalettes holds per-tag overrides registered at startup
+// from the user's TOML config (`[[commit_types.types]]`). Per-field merge:
+// fields left nil here fall through to the alias-resolved built-in palette,
+// then to the theme neutral fallback. Populated once via
+// `RegisterCustomCommitTypePalettes`; reads are not synchronized because
+// the renderer never mutates this map after init.
+var customCommitTypePalettes = map[string]CommitTypeColors{}
+
+// RegisterCustomCommitTypePalettes installs per-tag color overrides from the
+// resolved TOML config. Each input map entry holds raw hex strings; empty
+// strings are skipped (the per-field fallback chain handles them) and
+// unparseable hex emits a single warning to stderr while leaving the slot
+// empty. Tags are upper-cased to match the renderer lookup.
+func RegisterCustomCommitTypePalettes(palettes map[string]struct {
+	BgBlock, FgBlock, BgMsg, FgMsg string
+},
+) {
+	customCommitTypePalettes = make(map[string]CommitTypeColors, len(palettes))
+	for tag, raw := range palettes {
+		entry := CommitTypeColors{}
+		entry.BgBlock = parseHexOrWarn(tag, "bg_block", raw.BgBlock)
+		entry.FgBlock = parseHexOrWarn(tag, "fg_block", raw.FgBlock)
+		entry.BgMsg = parseHexOrWarn(tag, "bg_msg", raw.BgMsg)
+		entry.FgMsg = parseHexOrWarn(tag, "fg_msg", raw.FgMsg)
+		customCommitTypePalettes[strings.ToUpper(tag)] = entry
+	}
+}
+
+func parseHexOrWarn(tag, field, hex string) color.Color {
+	if hex == "" {
+		return nil
+	}
+	if !strings.HasPrefix(hex, "#") {
+		fmt.Fprintf(
+			os.Stderr,
+			"warning: commit_types[%s].%s = %q is not a hex color (#RRGGBB); ignoring\n",
+			tag, field, hex,
+		)
+		return nil
+	}
+	return lipgloss.Color(hex)
+}
+
 // CommitTypePalette returns the four-color set associated with a commit type
-// tag. Lookups are case-insensitive. Tags are first resolved through
-// commitTypeAliases so legacy/custom tags get colored too; anything
-// still unmatched falls back to a neutral palette derived from the theme.
+// tag. Lookups are case-insensitive. Per-field resolution order:
+//  1. user override (`customCommitTypePalettes[tag]`) for tags declared in
+//     the user's TOML — only the slots they filled apply.
+//  2. alias-resolved built-in palette (`commitTypePalette`).
+//  3. neutral theme palette as the final fallback.
 func CommitTypePalette(theme *Theme, tag string) CommitTypeColors {
 	upper := strings.ToUpper(tag)
+	resolved := upper
 	if alias, ok := commitTypeAliases[upper]; ok {
-		upper = alias
+		resolved = alias
 	}
-	if p, ok := commitTypePalette[upper]; ok {
-		return p
-	}
-	return CommitTypeColors{
+	base, hasBase := commitTypePalette[resolved]
+	out := CommitTypeColors{
 		BgBlock: theme.Surface,
 		FgBlock: theme.FgMuted,
 		BgMsg:   theme.BG,
 		FgMsg:   theme.Blur,
 	}
+	if hasBase {
+		out = base
+	}
+	if override, ok := customCommitTypePalettes[upper]; ok {
+		if override.BgBlock != nil {
+			out.BgBlock = override.BgBlock
+		}
+		if override.FgBlock != nil {
+			out.FgBlock = override.FgBlock
+		}
+		if override.BgMsg != nil {
+			out.BgMsg = override.BgMsg
+		}
+		if override.FgMsg != nil {
+			out.FgMsg = override.FgMsg
+		}
+	}
+	return out
 }
 
 // CommitTypeBlockStyle returns a Style configured with the "block" colors

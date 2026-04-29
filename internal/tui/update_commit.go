@@ -113,7 +113,6 @@ func updateChoosingType(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			commitTypeSelected := model.commitTypeList.SelectedItem()
 			if item, ok := commitTypeSelected.(CommitTypeItem); ok {
 				model.commitType = item.Tag
-				model.commitTypeColor = item.Color()
 				scopeFilePickerPwd = model.pwd
 				gitStatusMap, err := git.GetGitDiffNameStatus()
 				if err != nil {
@@ -215,7 +214,6 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.resetScopes()
 			if len(model.finalCommitTypes) > 0 {
 				model.commitType = model.finalCommitTypes[0].Tag
-				model.commitTypeColor = model.finalCommitTypes[0].Color
 			}
 			model.commitsKeysInput.SetValue("")
 			model.commitTranslate = ""

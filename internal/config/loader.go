@@ -40,12 +40,24 @@ var defaultReleaseFormatPrompt string
 //go:embed prompts/changelog_refiner.prompt.tmpl
 var defaultChangelogRefinerPrompt string
 
-func PopulateCommitTypeColors(cfg *Config, commitTypes []commit.CommitType) {
-	if cfg.CommitFormat.CommitTypeColors == nil {
-		cfg.CommitFormat.CommitTypeColors = make(map[string]string)
+// PopulateCommitTypePalettes builds the per-tag palette overlay from the
+// resolved commit types. Only tags with at least one non-empty color slot
+// are stored; tags with no overrides keep their built-in palette in the
+// styles package. Tags are upper-cased so lookups match the renderer.
+func PopulateCommitTypePalettes(cfg *Config, commitTypes []commit.CommitType) {
+	if cfg.CommitFormat.CommitTypePalettes == nil {
+		cfg.CommitFormat.CommitTypePalettes = make(map[string]CommitTypePalette)
 	}
 	for _, ct := range commitTypes {
-		cfg.CommitFormat.CommitTypeColors[ct.Tag] = ct.Color
+		if ct.BgBlock == "" && ct.FgBlock == "" && ct.BgMsg == "" && ct.FgMsg == "" {
+			continue
+		}
+		cfg.CommitFormat.CommitTypePalettes[strings.ToUpper(ct.Tag)] = CommitTypePalette{
+			BgBlock: ct.BgBlock,
+			FgBlock: ct.FgBlock,
+			BgMsg:   ct.BgMsg,
+			FgMsg:   ct.FgMsg,
+		}
 	}
 }
 
@@ -223,7 +235,28 @@ func ensureGlobalConfigExists(dirPath, filePath string) error {
 			return fmt.Errorf("could not encode default config to TOML: %w", err)
 		}
 
-		header := "# CommitCraft Global Configuration\n# This file was auto-generated. You can customize it.\n\n"
+		header := "# CommitCraft Global Configuration\n" +
+			"# This file was auto-generated. You can customize it.\n" +
+			"#\n" +
+			"# Custom commit-type colors\n" +
+			"# -------------------------\n" +
+			"# Each [[commit_types.types]] entry accepts four optional hex\n" +
+			"# colors that drive how the tag renders in the TUI:\n" +
+			"#   bg_block / fg_block  -> the chip pill (history, popup, pills)\n" +
+			"#   bg_msg   / fg_msg    -> the commit message row background/text\n" +
+			"# Empty values fall through to the built-in palette (or to the\n" +
+			"# active theme's neutral colors if the tag has no built-in entry).\n" +
+			"# Hex values must start with '#' (e.g. #264653); other formats are\n" +
+			"# ignored with a warning on startup.\n" +
+			"#\n" +
+			"# Example:\n" +
+			"#   [[commit_types.types]]\n" +
+			"#   tag         = \"EXP\"\n" +
+			"#   description = \"Experimental work\"\n" +
+			"#   bg_block    = \"#264653\"\n" +
+			"#   fg_block    = \"#e9f5db\"\n" +
+			"#   bg_msg      = \"#1b2f37\"\n" +
+			"#   fg_msg      = \"#a8c5b3\"\n\n"
 		content := append([]byte(header), buf.Bytes()...)
 
 		if err := os.WriteFile(filePath, content, 0o644); err != nil {
@@ -243,7 +276,10 @@ func ResolveCommitTypes(
 		globalCustomTypes[i] = commit.CommitType{
 			Tag:         ct.Tag,
 			Description: ct.Description,
-			Color:       ct.Color,
+			BgBlock:     ct.BgBlock,
+			FgBlock:     ct.FgBlock,
+			BgMsg:       ct.BgMsg,
+			FgMsg:       ct.FgMsg,
 		}
 	}
 
@@ -260,7 +296,10 @@ func ResolveCommitTypes(
 		localCustomTypes[i] = commit.CommitType{
 			Tag:         ct.Tag,
 			Description: ct.Description,
-			Color:       ct.Color,
+			BgBlock:     ct.BgBlock,
+			FgBlock:     ct.FgBlock,
+			BgMsg:       ct.BgMsg,
+			FgMsg:       ct.FgMsg,
 		}
 	}
 

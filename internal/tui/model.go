@@ -160,7 +160,6 @@ type Model struct {
 	logViewVisible          bool
 	logsCh                  <-chan string
 	commitType              string
-	commitTypeColor         string
 	commitScope             string
 	// commitScopes is the multi-value scope list shown as chips in the
 	// compose view. commitScope is the joined representation kept in sync
@@ -484,7 +483,6 @@ func NewModel(
 	}
 	if len(finalCommitTypes) > 0 {
 		m.commitType = finalCommitTypes[0].Tag
-		m.commitTypeColor = finalCommitTypes[0].Color
 	}
 	m.pipeline.stages[stageSummary].Model = config.Prompts.ChangeAnalyzerPromptModel
 	m.pipeline.stages[stageBody].Model = config.Prompts.CommitBodyGeneratorPromptModel

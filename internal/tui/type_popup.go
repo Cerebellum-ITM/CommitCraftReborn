@@ -12,8 +12,7 @@ import (
 
 // setCommitTypeMsg is fired by the type popup when the user picks a tag.
 type setCommitTypeMsg struct {
-	tag   string
-	color string
+	tag string
 }
 
 // closeTypePopupMsg dismisses the type popup without changing anything.
@@ -80,9 +79,8 @@ func (m commitTypePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			tag := selected.Title()
-			col := selected.Color()
 			return m, func() tea.Msg {
-				return setCommitTypeMsg{tag: tag, color: col}
+				return setCommitTypeMsg{tag: tag}
 			}
 		case "up":
 			// In Filtering state bubbles/list forwards arrows to
