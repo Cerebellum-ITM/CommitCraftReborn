@@ -2,6 +2,37 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.30.2 — 2026-04-29
+
+Fix: page-key scrolling on the inspect panel was being reset to top on
+every render.
+
+- `HistoryDualPanel.SetSize` and `ReleaseDualPanel.SetSize` are called
+  from each `View()` pass; they unconditionally invoked `refreshContent`
+  which calls `GotoTop()` on both viewports, wiping the user's scroll
+  position immediately after `pgup`/`pgdown` updated it. Both now early
+  return when the dimensions haven't changed, so resize-time refresh
+  still happens but render-time calls are inert.
+
+## v0.30.1 — 2026-04-29
+
+Page-key scrolling now reaches the inspect panel from the master list on
+both the workspace history and the release history screens.
+
+- `pgup` / `pgdown` (and the `ctrl+↑` / `ctrl+↓` aliases) pressed while
+  the master list is focused are intercepted before bubbles' list paging
+  and routed to the dual panel's active right-hand viewport (Body or
+  Stages, matching the current inspect mode).
+- `ReleaseDualPanel` and `HistoryDualPanel` now also accept `ctrl+up` /
+  `ctrl+down` as aliases for `pgup` / `pgdown`. `ReleaseHistoryView`
+  gains an `UpdatePanel` helper mirroring `HistoryView.UpdatePanel`.
+
+### Usage
+
+On the History tab and the Release main menu, `pgup` / `pgdown` (or
+`ctrl+↑` / `ctrl+↓`) now scrolls the right-hand viewport of the inspect
+panel without leaving the master list.
+
 ## v0.30.0 — 2026-04-29
 
 Cache + prefetch for the release history selection, with an inline

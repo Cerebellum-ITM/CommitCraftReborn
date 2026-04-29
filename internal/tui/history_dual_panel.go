@@ -73,6 +73,9 @@ func (p *HistoryDualPanel) SetMode(mode HistoryDualMode)      { p.mode = mode }
 func (p *HistoryDualPanel) SetRenderer(r DualPanelRenderFunc) { p.render = r }
 
 func (p *HistoryDualPanel) SetSize(width, height int) {
+	if p.width == width && p.height == height {
+		return
+	}
 	p.width = width
 	p.height = height
 	rightW := width - dualPanelLeftWidth - 1 // divider
@@ -219,14 +222,14 @@ func (p HistoryDualPanel) Update(msg tea.Msg) (HistoryDualPanel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "pgup":
+		case "pgup", "ctrl+up":
 			if p.mode == ModeKeyPointsBody {
 				p.bodyVP.ScrollUp(p.bodyVP.Height() / 2)
 			} else {
 				p.stageVP.ScrollUp(p.stageVP.Height() / 2)
 			}
 			return p, nil
-		case "pgdown":
+		case "pgdown", "ctrl+down":
 			if p.mode == ModeKeyPointsBody {
 				p.bodyVP.ScrollDown(p.bodyVP.Height() / 2)
 			} else {

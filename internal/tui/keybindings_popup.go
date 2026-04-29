@@ -156,7 +156,7 @@ func releaseKeybindings() []keybindingGroup {
 				{"^]", "next commit / stage"},
 				{"^[", "prev commit / stage"},
 				{"R", "jump to release entry"},
-				{"pgup/pgdn", "scroll right viewport"},
+				{"pgup/pgdn · ^↑/^↓", "scroll right viewport"},
 			},
 		},
 		{
@@ -196,7 +196,7 @@ func workspaceKeybindings() []keybindingGroup {
 				{"^e", "swap inspect mode (KP/Body ↔ Stages/Response)"},
 				{"^]", "next stage / key point"},
 				{"^[", "prev stage / key point"},
-				{"pgup/pgdn", "scroll right viewport"},
+				{"pgup/pgdn · ^↑/^↓", "scroll right viewport"},
 			},
 		},
 		{

@@ -65,6 +65,11 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			return model, cmd
 		}
+		switch msg.String() {
+		case "pgup", "pgdown", "ctrl+up", "ctrl+down":
+			panelCmd := model.releaseHistoryView.UpdatePanel(msg)
+			return model, panelCmd
+		}
 		switch {
 		case key.Matches(msg, model.keys.SwapMode):
 			model.releaseHistoryView.ToggleMode()

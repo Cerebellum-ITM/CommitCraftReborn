@@ -190,6 +190,11 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			return model, cmd
 		}
+		switch msg.String() {
+		case "pgup", "pgdown", "ctrl+up", "ctrl+down":
+			panelCmd := model.historyView.UpdatePanel(msg)
+			return model, panelCmd
+		}
 		switch {
 		case key.Matches(msg, model.keys.SwapMode):
 			model.historyView.ToggleMode()

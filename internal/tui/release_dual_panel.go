@@ -98,6 +98,9 @@ func (p *ReleaseDualPanel) SetRenderer(r DualPanelRenderFunc) { p.render = r }
 // telemetry around the viewport) so the visual hierarchy reads identical
 // across screens.
 func (p *ReleaseDualPanel) SetSize(width, height int) {
+	if p.width == width && p.height == height {
+		return
+	}
 	p.width = width
 	p.height = height
 	rightW := width - dualPanelLeftWidth - 1
@@ -312,14 +315,14 @@ func (p *ReleaseDualPanel) refreshContent() {
 func (p ReleaseDualPanel) Update(msg tea.Msg) (ReleaseDualPanel, tea.Cmd) {
 	if km, ok := msg.(tea.KeyMsg); ok {
 		switch km.String() {
-		case "pgup":
+		case "pgup", "ctrl+up":
 			if p.mode == ModeKeyPointsBody {
 				p.bodyVP.ScrollUp(p.bodyVP.Height() / 2)
 			} else {
 				p.stageVP.ScrollUp(p.stageVP.Height() / 2)
 			}
 			return p, nil
-		case "pgdown":
+		case "pgdown", "ctrl+down":
 			if p.mode == ModeKeyPointsBody {
 				p.bodyVP.ScrollDown(p.bodyVP.Height() / 2)
 			} else {

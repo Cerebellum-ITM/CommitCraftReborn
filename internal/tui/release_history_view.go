@@ -138,6 +138,12 @@ func (h *ReleaseHistoryView) CycleLeftCursor(delta int) {
 	h.dualPanel.CycleLeftCursor(delta)
 }
 
+func (h *ReleaseHistoryView) UpdatePanel(msg tea.Msg) tea.Cmd {
+	var cmd tea.Cmd
+	h.dualPanel, cmd = h.dualPanel.Update(msg)
+	return cmd
+}
+
 func (h *ReleaseHistoryView) JumpToRelease() { h.dualPanel.JumpToRelease() }
 
 func (h ReleaseHistoryView) outerFrame() lipgloss.Style {
