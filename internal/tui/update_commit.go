@@ -377,35 +377,25 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 // moved the cursor or rebuilt the items.
 func syncHistoryViewSelection(model *Model) {
 	if item, ok := model.mainList.SelectedItem().(HistoryCommitItem); ok {
-		model.historyView.SetCommit(item.commit, commitUsedChangelogStage(model, item.commit))
+		model.historyView.SetCommit(item.commit, loadCommitAICalls(model, item.commit.ID))
 	} else {
 		model.historyView.ClearCommit()
 	}
 }
 
-// commitUsedChangelogStage decides whether the inspect panel should show a
-// 4th "changelog" entry for the given commit. The persisted output column
-// (commits.ia_changelog) is the primary source — non-empty means the
-// refiner ran and we have its text. As a fallback, we still query
-// ai_calls for the changelog stage so commits saved before the
-// ia_changelog column existed keep their list entry (the right viewport
-// then renders the "(stage output not stored)" placeholder).
-func commitUsedChangelogStage(model *Model, c storage.Commit) bool {
-	if strings.TrimSpace(c.IaChangelog) != "" {
-		return true
+// loadCommitAICalls returns the ai_calls slice for a commit, or nil when
+// the lookup fails. The HistoryDualPanel uses the slice both to decide
+// whether stage 4 belongs in the inspect list and to render the per-stage
+// telemetry strip in Stages/Response mode — a single SQLite read replaces
+// what used to be a "does the changelog stage exist?" yes/no probe.
+func loadCommitAICalls(model *Model, commitID int) []storage.AICall {
+	if model == nil || model.db == nil || commitID <= 0 {
+		return nil
 	}
-	if model == nil || model.db == nil || c.ID <= 0 {
-		return false
-	}
-	calls, err := model.db.GetAICallsByCommitID(c.ID)
+	calls, err := model.db.GetAICallsByCommitID(commitID)
 	if err != nil {
-		model.log.Warn("ai_calls lookup failed", "commit_id", c.ID, "error", err)
-		return false
+		model.log.Warn("ai_calls lookup failed", "commit_id", commitID, "error", err)
+		return nil
 	}
-	for _, ac := range calls {
-		if ac.Stage == stageDBLabel[stageChangelog] {
-			return true
-		}
-	}
-	return false
+	return calls
 }

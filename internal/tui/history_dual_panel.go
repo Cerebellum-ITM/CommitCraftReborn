@@ -53,6 +53,12 @@ type HistoryDualPanel struct {
 	stages     []historyStage
 	stageIndex int
 	stageVP    viewport.Model
+	// stageStats caches the per-stage telemetry pulled from ai_calls for the
+	// currently inspected commit. The array is keyed by stageID so the
+	// telemetry row can render in O(1) when the user cycles through the
+	// stages list. Stages without a stored row keep their zero value (and
+	// HasStats stays false, which makes renderStageStatsLine return "").
+	stageStats [4]pipelineStage
 }
 
 func NewHistoryDualPanel(theme *styles.Theme) HistoryDualPanel {
@@ -69,42 +75,94 @@ func (p *HistoryDualPanel) SetRenderer(r DualPanelRenderFunc) { p.render = r }
 func (p *HistoryDualPanel) SetSize(width, height int) {
 	p.width = width
 	p.height = height
-	innerH := height - 1 // header row
-	if innerH < 1 {
-		innerH = 1
-	}
 	rightW := width - dualPanelLeftWidth - 1 // divider
 	if rightW < 10 {
 		rightW = 10
 	}
+	// Body viewport (KeyPoints/Body mode): only the header consumes a row.
+	bodyH := height - 1
+	if bodyH < 1 {
+		bodyH = 1
+	}
+	// Stage viewport (Stages/Response mode): the right column reserves
+	// rows for the chrome around the viewport — header (1) + blank (1) +
+	// rule (1) + blank around the rule (2) + telemetry (1). The viewport
+	// gets whatever's left so cycling stages always reveals a clear
+	// hierarchy: title → content → separator → telemetry.
+	stageH := height - 6
+	if stageH < 1 {
+		stageH = 1
+	}
 	p.bodyVP.SetWidth(rightW)
-	p.bodyVP.SetHeight(innerH)
+	p.bodyVP.SetHeight(bodyH)
 	p.stageVP.SetWidth(rightW)
-	p.stageVP.SetHeight(innerH)
+	p.stageVP.SetHeight(stageH)
 	p.refreshContent()
 }
 
-// SetCommit re-hydrates both modes against a new commit. hasChangelog is
-// true when the commit has a stored ai_calls row for the changelog stage,
-// in which case stage 4 is appended to the inspect list. The changelog
-// output text isn't persisted today, so the right viewport falls back to
-// a placeholder when the user lands on it.
-func (p *HistoryDualPanel) SetCommit(c storage.Commit, hasChangelog bool) {
+// SetCommit re-hydrates both modes against a new commit. The calls slice is
+// the full ai_calls payload for the commit (loaded once by the caller) — it
+// hydrates the per-stage telemetry rendered above the right viewport in
+// Stages/Response mode and is the source of truth for the optional stage 4
+// entry: when the changelog refiner ran for this commit, a 4th entry is
+// appended to the inspect list. Newer commits also carry the refiner's
+// output text in `c.IaChangelog`; legacy rows keep the placeholder behavior.
+func (p *HistoryDualPanel) SetCommit(c storage.Commit, calls []storage.AICall) {
 	p.commit = c
 	p.hasCommit = true
 	p.keypoints = c.KeyPoints
 	if p.keypointIndex >= len(p.keypoints) {
 		p.keypointIndex = 0
 	}
+
+	// Reset and rebuild per-stage telemetry from the freshly loaded
+	// ai_calls. Stages without a row keep their zero values so
+	// renderStageStatsLine returns "" for them.
+	for i := range p.stageStats {
+		p.stageStats[i] = pipelineStage{ID: stageID(i), Status: statusIdle}
+	}
+	hasChangelog := false
+	for _, call := range calls {
+		id, ok := stageIDFromDBLabel(call.Stage)
+		if !ok || int(id) < 0 || int(id) >= len(p.stageStats) {
+			continue
+		}
+		st := &p.stageStats[id]
+		st.HasStats = true
+		st.StatsModel = call.Model
+		st.Model = call.Model
+		st.PromptTokens = call.PromptTokens
+		st.CompletionTokens = call.CompletionTokens
+		st.TotalTokens = call.TotalTokens
+		st.QueueTime = msToDuration(call.QueueTimeMs)
+		st.PromptTime = msToDuration(call.PromptTimeMs)
+		st.CompletionTime = msToDuration(call.CompletionTimeMs)
+		st.APITotalTime = msToDuration(call.TotalTimeMs)
+		st.RequestID = call.RequestID
+		st.TPMLimitAtCall = call.TPMLimitAtCall
+		st.Latency = st.APITotalTime
+		st.Status = statusDone
+		st.Progress = 1
+		if id == stageChangelog {
+			hasChangelog = true
+		}
+	}
+	// Newer commits also flag the changelog stage through the persisted
+	// output column even if their ai_calls row is missing (e.g. telemetry
+	// flush failed silently).
+	if strings.TrimSpace(c.IaChangelog) != "" {
+		hasChangelog = true
+	}
+
 	p.stages = []historyStage{
-		{idx: 1, name: "summary", output: c.IaSummary},
-		{idx: 2, name: "body", output: c.IaCommitRaw},
-		{idx: 3, name: "title", output: c.IaTitle},
+		{idx: 1, name: "Change Analyzer", output: c.IaSummary},
+		{idx: 2, name: "Commit Body", output: c.IaCommitRaw},
+		{idx: 3, name: "Commit Title", output: c.IaTitle},
 	}
 	if hasChangelog {
 		p.stages = append(p.stages, historyStage{
 			idx:    4,
-			name:   "changelog",
+			name:   "Changelog Refiner",
 			output: c.IaChangelog,
 		})
 	}
@@ -121,6 +179,9 @@ func (p *HistoryDualPanel) Clear() {
 	p.keypointIndex = 0
 	p.stages = nil
 	p.stageIndex = 0
+	for i := range p.stageStats {
+		p.stageStats[i] = pipelineStage{ID: stageID(i), Status: statusIdle}
+	}
 	p.bodyVP.SetContent("")
 	p.stageVP.SetContent("")
 }
@@ -236,7 +297,29 @@ func (p HistoryDualPanel) View() string {
 	}
 
 	leftCol := lipgloss.JoinVertical(lipgloss.Left, leftHeader, leftBody)
-	rightCol := lipgloss.JoinVertical(lipgloss.Left, rightHeader, rightBody)
+	var rightCol string
+	if p.mode == ModeStagesResponse {
+		telemetry := p.renderTelemetryRow(rightW)
+		rule := lipgloss.NewStyle().
+			Foreground(p.theme.Subtle).
+			Render(strings.Repeat("─", rightW))
+		// Layout: header → ⏎ → body → ⏎ → rule → ⏎ → telemetry.
+		// The blank rows split the panel into three legible bands so the
+		// user reads "what stage", then "what it produced", then "what it
+		// cost" without the three sections bleeding into each other.
+		rightCol = lipgloss.JoinVertical(
+			lipgloss.Left,
+			rightHeader,
+			"",
+			rightBody,
+			"",
+			rule,
+			"",
+			telemetry,
+		)
+	} else {
+		rightCol = lipgloss.JoinVertical(lipgloss.Left, rightHeader, rightBody)
+	}
 
 	// Force every column to exactly (W × p.height). Place pads with
 	// spaces both horizontally and vertically so JoinHorizontal can stitch
@@ -258,6 +341,34 @@ func (p HistoryDualPanel) View() string {
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftStyled, divider, rightStyled)
 	return lipgloss.Place(p.width, p.height, lipgloss.Left, lipgloss.Top, row)
+}
+
+// renderTelemetryRow draws the per-stage telemetry strip that sits between
+// the right header and the stage viewport in Stages/Response mode. It maps
+// the active list index back to a stageID and reuses renderStageStatsLine
+// (the same renderer the live pipeline cards use), so the look stays in
+// sync with the compose-side telemetry without duplicating the format.
+func (p HistoryDualPanel) renderTelemetryRow(width int) string {
+	muted := lipgloss.NewStyle().Foreground(p.theme.Muted).Italic(true).PaddingLeft(1)
+	if p.stageIndex < 0 || p.stageIndex >= len(p.stages) {
+		return muted.Render("(no stage selected)")
+	}
+	id := stageID(p.stages[p.stageIndex].idx - 1)
+	if int(id) < 0 || int(id) >= len(p.stageStats) {
+		return muted.Render("(stage out of range)")
+	}
+	st := p.stageStats[id]
+	// renderStageStatsLine bails out when there's no stored telemetry —
+	// surface a small placeholder so the reserved row never reads empty.
+	innerW := width - 2 // PaddingLeft(1) + a trailing margin
+	if innerW < 1 {
+		innerW = 1
+	}
+	line := renderStageStatsLine(p.theme, &st, innerW, false)
+	if line == "" {
+		return muted.Render("(no telemetry stored)")
+	}
+	return lipgloss.NewStyle().PaddingLeft(1).Render(line)
 }
 
 func (p HistoryDualPanel) renderHeader(label, suffix string, width int) string {
@@ -318,10 +429,13 @@ func (p HistoryDualPanel) renderStagesBody(width, height int) string {
 	var lines []string
 	for i, s := range p.stages {
 		nameStyle := lipgloss.NewStyle().Foreground(p.theme.Muted)
+		glyphColor := p.theme.Muted
 		if i == p.stageIndex {
 			nameStyle = lipgloss.NewStyle().Foreground(p.theme.FG).Bold(true)
+			glyphColor = p.theme.Secondary
 		}
-		head := fmt.Sprintf("[%d]  %s", s.idx, nameStyle.Render(s.name))
+		glyph := lipgloss.NewStyle().Foreground(glyphColor).Bold(true).Render("✦")
+		head := fmt.Sprintf("%s [%d]  %s", glyph, s.idx, nameStyle.Render(s.name))
 		lines = append(lines, lipgloss.NewStyle().PaddingLeft(1).Render(head))
 		if s.model != "" {
 			modelStyle := lipgloss.NewStyle().Foreground(p.theme.Primary)

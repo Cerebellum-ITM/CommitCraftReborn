@@ -39,8 +39,8 @@ func NewHistoryView(theme *styles.Theme) HistoryView {
 // as the live compose view.
 func (h *HistoryView) SetBodyRenderer(r DualPanelRenderFunc) { h.dualPanel.SetRenderer(r) }
 
-func (h *HistoryView) SetCommit(c storage.Commit, hasChangelog bool) {
-	h.dualPanel.SetCommit(c, hasChangelog)
+func (h *HistoryView) SetCommit(c storage.Commit, calls []storage.AICall) {
+	h.dualPanel.SetCommit(c, calls)
 }
 func (h *HistoryView) ClearCommit() { h.dualPanel.Clear() }
 

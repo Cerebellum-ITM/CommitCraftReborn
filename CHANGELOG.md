@@ -2,6 +2,54 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.25.1 — 2026-04-29
+
+History inspect polish in Stages/Response mode.
+
+- Stage list now uses the same titles the Pipeline tab uses
+  (`Change Analyzer`, `Commit Body`, `Commit Title`,
+  `Changelog Refiner`) so both views read identically.
+- Each list row gets a leading `✦` glyph: muted on idle rows, brand
+  Secondary on the active one — the cursor now reads at a glance
+  even before the user notices the bold name.
+- Right panel layout rebanded into three legible sections separated by
+  blank rows + a muted rule: header → blank → output → blank → rule →
+  blank → telemetry. `SetSize` reserves 6 rows of chrome so the
+  viewport never overlaps the strip.
+
+## v0.25.0 — 2026-04-29
+
+History inspect: per-stage telemetry strip in `Stages / Response` mode.
+
+- New row rendered between the right header and the stage viewport
+  showing tokens (in / out / total), wall-clock duration and the per-call
+  TPM consumption bar — the same format the live pipeline cards use,
+  rendered through the existing `renderStageStatsLine`. Switches with
+  the user's `ctrl+]` / `ctrl+[` cursor.
+- `HistoryDualPanel` caches the full `[]storage.AICall` for the
+  inspected commit on every selection sync (`stageStats [4]pipelineStage`)
+  so cycling stages is O(1) and we replace the previous one-shot
+  "does the changelog stage exist?" probe with a single SQLite read
+  that doubles as the data source for the telemetry strip.
+- `SetCommit` signature changed: now takes `[]storage.AICall` instead
+  of a `hasChangelog bool`. `hasChangelog` is derived inside, falling
+  back to `c.IaChangelog != ""` for legacy rows whose ai_calls flush
+  failed.
+- `SetSize` reserves an extra row in stages mode so the telemetry strip
+  never eats the viewport. KeyPoints/Body mode keeps the original
+  budget.
+- `loadCommitAICalls` (in `update_commit.go`) replaces
+  `commitUsedChangelogStage`; it logs and returns nil on lookup
+  failures so a transient SQLite hiccup just hides telemetry instead
+  of breaking the panel.
+
+### Usage
+
+- On the History tab, switch to `Stages / Response` (`ctrl+e`) and
+  cycle stages with `ctrl+]` / `ctrl+[` — the row directly below the
+  stage name shows that stage's tokens, latency and TPM usage. Stages
+  without stored telemetry render `(no telemetry stored)`.
+
 ## v0.24.0 — 2026-04-29
 
 Persist the changelog refiner output on the commit row so the History
