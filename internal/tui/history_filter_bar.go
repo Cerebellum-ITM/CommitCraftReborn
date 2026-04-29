@@ -12,10 +12,56 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 )
 
+// MainFilterMode picks which commit field the workspace list filter
+// matches against. Cycled via ctrl+f from the filter bar.
+type MainFilterMode int
+
+const (
+	FilterModeTitle MainFilterMode = iota
+	FilterModeID
+	FilterModeType
+	FilterModeScope
+)
+
+// mainFilterModeOrder is the cycle order used by CycleMode and the
+// definitive list of supported modes (used for the modulo bound).
+var mainFilterModeOrder = []MainFilterMode{
+	FilterModeTitle,
+	FilterModeID,
+	FilterModeType,
+	FilterModeScope,
+}
+
+// mainFilterModeMeta stores the visible label and the commit-type
+// palette tag whose `msg` (dim) colors paint the mode pill. Each mode
+// gets a visually distinct palette so the active mode reads at a
+// glance.
+var mainFilterModeMeta = map[MainFilterMode]struct {
+	label string
+	tag   string
+}{
+	FilterModeTitle: {"TITLE", "ADD"},  // greenish
+	FilterModeID:    {"ID", "WIP"},     // amber
+	FilterModeType:  {"TYPE", "STYLE"}, // purple
+	FilterModeScope: {"SCOPE", "SEC"},  // pink/red
+}
+
+// currentMainFilterMode is read by HistoryCommitItem.FilterValue so
+// switching the mode applies live to the list's filter pass without
+// having to rebuild items. Mutated only via HistoryFilterBar.CycleMode.
+// Explicitly initialised to FilterModeTitle so the default startup mode
+// is unambiguous (Go's zero value would also resolve to TITLE today,
+// but the explicit assignment guards against future iota reorders).
+var currentMainFilterMode = FilterModeTitle
+
+// CurrentMainFilterMode exposes the current mode to package callers
+// (notably the FilterValue implementation in main_list.go).
+func CurrentMainFilterMode() MainFilterMode { return currentMainFilterMode }
+
 // HistoryFilterBar wraps a textinput so the History view can render a single
 // content row inside the surrounding frame:
 //
-//	› filter [_____________]                         5 / 8
+//	[TITLE]  > [_____________]                       5 / 8
 //
 // The bar manages its own focus and value; the parent decides when to feed
 // keys into Update via Focus/Blur. The right-hand "n / total" counter is
@@ -32,13 +78,22 @@ type HistoryFilterBar struct {
 func NewHistoryFilterBar(theme *styles.Theme) HistoryFilterBar {
 	ti := textinput.New()
 	ti.Prompt = ""
-	ti.Placeholder = "message - id - type - scope..."
+	ti.Placeholder = "type to filter…"
 	ti.SetVirtualCursor(true)
 	return HistoryFilterBar{
 		input: ti,
 		theme: theme,
 	}
 }
+
+// CycleMode advances the active filter mode to the next one in the
+// canonical order. Wraps around at the end so cycling is endless.
+func (f *HistoryFilterBar) CycleMode() {
+	currentMainFilterMode = mainFilterModeOrder[(int(currentMainFilterMode)+1)%len(mainFilterModeOrder)]
+}
+
+// Mode returns the active filter mode.
+func (f HistoryFilterBar) Mode() MainFilterMode { return currentMainFilterMode }
 
 func (f *HistoryFilterBar) SetSize(width int) { f.width = width }
 func (f *HistoryFilterBar) SetCounts(visible, total int) {
@@ -79,12 +134,25 @@ func (f HistoryFilterBar) Update(msg tea.Msg) (HistoryFilterBar, tea.Cmd) {
 // content already exceeds the requested width, which is exactly the
 // failure mode that pushes "214" onto a second line.
 func (f HistoryFilterBar) View() string {
-	prefixColor := f.theme.Muted
-	if f.focused {
-		prefixColor = f.theme.Primary
+	meta, ok := mainFilterModeMeta[currentMainFilterMode]
+	if !ok {
+		// Defensive: an unmapped mode would render as an empty pill,
+		// which is what looks like a "missing initial value" in the UI.
+		// Fall back to TITLE so the bar is always labelled.
+		meta = mainFilterModeMeta[FilterModeTitle]
 	}
+	modePill := styles.CommitTypeMsgStyle(f.theme, meta.tag).
+		Bold(true).
+		Padding(0, 1).
+		Render(meta.label)
 
-	prefix := lipgloss.NewStyle().Foreground(prefixColor).Render("> filter ")
+	arrowColor := f.theme.Muted
+	if f.focused {
+		arrowColor = f.theme.Primary
+	}
+	arrow := lipgloss.NewStyle().Foreground(arrowColor).Render(" > ")
+
+	prefix := modePill + arrow
 	counterText := fmt.Sprintf("%d / %d", f.visible, f.total)
 	counter := lipgloss.NewStyle().Foreground(f.theme.Muted).Render(counterText)
 

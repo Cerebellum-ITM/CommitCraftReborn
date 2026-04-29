@@ -139,6 +139,28 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// ctrl+f cycles the filter mode (title → id → type → scope) at
+		// any time on the workspace view. When the filter bar is empty
+		// it just swaps the mode pill; when there is an active query we
+		// re-apply it so DefaultFilter re-runs against the new
+		// FilterValue strings.
+		if msg.String() == "ctrl+f" {
+			model.historyView.CycleFilterMode()
+			val := model.historyView.FilterValue()
+			if val == "" {
+				model.mainList.SetFilterText("")
+				model.mainList.SetFilterState(list.Unfiltered)
+			} else {
+				// Reset+set forces the bubbles list to recompute the
+				// filter results with the just-changed FilterValue
+				// implementation.
+				model.mainList.SetFilterText("")
+				model.mainList.SetFilterText(val)
+				model.mainList.SetFilterState(list.Filtering)
+			}
+			syncHistoryViewSelection(model)
+			return model, nil
+		}
 		// FilterBar focus: route keys to the textinput. Esc clears + blurs;
 		// Enter blurs without clearing (so the user can navigate the filtered
 		// list); every other key is forwarded and the master list's filter is

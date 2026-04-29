@@ -27,9 +27,22 @@ func (hci HistoryCommitItem) Description() string {
 	return ""
 }
 
+// FilterValue feeds the bubbles list's filter pass with whatever the
+// user has chosen as the active scan target. ctrl+f cycles through
+// title/id/type/scope from the filter bar; the package-level mode is
+// read here so changing it re-evaluates the filter without rebuilding
+// items.
 func (hci HistoryCommitItem) FilterValue() string {
-	return hci.commit.MessageEN + " " + strings.Join(hci.commit.KeyPoints, " ") + " " +
-		hci.commit.Type + " " + hci.commit.Scope
+	switch CurrentMainFilterMode() {
+	case FilterModeID:
+		return fmt.Sprintf("%d", hci.commit.ID)
+	case FilterModeType:
+		return hci.commit.Type
+	case FilterModeScope:
+		return hci.commit.Scope
+	default:
+		return hci.commit.MessageEN
+	}
 }
 
 // HistoryCommitDelegate renders a single dense row per commit:

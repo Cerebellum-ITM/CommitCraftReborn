@@ -2,6 +2,81 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.21.1 — 2026-04-28
+
+Fixed the workspace filter pill rendering blank on the first frame.
+
+- `currentMainFilterMode` is now explicitly initialised to
+  `FilterModeTitle`. Go's zero-value would resolve to TITLE today via
+  iota anyway, but the explicit assignment removes the ambiguity and
+  documents the intended startup mode.
+- `HistoryFilterBar.View` now falls back to the TITLE meta entry when
+  the meta-map lookup misses, so the pill is always labelled instead
+  of rendering as an empty bar (which is what the "no initial value"
+  symptom looked like in the UI).
+
+### Usage
+
+No behavior change for users — the bar simply always shows a labelled
+pill from the very first paint.
+
+## v0.21.0 — 2026-04-28
+
+Added a cycleable filter-mode pill to the workspace filter bar.
+
+- New `MainFilterMode` enum drives which commit field
+  `HistoryCommitItem.FilterValue` exposes to the bubbles list filter:
+  TITLE (default), ID, TYPE or SCOPE. The active mode is held in a
+  package-level variable so cycling re-evaluates the filter pass live
+  without rebuilding items.
+- `ctrl+f` (handled in `updateChoosingCommit`) cycles the mode in the
+  canonical title → id → type → scope order and re-applies the current
+  query so the visible rows update immediately.
+- `HistoryFilterBar.View` now renders a flat colour pill for the
+  current mode in front of the filter input — `[MODE]  >  <input>` —
+  using `CommitTypeMsgStyle` (the dim `BgMsg`/`FgMsg` palette) so each
+  mode reads as its own quiet tag. Per-mode palettes: TITLE uses ADD
+  (green), ID uses WIP (amber), TYPE uses STYLE (purple), SCOPE uses
+  SEC (pink/red).
+
+### Usage
+
+`/` opens the filter input as before. From there, `ctrl+f` cycles the
+mode pill (works any time on the workspace view, even with the input
+unfocused or empty — the pill swaps colour/label and any active query
+gets re-evaluated against the new field). Esc still clears + blurs;
+Enter still blurs without clearing.
+
+## v0.20.13 — 2026-04-28
+
+Narrowed the main-view list filter to the commit title only.
+
+- `HistoryCommitItem.FilterValue` now returns just `commit.MessageEN`
+  (the visible title) instead of folding in `Type`, `Scope` and
+  `KeyPoints`. The `/` filter on the workspace list now matches what
+  the user reads on each row, instead of surfacing rows whose title
+  doesn't contain the query just because the type or a key point did.
+
+### Usage
+
+`/` on the main view still opens the filter input; the matching rule
+is just stricter now (title substring only).
+
+## v0.20.12 — 2026-04-28
+
+Differentiated the History view's mode-swap pills by border color.
+
+- `HistoryModeBar.renderPill` now keeps the Secondary border only on the
+  active pill; the idle pill drops to a Muted border, matching the
+  dimmed-border convention used elsewhere in the TUI. Previously both
+  pills shared the same Secondary border and only differed by text and
+  background, which made the segmented unit harder to read at a glance.
+
+### Usage
+
+Purely visual; no new keys. ⌃M still toggles between
+`KeyPoints / Body` and `Stages / Response`.
+
 ## v0.20.11 — 2026-04-28
 
 Added a persistent git-branch pill next to the CWD pill in the top bar.

@@ -48,13 +48,15 @@ func (m HistoryModeBar) renderPill(label string, active bool) string {
 	if active {
 		dot = "●"
 	}
-	// Both pills share the secondary brand color on the border so they
-	// read as a segmented unit. Active vs idle is differentiated through
-	// text/background instead of border color.
-	borderColor := m.theme.Secondary
+	// The active pill keeps the secondary brand color on its border so
+	// it reads as the selected segment; the idle pill drops to Muted to
+	// match the dimmed-border convention used elsewhere (scope chip,
+	// section pills) and let the active one win the eye.
+	borderColor := m.theme.Muted
 	textColor := m.theme.Muted
 	dotColor := m.theme.Muted
 	if active {
+		borderColor = m.theme.Secondary
 		textColor = m.theme.Primary
 		dotColor = m.theme.Primary
 	}

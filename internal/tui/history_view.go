@@ -47,6 +47,7 @@ func (h *HistoryView) FocusFilter() tea.Cmd  { return h.filterBar.Focus() }
 func (h *HistoryView) BlurFilter()           { h.filterBar.Blur() }
 func (h *HistoryView) ResetFilter()          { h.filterBar.Reset() }
 func (h *HistoryView) FilterValue() string   { return h.filterBar.Value() }
+func (h *HistoryView) CycleFilterMode()      { h.filterBar.CycleMode() }
 func (h *HistoryView) SetCounts(visible, total int) {
 	h.filterBar.SetCounts(visible, total)
 }
