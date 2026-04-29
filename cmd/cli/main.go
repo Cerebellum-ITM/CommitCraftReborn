@@ -16,7 +16,7 @@ import (
 	"commit_craft_reborn/internal/tui"
 )
 
-var version = "v0.30.2"
+var version = "v0.30.5"
 
 func main() {
 	log := logger.New()

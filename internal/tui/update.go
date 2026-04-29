@@ -526,8 +526,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 
 		if msg.Err != nil {
-			model.err = msg.Err
-			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
+			// Recoverable: the AI call failed (rate-limit, empty Groq
+			// response, transient network) but the rest of the TUI is
+			// fine. Show a terse "stage N failed" hint in the status
+			// bar; the full error goes to the log. We do NOT set
+			// model.err here — that would trigger the fatal error
+			// screen in view.go and make the app feel like it crashed.
+			stage := extractPipelineStage(msg.Err)
+			model.log.Warn("AI commit pipeline failed", "stage", stage, "error", msg.Err)
+			label := "AI pipeline failed"
+			if stage != "" {
+				label = fmt.Sprintf("%s on %s", label, stage)
+			}
+			model.WritingStatusBar.Content = label + " · check logs · ^w to retry"
 			model.WritingStatusBar.Level = statusbar.LevelError
 		} else if model.iaChangelogEntry != "" {
 			model.WritingStatusBar.Content = fmt.Sprintf(
@@ -683,8 +694,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 
 		if msg.Err != nil {
-			model.err = msg.Err
-			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
+			// Same rationale as IaCommitBuilderResultMsg: recoverable AI
+			// failure, the user can re-run the release builder. Don't
+			// promote it to a fatal model.err. Full error goes to logs.
+			model.log.Warn("AI release builder failed", "error", msg.Err)
+			model.WritingStatusBar.Content = "AI release failed · check logs · retry to try again"
 			model.WritingStatusBar.Level = statusbar.LevelError
 		} else {
 			model.WritingStatusBar.Content = "AI release message ready!"
@@ -693,11 +707,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmds...)
 	case releaseBuildResultMsg:
 		if msg.Err != nil {
-			model.log.Debug("release build failed", "output", msg.Output, "err", msg.Err)
+			// Build failures are recoverable from the user's POV: fix
+			// the underlying issue and trigger another release. Keep
+			// the full diagnostic in the log; the status bar only
+			// hints where to look.
+			model.log.Warn("release build failed", "output", msg.Output, "err", msg.Err)
 			model.pendingReleaseUpload = nil
 			cmds = append(cmds, model.WritingStatusBar.StopSpinner())
-			model.err = msg.Err
-			model.WritingStatusBar.Content = "Build failed — see logs"
+			model.WritingStatusBar.Content = "Build failed · check logs"
 			model.WritingStatusBar.Level = statusbar.LevelError
 			return model, tea.Batch(cmds...)
 		}
@@ -864,4 +881,22 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// a "Compose" highlight while looking at the history list.
 	model.topTab = tabForState(model.state)
 	return subModel, tea.Batch(cmds...)
+}
+
+// extractPipelineStage returns the "stage N" prefix that ai_pipeline.go
+// wraps each call error with (e.g. "stage 2 (commit body): …" → "stage
+// 2"). Empty string when the error doesn't carry that shape, which
+// lets the caller fall back to a generic label.
+func extractPipelineStage(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if !strings.HasPrefix(msg, "stage ") {
+		return ""
+	}
+	if idx := strings.Index(msg, " ("); idx > 0 {
+		return msg[:idx]
+	}
+	return ""
 }

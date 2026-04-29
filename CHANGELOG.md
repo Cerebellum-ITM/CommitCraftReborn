@@ -2,6 +2,47 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.30.5 — 2026-04-29
+
+Tighter status bar messaging on AI / build failures: the bar shows a
+generic hint with the stage number; the full error goes to the log.
+
+- New `extractPipelineStage` helper parses the `stage N (…):` prefix
+  added in v0.30.4 and yields just `stage N`.
+- `IaCommitBuilderResultMsg` now renders `AI pipeline failed on stage N
+  · check logs · ^w to retry` (drops to `AI pipeline failed · …` when
+  no stage can be extracted).
+- `IaResleaseBuilderResultMsg` and `releaseBuildResultMsg` show
+  `AI release failed · check logs · …` and `Build failed · check logs`
+  respectively. Detailed errors stay in the log via `model.log.Warn`.
+
+## v0.30.4 — 2026-04-29
+
+Fix: an empty Groq response (200 OK with no `choices`) was promoted to a
+fatal `model.err`, which `view.go` renders as a full-screen error and
+makes the TUI feel like it crashed.
+
+- `internal/api/groq.go` distinguishes the two empty-response shapes
+  ("no choices" vs "empty content") and includes the model name in the
+  error so the status bar message is actionable.
+- `internal/tui/ai_pipeline.go` wraps each pipeline error with
+  `stage 1 (change analyzer):` / `stage 2 (commit body):` /
+  `stage 3 (commit title):` so the failing stage is obvious without
+  parsing the inner string.
+- `internal/tui/update.go` no longer assigns `model.err` from
+  `IaCommitBuilderResultMsg`, `IaResleaseBuilderResultMsg`, or
+  `releaseBuildResultMsg`. The cause is logged + shown in the status
+  bar and the user can re-run the pipeline / build without restarting.
+
+### Usage
+
+When a stage fails (rate-limit, empty Groq response, network blip), the
+TUI now stays alive: the status bar turns red with `AI pipeline failed
+— stage 2 (commit body): groq returned 200 OK but no choices …`, and
+you can press the usual retry shortcut (e.g. `^w` to re-run the full
+pipeline, `2`/`3` to re-run from a specific stage on the pipeline view)
+without losing your draft.
+
 ## v0.30.3 — 2026-04-29
 
 - Updated the pre-commit hook to pipe the output of `goimports-reviser` through a custom handler, enabling styled log messages and respect for the `GUM_LOG_LEVEL` setting.

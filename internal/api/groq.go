@@ -215,7 +215,21 @@ func GetGroqChatCompletion(
 		return responseBody.Choices[0].Message.Content, stats, nil
 	}
 
-	return "", stats, fmt.Errorf("API response did not contain a valid choice")
+	// Groq occasionally returns 200 OK with an empty `choices` array (or a
+	// choice whose message.content is the empty string) — typically on
+	// long prompts or when an upstream filter trips. Surface that
+	// explicitly so the caller can show a "retry the stage" hint instead
+	// of treating it as a hard failure.
+	if len(responseBody.Choices) == 0 {
+		return "", stats, fmt.Errorf(
+			"groq returned 200 OK but no choices (empty response, model=%s)",
+			stats.Model,
+		)
+	}
+	return "", stats, fmt.Errorf(
+		"groq returned 200 OK but choice content was empty (model=%s)",
+		stats.Model,
+	)
 }
 
 // secondsToDuration converts a Groq "seconds as float64" timing field into

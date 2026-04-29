@@ -170,7 +170,7 @@ func iaCallChangeAnalyzer(model *Model) (string, error) {
 		model,
 	)
 	if err != nil {
-		return "", fmt.Errorf("change analyzer call failed: %w", err)
+		return "", fmt.Errorf("stage 1 (change analyzer): %w", err)
 	}
 	recordStageStats(model, stageSummary, stats)
 	model.log.Debug("Change Analyzer output", "result", result)
@@ -188,7 +188,7 @@ func iaCallCommitBodyGenerator(model *Model, summaryParagraphs string) (string, 
 		model,
 	)
 	if err != nil {
-		return "", fmt.Errorf("commit body generator call failed: %w", err)
+		return "", fmt.Errorf("stage 2 (commit body): %w", err)
 	}
 	recordStageStats(model, stageBody, stats)
 	model.log.Debug("Commit Body Generator output", "result", result)
@@ -206,7 +206,7 @@ func iaCallCommitTitleGenerator(model *Model, commitBody string) (string, error)
 		model,
 	)
 	if err != nil {
-		return "", fmt.Errorf("commit title generator call failed: %w", err)
+		return "", fmt.Errorf("stage 3 (commit title): %w", err)
 	}
 	recordStageStats(model, stageTitle, stats)
 	model.log.Debug("Commit Title Generator output", "result", result)
