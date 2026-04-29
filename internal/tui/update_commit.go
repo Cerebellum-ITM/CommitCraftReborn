@@ -194,6 +194,12 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.SwapMode):
 			model.historyView.ToggleMode()
 			return model, nil
+		case key.Matches(msg, model.keys.CycleNext):
+			model.historyView.CycleLeftCursor(+1)
+			return model, nil
+		case key.Matches(msg, model.keys.CyclePrev):
+			model.historyView.CycleLeftCursor(-1)
+			return model, nil
 		case key.Matches(msg, model.keys.Filter):
 			return model, model.historyView.FocusFilter()
 		case key.Matches(msg, model.keys.Quit):

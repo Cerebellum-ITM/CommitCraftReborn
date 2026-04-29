@@ -2,6 +2,50 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.22.2 — 2026-04-29
+
+Themed the keybindings popup hint and codified the rule.
+
+- `keybindings_popup.go` now renders its bottom hint through
+  `theme.AppStyles().Help` (`ShortKey` / `ShortDesc` / `ShortSeparator`),
+  matching `scope_popup.go`. No more flat-muted hint line.
+- `CLAUDE.md` gains a Code Convention entry making this the project rule
+  for all future popups and on-screen key-hint lines.
+
+## v0.22.1 — 2026-04-29
+
+Made the bottom help bar width-aware so it never overflows on narrow
+terminals while keeping the `?` popup hint always visible.
+
+- `renderHelpEntries` now budgets against `model.width` minus the
+  `Padding(0, 2)` chrome. Trailing entries that don't fit are dropped,
+  and the `?` entry (when present) is pulled out of the flow and pinned
+  to the right edge so the popup remains discoverable at every width.
+
+## v0.22.0 — 2026-04-29
+
+Added stage cycling on the workspace inspect panel and a `?` popup to keep
+the bottom hint line uncluttered.
+
+- New `ctrl+]` / `ctrl+[` shortcuts on the History tab cycle the dual
+  panel's left cursor in both inspect modes (key points and stages /
+  response).
+- New `?` popup (`keybindings_popup.go`) lists the full keymap for the
+  current state — currently wired for `stateChoosingCommit`. Closes with
+  `?`, `esc`, or `q`. The global `?` handler keeps the bubbles
+  `help.ShowAll` toggle as a fallback for states without a dedicated
+  popup. Skipped while the History filter input is focused so `?` can
+  still be typed into the filter.
+- Workspace help line gains a `^]/^[` cycle entry (label switches
+  between "cycle keypoint" and "cycle stage" depending on inspect mode),
+  a `^m` swap-mode reminder and a `?` "more" hint.
+
+### Usage
+
+- On the History tab: press `ctrl+]` / `ctrl+[` to walk the inspect
+  panel's left cursor (key point or stage). Press `?` to open the full
+  keybindings popup; close it with `?` or `esc`.
+
 ## v0.21.2 — 2026-04-29
 
 Themed the helper hint inside the scope popup so keys and descriptions

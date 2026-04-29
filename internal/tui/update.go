@@ -143,6 +143,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeStageHistoryMsg:
 		model.popup = nil
 		return model, nil
+	case closeKeybindingsPopupMsg:
+		model.popup = nil
+		return model, nil
 	case stageHistoryApplyMsg:
 		model.popup = nil
 		entry, ok := model.pipeline.applyStageHistoryEntry(msg.stage, msg.index)
@@ -765,6 +768,18 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.GlobalQuit):
 			return model, tea.Quit
 		case key.Matches(msg, model.keys.Help):
+			// Skip when an inline text input is focused so the user can
+			// still type "?" into a filter / textarea without triggering
+			// the popup toggle.
+			if model.state == stateChoosingCommit && model.historyView.IsFilterFocused() {
+				break
+			}
+			if entries, ok := keybindingsForState(model.state); ok {
+				w := max(50, model.width*2/3)
+				h := max(18, model.height*2/3)
+				model.popup = newKeybindingsPopup(w, h, model.Theme, entries)
+				return model, nil
+			}
 			model.help.ShowAll = !model.help.ShowAll
 			return model, func() tea.Msg {
 				return tea.WindowSizeMsg{Width: model.width, Height: model.height}

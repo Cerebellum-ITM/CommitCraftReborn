@@ -47,6 +47,7 @@ Module cache: `~/go/pkg/mod/`
 - All code/comments in English
 - State handlers: `updateXxx(msg, model) (tea.Model, tea.Cmd)`
 - Never hardcode colors — use `model.Theme`
+- Every popup or on-screen key-hint line must render keys/descriptions through `theme.AppStyles().Help` (`ShortKey` for keys, `ShortDesc` for descriptions, `ShortSeparator` for the `·` divider). Never style a hint with a single flat `Foreground(theme.Muted)` call.
 
 ## Versioning
 

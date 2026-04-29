@@ -373,11 +373,30 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 
 // renderStateHelpLine renders the bottom hint bar for a non-compose state.
 func (model *Model) renderStateHelpLine() string {
-	return model.renderHelpEntries(helpEntriesForState(model.state, model.AppMode))
+	entries := helpEntriesForState(model.state, model.AppMode)
+	if model.state == stateChoosingCommit {
+		cycleLabel := "cycle keypoint"
+		if model.historyView.modeBar.Mode() == ModeStagesResponse {
+			cycleLabel = "cycle stage"
+		}
+		// Insert the cycle entry next to the navigation keys and append the
+		// "more" hint as the last item so the trail of essentials stays
+		// readable while the popup remains discoverable.
+		extra := []helpEntry{
+			{"^]/^[", cycleLabel},
+			{"^m", "swap inspect"},
+			{"?", "more"},
+		}
+		entries = append(entries, extra...)
+	}
+	return model.renderHelpEntries(entries)
 }
 
 // renderHelpEntries is the shared formatter: keys in primary, descriptions
-// in muted, dot separators between entries.
+// in muted, dot separators between entries. When the entries don't fit the
+// current terminal width, trailing items are dropped — except the "?" entry
+// (when present), which is pinned to the end so the popup stays
+// discoverable at every width.
 func (model *Model) renderHelpEntries(entries []helpEntry) string {
 	theme := model.Theme
 	base := theme.AppStyles().Base
@@ -385,16 +404,77 @@ func (model *Model) renderHelpEntries(entries []helpEntry) string {
 	descStyle := base.Foreground(theme.Muted)
 	sepStyle := descStyle
 
-	parts := make([]string, 0, len(entries)*3)
+	const sep = "  ·  " // "  " + "·" + "  "
+	sepW := lipgloss.Width(sep)
+
+	entryW := func(e helpEntry) int {
+		return lipgloss.Width(e.key) + 1 + lipgloss.Width(e.desc)
+	}
+
+	// View.go wraps the help line in `Padding(0, 2)` => 4 cells of chrome.
+	avail := model.width - 4
+	if avail < 1 {
+		avail = 1
+	}
+
+	// Pull the pinned "?" entry (if any) out of the flow so we can guarantee
+	// it always renders at the right edge.
+	pinnedIdx := -1
 	for i, e := range entries {
+		if e.key == "?" {
+			pinnedIdx = i
+			break
+		}
+	}
+	var pinned *helpEntry
+	flow := entries
+	if pinnedIdx >= 0 {
+		p := entries[pinnedIdx]
+		pinned = &p
+		flow = append([]helpEntry{}, entries[:pinnedIdx]...)
+		flow = append(flow, entries[pinnedIdx+1:]...)
+	}
+
+	pinnedW := 0
+	if pinned != nil {
+		// Pinned entry plus its leading separator (only paid for when other
+		// entries render before it).
+		pinnedW = entryW(*pinned)
+	}
+
+	visible := make([]helpEntry, 0, len(flow)+1)
+	used := 0
+	for i, e := range flow {
+		w := entryW(e)
+		if i > 0 {
+			w += sepW
+		}
+		// Reserve room for the pinned entry and its leading separator so
+		// we never render a flow entry that would push "?" off-screen.
+		reserved := 0
+		if pinned != nil {
+			reserved = pinnedW + sepW
+		}
+		if used+w+reserved > avail {
+			break
+		}
+		used += w
+		visible = append(visible, e)
+	}
+	if pinned != nil {
+		visible = append(visible, *pinned)
+	}
+
+	parts := make([]string, 0, len(visible)*3)
+	for i, e := range visible {
+		if i > 0 {
+			parts = append(parts, "  ", sepStyle.Render("·"), "  ")
+		}
 		parts = append(parts,
 			keyStyle.Render(e.key),
 			" ",
 			descStyle.Render(e.desc),
 		)
-		if i < len(entries)-1 {
-			parts = append(parts, "  ", sepStyle.Render("·"), "  ")
-		}
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
 }

@@ -38,6 +38,8 @@ type KeyMap struct {
 	ReleaseCommit  key.Binding
 	ToggleDrafts   key.Binding
 	SwapMode       key.Binding
+	CycleNext      key.Binding
+	CyclePrev      key.Binding
 
 	// TextArea
 	insertLine      key.Binding
@@ -159,7 +161,6 @@ func mainListKeys() KeyMap {
 		Delete:       key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "Delete")),
 		Quit:         key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit:   key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
-		Help:         key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		EditIaCommit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "Edit commit")),
 		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
 		ReleaseCommit: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "Create a release")),
@@ -184,6 +185,18 @@ func mainListKeys() KeyMap {
 		SwapMode: key.NewBinding(
 			key.WithKeys("ctrl+m"),
 			key.WithHelp("ctrl+m", "Swap inspect mode"),
+		),
+		CycleNext: key.NewBinding(
+			key.WithKeys("ctrl+]"),
+			key.WithHelp("ctrl+]", "Next stage"),
+		),
+		CyclePrev: key.NewBinding(
+			key.WithKeys("ctrl+["),
+			key.WithHelp("ctrl+[", "Prev stage"),
+		),
+		Help: key.NewBinding(
+			key.WithKeys("?"),
+			key.WithHelp("?", "More keys"),
 		),
 	}
 }
