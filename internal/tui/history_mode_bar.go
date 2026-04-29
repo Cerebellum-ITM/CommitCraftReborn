@@ -18,6 +18,10 @@ const (
 // HistoryModeBar renders the segmented mode switcher:
 //
 //	[●  KeyPoints / Body]  [○  Stages / Response]              ⌃M swap
+//
+// The pills use a rounded border (matching the design); the right-hand hint
+// is vertically centered against the pill row so it lines up with the dots
+// rather than wrapping to a second line at narrow widths.
 type HistoryModeBar struct {
 	theme *styles.Theme
 	mode  HistoryDualMode
@@ -40,23 +44,24 @@ func (m *HistoryModeBar) Toggle() {
 }
 
 func (m HistoryModeBar) renderPill(label string, active bool) string {
-	dot := "○"
+	dot := "o"
 	if active {
-		dot = "●"
+		dot = "*"
 	}
 	borderColor := m.theme.Subtle
 	textColor := m.theme.Muted
 	dotColor := m.theme.Muted
-	bg := lipgloss.Color("")
 	if active {
 		borderColor = m.theme.Primary
 		textColor = m.theme.Primary
 		dotColor = m.theme.Primary
-		bg = lipgloss.Color("")
 	}
 
 	dotStyle := lipgloss.NewStyle().Foreground(dotColor).Bold(true)
 	textStyle := lipgloss.NewStyle().Foreground(textColor)
+	if active {
+		textStyle = textStyle.Bold(true)
+	}
 
 	inner := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -71,7 +76,6 @@ func (m HistoryModeBar) renderPill(label string, active bool) string {
 		Padding(0, 2)
 	if active {
 		pill = pill.Background(m.theme.Surface)
-		_ = bg
 	}
 	return pill.Render(inner)
 }
@@ -79,19 +83,29 @@ func (m HistoryModeBar) renderPill(label string, active bool) string {
 func (m HistoryModeBar) View() string {
 	left := m.renderPill("KeyPoints / Body", m.mode == ModeKeyPointsBody)
 	right := m.renderPill("Stages / Response", m.mode == ModeStagesResponse)
-	hint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("⌃M swap")
-
 	pills := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", right)
+
+	pillsH := lipgloss.Height(pills)
 	pillsW := lipgloss.Width(pills)
-	hintW := lipgloss.Width(hint)
-	pad := m.width - pillsW - hintW
-	if pad < 1 {
-		pad = 1
+
+	// Build the hint as a block that matches the pill height *and* fills
+	// the remaining horizontal space. Without matching heights,
+	// JoinHorizontal silently drops the spacer on rows ≥1 and the hint
+	// slides to column 0 on rows that have no spacer — that is the cause
+	// of "swap" wrapping under the active pill.
+	rawHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("^M swap")
+	rightWidth := m.width - pillsW
+	if rightWidth < 1 {
+		rightWidth = 1
 	}
-	return lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		pills,
-		lipgloss.NewStyle().Width(pad).Render(""),
-		hint,
+	hintBlock := lipgloss.Place(
+		rightWidth,
+		pillsH,
+		lipgloss.Right,
+		lipgloss.Center,
+		rawHint,
 	)
+
+	row := lipgloss.JoinHorizontal(lipgloss.Top, pills, hintBlock)
+	return lipgloss.NewStyle().Width(m.width).MaxWidth(m.width).Render(row)
 }

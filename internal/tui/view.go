@@ -116,8 +116,7 @@ func (model *Model) View() tea.View {
 
 	contentHeight := model.height
 	helpViewH := lipgloss.Height(helpView)
-	availableWidthForMainContent := max(0, model.width-appStyle.GetHorizontalFrameSize()-appStyle.
-		GetHorizontalPadding())
+	availableWidthForMainContent := max(0, model.width-appStyle.GetHorizontalFrameSize())
 	if model.height > 10 {
 		contentHeight = contentHeight - model.height/10*2
 	}
@@ -161,21 +160,21 @@ func (model *Model) View() tea.View {
 		)
 		mainContent = centeredBox
 	case stateChoosingCommit:
-		listW, listH := model.historyView.MasterListSize(
-			availableWidthForMainContent,
-			availableHeightForMainContent,
-		)
+		// Mirror the statePipeline pattern: the shared
+		// availableWidth/Height calc shaves 20 % of the height and leaves
+		// a horizontal margin for an appStyle that is never applied to
+		// mainView. Use the real remaining surface so the History frame
+		// reaches both edges of the terminal.
+		histW := model.width
+		histH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
+		listW, listH := model.historyView.MasterListSize(histW, histH)
 		model.mainList.SetSize(listW, listH)
 		model.historyView.SetCounts(
 			len(model.mainList.VisibleItems()),
 			len(model.mainList.Items()),
 		)
 		masterListView := model.mainList.View()
-		mainContent = model.historyView.View(
-			masterListView,
-			availableWidthForMainContent,
-			availableHeightForMainContent,
-		)
+		mainContent = model.historyView.View(masterListView, histW, histH)
 	case stateReleaseMainMenu:
 		model.releaseMainList.SetSize(availableWidthForMainContent/2, availableHeightForMainContent)
 		mainContent = model.releaseMainList.View()

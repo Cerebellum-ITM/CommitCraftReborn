@@ -2,6 +2,40 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.20.1 — 2026-04-28
+
+Render fixes for the History layout introduced in v0.20.0. The four-zone
+view now draws as a single continuous rounded frame that spans the full
+terminal width without overflowing vertically, and the FilterBar /
+ModeBar no longer wrap their content.
+
+- Fixed a lipgloss `Style.Width` footgun in `history_view.go`: passing
+  the inner content width to the outer bordered frame caused lipgloss to
+  word-wrap every row at `width − borderSize`, which split the FilterBar
+  counter, doubled each `─` divider, pushed `^M swap` onto a second line,
+  and made the whole stack ~2× taller than the terminal. The frame now
+  receives the total width and an explicit `Height` so the rendered
+  region matches the assigned surface exactly.
+- `view.go` `stateChoosingCommit` now uses `model.width` and a manual
+  height calc (mirroring `statePipeline`) instead of
+  `availableWidthForMainContent` / `availableHeightForMainContent`,
+  reclaiming the horizontal margin and the 20 % vertical shave that the
+  shared calc applied for an `appStyle` that was never rendered.
+- Replaced ambiguous-width Unicode glyphs in the History chrome with
+  ASCII so the layout no longer drifts on terminals that render
+  East-Asian-width variants of `›`, `·`, `…`, `⌃`, `●`, `○` as 2 cells.
+  The dense MasterList delegate keeps its colored type chip; only the
+  decorative markers changed.
+- Hardened the FilterBar composition: the input view is hard-truncated
+  with `ansi.Truncate` and the row is force-padded to exactly `f.width`
+  cells so a tiny width-counting drift can never wrap the counter again.
+
+### Usage
+
+No new keybindings or config knobs. The History view (`stateChoosingCommit`)
+should render correctly across normal terminal widths (≥ 80 cols) and
+fill the full terminal height.
+
 ## v0.20.0 — 2026-04-28
 
 Redesigned the History list (`stateChoosingCommit`) into a four-zone layout

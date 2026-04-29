@@ -475,6 +475,9 @@ func NewModel(
 	applyPipelineFilesDelegate(m)
 	setDiffFromSelectedFile(m)
 	m.refreshChangelogState()
+	m.historyView.SetBodyRenderer(func(text string, width int) string {
+		return m.renderCommitMessage(text, width)
+	})
 	return m, nil
 }
 

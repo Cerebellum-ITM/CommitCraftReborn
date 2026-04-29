@@ -80,12 +80,6 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	}
 	idRendered := idStyle.Render(idStr)
 
-	// Inline [TYPE] tag in the message preview uses the dimmer msg palette.
-	inlineTagStyle := lipgloss.NewStyle().
-		Background(palette.BgMsg).
-		Foreground(palette.FgMsg).
-		Padding(0, 1)
-
 	scopeStyle := lipgloss.NewStyle().Foreground(d.Theme.Secondary)
 	colonStyle := lipgloss.NewStyle().Foreground(d.Theme.Muted)
 	titleStyle := lipgloss.NewStyle().Foreground(d.Theme.FG)
@@ -127,18 +121,17 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		msgWidth = 8
 	}
 
-	inlineTag := inlineTagStyle.Render(typeTag)
-	inlineTagWidth := lipgloss.Width(inlineTag) + 1
-
-	// Build "scope: title" suffix, truncated to fit.
-	var msgSuffix string
+	// Build "scope: title" suffix, truncated to fit. The type chip on the
+	// left is the only place the tag is rendered to avoid duplicating the
+	// information on every row.
 	scopePart := strings.TrimSpace(commit.Scope)
 	titlePart := commit.MessageEN
-	available := msgWidth - inlineTagWidth
+	available := msgWidth
 	if available < 4 {
 		available = 4
 	}
 
+	var msgBlock string
 	if scopePart != "" {
 		head := scopeStyle.Render(scopePart) + colonStyle.Render(": ")
 		headPlain := scopePart + ": "
@@ -146,12 +139,10 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		if titleAvail < 1 {
 			titleAvail = 1
 		}
-		msgSuffix = head + titleStyle.Render(TruncateString(titlePart, titleAvail))
+		msgBlock = head + titleStyle.Render(TruncateString(titlePart, titleAvail))
 	} else {
-		msgSuffix = titleStyle.Render(TruncateString(titlePart, available))
+		msgBlock = titleStyle.Render(TruncateString(titlePart, available))
 	}
-
-	msgBlock := lipgloss.JoinHorizontal(lipgloss.Top, inlineTag, " ", msgSuffix)
 
 	// Pad the middle area so the date is right-aligned.
 	currentRowWidth := leftWidth + 1 + lipgloss.Width(msgBlock)

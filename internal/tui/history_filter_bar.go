@@ -2,16 +2,18 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"commit_craft_reborn/internal/tui/styles"
 )
 
-// HistoryFilterBar wraps a textinput so the History view can render a
-// dedicated filter row with the layout
+// HistoryFilterBar wraps a textinput so the History view can render a single
+// content row inside the surrounding frame:
 //
 //	› filter [_____________]                         5 / 8
 //
@@ -30,7 +32,7 @@ type HistoryFilterBar struct {
 func NewHistoryFilterBar(theme *styles.Theme) HistoryFilterBar {
 	ti := textinput.New()
 	ti.Prompt = ""
-	ti.Placeholder = "message · id · type · scope…"
+	ti.Placeholder = "message - id - type - scope..."
 	ti.SetVirtualCursor(true)
 	return HistoryFilterBar{
 		input: ti,
@@ -69,46 +71,53 @@ func (f HistoryFilterBar) Update(msg tea.Msg) (HistoryFilterBar, tea.Cmd) {
 	return f, cmd
 }
 
+// View renders a single content row of width exactly f.width. The
+// surrounding HistoryView owns the outer frame. The composition is built
+// manually (instead of via Style.Width / lipgloss.Place) so we can hard-cap
+// the input view's width with ansi.Truncate when the placeholder/cursor
+// renders wider than the budget — `lipgloss.Place` is a no-op once
+// content already exceeds the requested width, which is exactly the
+// failure mode that pushes "214" onto a second line.
 func (f HistoryFilterBar) View() string {
-	borderColor := f.theme.Subtle
 	prefixColor := f.theme.Muted
 	if f.focused {
-		borderColor = f.theme.Primary
 		prefixColor = f.theme.Primary
 	}
 
-	prefix := lipgloss.NewStyle().Foreground(prefixColor).Render("› filter ")
+	prefix := lipgloss.NewStyle().Foreground(prefixColor).Render("> filter ")
 	counterText := fmt.Sprintf("%d / %d", f.visible, f.total)
 	counter := lipgloss.NewStyle().Foreground(f.theme.Muted).Render(counterText)
 
-	border := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1)
+	prefixW := lipgloss.Width(prefix)
+	counterW := lipgloss.Width(counter)
 
-	// Inner width = total width - border frame - padding - prefix - counter -
-	// a single-space gap on each side of the input.
-	innerWidth := f.width - border.GetHorizontalFrameSize() - border.GetHorizontalPadding() -
-		lipgloss.Width(prefix) - lipgloss.Width(counter) - 2
-	if innerWidth < 8 {
-		innerWidth = 8
+	// Reserve 4 extra cells of slack so width-counting drift on glyphs
+	// like `›`, `·` or `…` (which some terminals render at 2 cells while
+	// ansi.StringWidth counts as 1) never pushes the final row over
+	// f.width. The trailing hard-cap below catches anything that still
+	// slips through.
+	inputBudget := f.width - prefixW - counterW - 4
+	if inputBudget < 8 {
+		inputBudget = 8
 	}
-	f.input.SetWidth(innerWidth)
+	f.input.SetWidth(inputBudget)
+	inputView := ansi.Truncate(f.input.View(), inputBudget, "")
+	inputW := lipgloss.Width(inputView)
 
-	// Right-align the counter by padding between the input and the counter.
-	inputView := f.input.View()
-	gap := f.width - border.GetHorizontalFrameSize() - border.GetHorizontalPadding() -
-		lipgloss.Width(prefix) - lipgloss.Width(inputView) - lipgloss.Width(counter)
+	gap := f.width - prefixW - inputW - counterW
 	if gap < 1 {
 		gap = 1
 	}
+	row := prefix + inputView + strings.Repeat(" ", gap) + counter
 
-	row := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		prefix,
-		inputView,
-		lipgloss.NewStyle().Width(gap).Render(""),
-		counter,
-	)
-	return border.Width(f.width - border.GetHorizontalFrameSize()).Render(row)
+	// Hard-cap to exactly f.width visible cells. Belt-and-suspenders: if
+	// any width measurement above was off, this guarantees the row never
+	// pushes content past the outer frame's right border.
+	rowW := lipgloss.Width(row)
+	if rowW > f.width {
+		row = ansi.Truncate(row, f.width, "")
+	} else if rowW < f.width {
+		row = row + strings.Repeat(" ", f.width-rowW)
+	}
+	return row
 }

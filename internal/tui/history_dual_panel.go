@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -21,32 +20,31 @@ type historyStage struct {
 	model  string
 }
 
-// HistoryDualPanel renders the inspection split below the master list.
-//
-//	┌─ key points ──── 3 ─┬─ commit body ──── preview ─────────┐
-//	│ › se modifico la… │ Reorganizes the documentation       │
-//	│   se reordenaron… │ structure inside docs/ so that the  │
-//	│                   │ most frequently referenced sections │
-//	└───────────────────┴─────────────────────────────────────┘
-//
-// In Stages mode the left list is replaced by the 3 persisted IA stages
-// (summary, body, title) and the right viewport shows the corresponding
-// raw output. Cursor state lives here, not on the parent.
+// DualPanelRenderFunc styles a body string with the project's commit
+// renderer (renderCommitMessage) so the right viewport matches the look of
+// the live compose preview without going through glamour. The parent injects
+// it from `*Model.renderCommitMessage` so the panel stays decoupled from the
+// model.
+type DualPanelRenderFunc func(text string, width int) string
+
+// HistoryDualPanel renders the inspection split below the master list. It is
+// designed to live inside the surrounding HistoryView frame, so it does NOT
+// draw its own outer border — only the vertical divider between the two
+// columns and a single header row per side.
 type HistoryDualPanel struct {
-	theme *styles.Theme
-	mode  HistoryDualMode
+	theme  *styles.Theme
+	mode   HistoryDualMode
+	render DualPanelRenderFunc
 
 	width, height int
 
 	commit    storage.Commit
 	hasCommit bool
 
-	// Mode A — KeyPoints / Body
 	keypoints     []string
 	keypointIndex int
 	bodyVP        viewport.Model
 
-	// Mode B — Stages / Response
 	stages     []historyStage
 	stageIndex int
 	stageVP    viewport.Model
@@ -60,16 +58,17 @@ func NewHistoryDualPanel(theme *styles.Theme) HistoryDualPanel {
 	}
 }
 
-func (p *HistoryDualPanel) SetMode(mode HistoryDualMode) { p.mode = mode }
+func (p *HistoryDualPanel) SetMode(mode HistoryDualMode)      { p.mode = mode }
+func (p *HistoryDualPanel) SetRenderer(r DualPanelRenderFunc) { p.render = r }
 
 func (p *HistoryDualPanel) SetSize(width, height int) {
 	p.width = width
 	p.height = height
-	innerH := height - 2 - 1 // outer border + header row
+	innerH := height - 1 // header row
 	if innerH < 1 {
 		innerH = 1
 	}
-	rightW := width - dualPanelLeftWidth - 3 // left col + vertical divider + frame
+	rightW := width - dualPanelLeftWidth - 1 // divider
 	if rightW < 10 {
 		rightW = 10
 	}
@@ -80,8 +79,7 @@ func (p *HistoryDualPanel) SetSize(width, height int) {
 	p.refreshContent()
 }
 
-// SetCommit re-hydrates both modes against a new commit. Called by the
-// parent whenever the master-list selection changes.
+// SetCommit re-hydrates both modes against a new commit.
 func (p *HistoryDualPanel) SetCommit(c storage.Commit) {
 	p.commit = c
 	p.hasCommit = true
@@ -100,7 +98,6 @@ func (p *HistoryDualPanel) SetCommit(c storage.Commit) {
 	p.refreshContent()
 }
 
-// Clear empties the panel — used when the master list has no items.
 func (p *HistoryDualPanel) Clear() {
 	p.commit = storage.Commit{}
 	p.hasCommit = false
@@ -112,26 +109,26 @@ func (p *HistoryDualPanel) Clear() {
 	p.stageVP.SetContent("")
 }
 
+func (p *HistoryDualPanel) renderText(text string, width int) string {
+	if p.render != nil {
+		return p.render(text, width)
+	}
+	return lipgloss.NewStyle().Width(width).Render(text)
+}
+
 func (p *HistoryDualPanel) refreshContent() {
 	if !p.hasCommit {
 		return
 	}
-	// Body wraps to viewport width.
-	wrap := lipgloss.NewStyle().Width(p.bodyVP.Width()).Render(p.commit.IaCommitRaw)
-	p.bodyVP.SetContent(wrap)
+	p.bodyVP.SetContent(p.renderText(p.commit.IaCommitRaw, p.bodyVP.Width()))
 	p.bodyVP.GotoTop()
 
 	if p.stageIndex >= 0 && p.stageIndex < len(p.stages) {
-		stageWrap := lipgloss.NewStyle().
-			Width(p.stageVP.Width()).
-			Render(p.stages[p.stageIndex].output)
-		p.stageVP.SetContent(stageWrap)
+		p.stageVP.SetContent(p.renderText(p.stages[p.stageIndex].output, p.stageVP.Width()))
 	}
 	p.stageVP.GotoTop()
 }
 
-// Update consumes navigation keys when the master list is not focused on
-// the FilterBar. The parent decides which keys reach the panel.
 func (p HistoryDualPanel) Update(msg tea.Msg) (HistoryDualPanel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -155,9 +152,6 @@ func (p HistoryDualPanel) Update(msg tea.Msg) (HistoryDualPanel, tea.Cmd) {
 	return p, nil
 }
 
-// CycleLeftCursor moves the cursor in the active left list (keypoints or
-// stages) by delta. Triggered by Shift+↑/↓ from the parent so the master
-// list keeps the bare arrow keys.
 func (p *HistoryDualPanel) CycleLeftCursor(delta int) {
 	if p.mode == ModeKeyPointsBody {
 		if len(p.keypoints) == 0 {
@@ -171,10 +165,7 @@ func (p *HistoryDualPanel) CycleLeftCursor(delta int) {
 	}
 	p.stageIndex = clampInt(p.stageIndex+delta, 0, len(p.stages)-1)
 	if p.stageIndex >= 0 && p.stageIndex < len(p.stages) {
-		stageWrap := lipgloss.NewStyle().
-			Width(p.stageVP.Width()).
-			Render(p.stages[p.stageIndex].output)
-		p.stageVP.SetContent(stageWrap)
+		p.stageVP.SetContent(p.renderText(p.stages[p.stageIndex].output, p.stageVP.Width()))
 		p.stageVP.GotoTop()
 	}
 }
@@ -194,31 +185,21 @@ func (p HistoryDualPanel) View() string {
 		return ""
 	}
 
-	border := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(p.theme.Subtle)
-
-	innerW := p.width - border.GetHorizontalFrameSize()
-	innerH := p.height - border.GetVerticalFrameSize()
-	if innerW < 20 || innerH < 3 {
-		return border.Width(innerW).Height(innerH).Render("")
-	}
-
 	leftW := dualPanelLeftWidth
-	if leftW > innerW/2 {
-		leftW = innerW / 2
+	if leftW > p.width/2 {
+		leftW = p.width / 2
 	}
-	rightW := innerW - leftW - 1 // -1 for vertical divider
+	rightW := p.width - leftW - 1
 
 	var leftHeader, leftBody, rightHeader, rightBody string
 	if p.mode == ModeKeyPointsBody {
 		leftHeader = p.renderHeader("key points", fmt.Sprintf("%d", len(p.keypoints)), leftW)
-		leftBody = p.renderKeyPointsBody(leftW, innerH-1)
+		leftBody = p.renderKeyPointsBody(leftW, p.height-1)
 		rightHeader = p.renderHeader("commit body", "preview", rightW)
 		rightBody = p.bodyVP.View()
 	} else {
 		leftHeader = p.renderHeader("ai stages", fmt.Sprintf("%d", len(p.stages)), leftW)
-		leftBody = p.renderStagesBody(leftW, innerH-1)
+		leftBody = p.renderStagesBody(leftW, p.height-1)
 		stageName := ""
 		if p.stageIndex >= 0 && p.stageIndex < len(p.stages) {
 			stageName = fmt.Sprintf("%d.%s", p.stages[p.stageIndex].idx, p.stages[p.stageIndex].name)
@@ -230,15 +211,26 @@ func (p HistoryDualPanel) View() string {
 	leftCol := lipgloss.JoinVertical(lipgloss.Left, leftHeader, leftBody)
 	rightCol := lipgloss.JoinVertical(lipgloss.Left, rightHeader, rightBody)
 
-	leftStyled := lipgloss.NewStyle().Width(leftW).Height(innerH).Render(leftCol)
-	rightStyled := lipgloss.NewStyle().Width(rightW).Height(innerH).Render(rightCol)
+	// Force every column to exactly (W × p.height). Place pads with
+	// spaces both horizontally and vertically so JoinHorizontal can stitch
+	// them with the divider without any height/width drift.
+	leftStyled := lipgloss.Place(leftW, p.height, lipgloss.Left, lipgloss.Top, leftCol)
+	rightStyled := lipgloss.Place(rightW, p.height, lipgloss.Left, lipgloss.Top, rightCol)
 
-	divider := lipgloss.NewStyle().
-		Foreground(p.theme.Subtle).
-		Render(strings.Repeat("│\n", innerH))
+	// Build the vertical divider as a column of explicit │ rows joined
+	// vertically. JoinHorizontal needs a per-row source to draw a
+	// continuous separator; "│\n" repeated in a single string drifts when
+	// joined with multi-line columns.
+	bars := make([]string, p.height)
+	barStyle := lipgloss.NewStyle().Foreground(p.theme.Subtle)
+	for i := range bars {
+		bars[i] = barStyle.Render("│")
+	}
+	dividerCol := lipgloss.JoinVertical(lipgloss.Left, bars...)
+	divider := lipgloss.Place(1, p.height, lipgloss.Left, lipgloss.Top, dividerCol)
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftStyled, divider, rightStyled)
-	return border.Width(innerW).Height(innerH).Render(row)
+	return lipgloss.Place(p.width, p.height, lipgloss.Left, lipgloss.Top, row)
 }
 
 func (p HistoryDualPanel) renderHeader(label, suffix string, width int) string {
@@ -274,7 +266,7 @@ func (p HistoryDualPanel) renderKeyPointsBody(width, height int) string {
 		marker := "  "
 		style := lipgloss.NewStyle().Foreground(p.theme.Muted)
 		if i == p.keypointIndex {
-			marker = "› "
+			marker = "> "
 			style = lipgloss.NewStyle().Foreground(p.theme.FG).Bold(true)
 		}
 		text := TruncateString(kp, width-3)
@@ -292,13 +284,11 @@ func (p HistoryDualPanel) renderStagesBody(width, height int) string {
 	}
 	var lines []string
 	for i, s := range p.stages {
-		idxStyle := lipgloss.NewStyle().Foreground(p.theme.Muted)
 		nameStyle := lipgloss.NewStyle().Foreground(p.theme.Muted)
 		if i == p.stageIndex {
 			nameStyle = lipgloss.NewStyle().Foreground(p.theme.FG).Bold(true)
 		}
 		head := fmt.Sprintf("[%d]  %s", s.idx, nameStyle.Render(s.name))
-		_ = idxStyle
 		lines = append(lines, lipgloss.NewStyle().PaddingLeft(1).Render(head))
 		if s.model != "" {
 			modelStyle := lipgloss.NewStyle().Foreground(p.theme.Primary)
