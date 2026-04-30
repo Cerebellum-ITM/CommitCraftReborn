@@ -103,6 +103,18 @@ type Symbols struct {
 	// the working directory and is overriding the global config. Falls
 	// back to "cfg" without nerd fonts.
 	LocalConfig string
+	// ReuseMessage is the "replay" glyph (nf-md-replay, U+F0459) used
+	// in the post-commit menu for the option that reuses the saved AI
+	// message of the selected CLI commit to reword a git hash (no new
+	// pipeline run, no new DB row). Falls back to "↻" without nerd
+	// fonts.
+	ReuseMessage string
+	// NewDbRecord is the "database plus" glyph (nf-md-database_plus,
+	// U+F01BA) used in the post-commit menu for the option that runs
+	// the AI pipeline from scratch and creates a fresh row in the CLI
+	// DB before applying the reword. Falls back to "db+" without nerd
+	// fonts.
+	NewDbRecord string
 }
 
 type Styles struct {

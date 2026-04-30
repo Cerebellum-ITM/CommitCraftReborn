@@ -572,8 +572,8 @@ func openRewordChooserCmd(model *Model) tea.Cmd {
 }
 
 const (
-	rewordChooseAsCommit  = "Reword as commit"
-	rewordChooseAsRelease = "Reword as release"
+	rewordChooseAsCommit  = "Reword this commit"
+	rewordChooseAsRelease = "Open release mode"
 )
 
 // waitForLogLineCmd reads the next line from the logs subscription channel and

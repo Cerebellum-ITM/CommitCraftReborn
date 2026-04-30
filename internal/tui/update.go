@@ -444,25 +444,25 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "Output message":
 			model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
 			return quitWithAutodraft(model)
-		case "Reword commit":
+		case "Reword with this message":
 			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
 			model.releaseCommitList.Select(0)
 			model.state = stateRewordSelectCommit
 			model.focusedElement = focusListElement
 			model.keys = rewordSelectKeys()
-			model.WritingStatusBar.Content = "Select a commit to reword"
+			model.WritingStatusBar.Content = "Select the git commit to reword (using the saved message)"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
 				model.commitLivePreview = item.Preview
 			}
 			return model, nil
-		case "Commit and reword":
+		case "Reword with new AI run":
 			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
 			model.releaseCommitList.Select(0)
 			model.state = stateRewordSelectCommit
 			model.focusedElement = focusListElement
 			model.keys = rewordSelectKeys()
-			model.WritingStatusBar.Content = "Select the git commit to reword with a new AI message"
+			model.WritingStatusBar.Content = "Select the git commit to reword (will run the AI pipeline)"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 			model.commitAndReword = true
 			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {

@@ -2,6 +2,38 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.34.2 — 2026-04-29
+
+Clearer labels and dedicated icons for the reword menus, so the
+user-facing strings reflect the actual semantics (which message goes
+into git, and whether a new CLI DB row is produced).
+
+- Post-commit menu (`update_commit.go:318`):
+  - `"Reword commit"` → `"Reword with this message"` (replay icon
+    `nf-md-replay`, U+F0459).
+  - `"Commit and reword"` → `"Reword with new AI run"` (database-plus
+    icon `nf-md-database_plus`, U+F01BA, signaling that a new row is
+    created in the CLI DB).
+- `-w <hash>` popup (`model.go:575`):
+  - `"Reword as commit"` → `"Reword this commit"`.
+  - `"Reword as release"` → `"Open release mode"` (it discards the
+    hash and switches to release mode; the old label suggested it was
+    a reword variant).
+- New `Theme.Symbols.ReuseMessage` and `Theme.Symbols.NewDbRecord`
+  fields with nerd-font glyphs and ASCII fallbacks (`↻`, `db+`).
+- Status-bar messages on commit-pick screens reworded to mirror the
+  new menu labels.
+
+### Usage
+
+The reword entry points are unchanged, only their labels and icons.
+From the post-commit menu: pick `Reword with this message` to apply
+the saved AI output to a git hash without re-running the pipeline, or
+`Reword with new AI run` to produce a fresh CLI DB row from the
+commit's diff and then reword. From the `-w` popup: `Reword this
+commit` enters the standard reword flow; `Open release mode` is the
+escape hatch into release mode.
+
 ## v0.34.1 — 2026-04-29
 
 Reword flow polish: both reword paths now land on the Compose panel and

@@ -17,11 +17,13 @@ func NerdFontSymbols() *Symbols {
 		ClipboardEnable:  "󱄗",
 		ClipboardMissing: "󱘛",
 		KeyPoint:         ">",
-		GitCommit:        "", // nf-cod-git_commit
-		Tag:              "", // nf-fa-bandage
-		Git:              "", // nf-dev-git (U+E702)
-		Reword:           "", // nf-cod-git_pull_request_create (U+EBBC)
-		LocalConfig:      "", // nf-seti-config (U+E615)
+		GitCommit:        "",          // nf-cod-git_commit
+		Tag:              "",          // nf-fa-bandage
+		Git:              "",          // nf-dev-git (U+E702)
+		Reword:           "",          // nf-cod-git_pull_request_create (U+EBBC)
+		LocalConfig:      "",          // nf-seti-config (U+E615)
+		ReuseMessage:     "\U000F0459", // nf-md-replay
+		NewDbRecord:      "\U000F01BA", // nf-md-database_plus
 	}
 }
 
@@ -42,6 +44,8 @@ func DefaultSymbols() *Symbols {
 		Git:              "git",
 		Reword:           "rw",
 		LocalConfig:      "cfg",
+		ReuseMessage:     "↻",
+		NewDbRecord:      "db+",
 	}
 }
 
