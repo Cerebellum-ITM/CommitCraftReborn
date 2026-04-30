@@ -2,6 +2,27 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.40.1 — 2026-04-30
+
+Headless `ai promote` now writes and stages `CHANGELOG.md` when the
+draft carries a stage-4 entry and `[changelog].enabled = true`,
+mirroring the TUI's write-on-accept timing. Previously only the TUI
+ran `changelog.Prepend` + `git add`, so headless callers got a
+`final_message` advertising a CHANGELOG update that never happened
+on disk. The path is re-detected from `c.Workspace` + config at
+promote time (no schema change). I/O failures surface as typed JSON
+errors (`changelog_target_missing`, `changelog_write_error`,
+`changelog_stage_error`) after the row is already `completed`, so
+re-running `ai promote --id N` is idempotent and retries the
+write+stage. Closes #2.
+
+### Usage
+
+`commitcraft ai promote --id <N>` writes+stages the changelog by
+default when applicable. Pass `--no-changelog-write` to keep the
+old behavior (text emitted in `final_message`, file untouched) — useful
+when the caller wants to manage the CHANGELOG itself.
+
 ## v0.40.0 — 2026-04-30
 
 Headless `ai generate` / `ai regenerate` / `ai show` / `ai promote`

@@ -5,6 +5,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+
+	"commit_craft_reborn/internal/changelog"
+	"commit_craft_reborn/internal/git"
 )
 
 // runPromote flips a draft to status='completed' via FinalizeCommit.
@@ -15,6 +18,11 @@ import (
 func runPromote(args []string) int {
 	fs := flagSet("ai promote")
 	id := fs.Int("id", 0, "Draft ID to promote to completed (required)")
+	noChangelogWrite := fs.Bool(
+		"no-changelog-write",
+		false,
+		"Skip writing/staging CHANGELOG.md even when the draft has a changelog entry",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -57,6 +65,32 @@ func runPromote(args []string) int {
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
+
+	// Mirror the TUI's write-on-accept timing: the entry text was produced
+	// by stage 4 and stored on the draft, but the file is only updated when
+	// the draft is promoted. Re-detect the path here (workspace + config)
+	// instead of persisting it — same logic the TUI uses, idempotent on
+	// re-promote, and avoids a schema migration.
+	if bs.cfg.Changelog.Enabled && c.IaChangelog != "" && !*noChangelogWrite {
+		info, derr := changelog.Detect(c.Workspace, bs.cfg.Changelog.Path)
+		if derr != nil || info == nil || info.Path == "" {
+			msg := "changelog target not found"
+			if derr != nil {
+				msg = derr.Error()
+			}
+			printErrorJSON("changelog_target_missing", msg)
+			return 1
+		}
+		if err := changelog.Prepend(info.Path, c.IaChangelog); err != nil {
+			printErrorJSON("changelog_write_error", err.Error())
+			return 1
+		}
+		if err := git.StageFile(info.Path); err != nil {
+			printErrorJSON("changelog_stage_error", err.Error())
+			return 1
+		}
+	}
+
 	saved, err := bs.db.GetCommitByID(c.ID)
 	if err != nil {
 		saved = c
