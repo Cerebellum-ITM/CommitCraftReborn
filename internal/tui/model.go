@@ -15,7 +15,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/commit"
-	"commit_craft_reborn/internal/config"
+	configpkg "commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
 	"commit_craft_reborn/internal/storage"
@@ -224,8 +224,20 @@ type Model struct {
 	// commit's Diff_code so the Pipeline tab can render the changed-files
 	// list and per-file diff without going to `git diff --staged`. Empty
 	// when editing a fresh (non-DB) commit.
-	dbFileDiffs     map[string]string
-	FinalMessage    string
+	dbFileDiffs  map[string]string
+	FinalMessage string
+	// AutodraftedID is the row id of the draft the autodraft-on-quit hook
+	// just persisted (0 when nothing was saved). Surfaced to main.go so it
+	// can print a confirmation line after the TUI tears down.
+	AutodraftedID int
+	// AutodraftedTab is the human-readable tab label ("Compose" / "Pipeline")
+	// the user was on when the autodraft fired. Empty when no autodraft ran.
+	AutodraftedTab string
+	// hasLocalConfig caches whether a .commitcraft.toml file existed in
+	// pwd at startup. Drives the persistent local-config pill in the
+	// status bar; we don't re-stat on every render because the file
+	// rarely materializes mid-session.
+	hasLocalConfig  bool
 	RewordHash      string
 	OutputDirect    bool
 	commitAndReword bool
@@ -251,7 +263,7 @@ type Model struct {
 	popup                tea.Model
 	mentionStart         int
 	width, height        int
-	globalConfig         config.Config
+	globalConfig         configpkg.Config
 	Version              string
 	themeName            string
 	// currentBranch is the git branch the TUI was launched from. Cached
@@ -264,7 +276,7 @@ type Model struct {
 func NewModel(
 	log *logger.Logger,
 	database *storage.DB,
-	config config.Config,
+	config configpkg.Config,
 	finalCommitTypes []commit.CommitType,
 	pwd string,
 	appMode appMode,
@@ -480,6 +492,7 @@ func NewModel(
 		topTab:                  tabForState(initalState),
 		lastStatePerTab:         map[TabID]appState{},
 		themeName:               themeName,
+		hasLocalConfig:          configpkg.HasLocalConfig(pwd),
 	}
 	if len(finalCommitTypes) > 0 {
 		m.commitType = finalCommitTypes[0].Tag
@@ -492,6 +505,8 @@ func NewModel(
 	applyPipelineFilesDelegate(m)
 	setDiffFromSelectedFile(m)
 	m.refreshChangelogState()
+	m.syncRewordIndicator()
+	m.syncLocalConfigIndicator()
 	m.historyView.SetBodyRenderer(func(text string, width int) string {
 		return m.renderCommitMessage(text, width)
 	})

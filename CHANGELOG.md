@@ -2,6 +2,64 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.34.0 — 2026-04-29
+
+Two new persistent pills on the right side of the main status bar that
+mirror the existing CHANGELOG / scope-stale pattern:
+
+- **Reword mode** — purple pill (`#3f2d5c` / `#dccaf0`) with the
+  `nf-cod-git_pull_request_create` glyph (U+EBBC). Visible whenever the
+  TUI is targeting an existing commit hash (`-w` flag on launch or a
+  reword pick from the popup). Disappears as soon as the reword flow
+  finishes or the user switches to release mode.
+- **Local config detected** — slate-teal pill (`#1f3a44` / `#bcd9e3`)
+  with the `nf-seti-config` glyph (U+E615). Visible whenever a
+  `.commitcraft.toml` file exists in the working directory and is
+  overriding the global config. Detected once at startup.
+
+Both icons are sourced from the active theme (`Symbols.Reword`,
+`Symbols.LocalConfig`), so the nerd-font / no-nerd-font branch is the
+same one the rest of the UI uses. ASCII fallbacks are `rw` and `cfg`.
+
+### Usage
+
+No new keys. Launch with `-w <hash>` (or pick "Reword" from the popup)
+to see the reword pill. Drop a `.commitcraft.toml` in the workspace
+root before launching to see the local-config pill.
+
+## v0.33.0 — 2026-04-29
+
+Autodraft on quit. Quitting the TUI from the COMPOSE or PIPELINE tab now
+persists the in-memory buffer as a draft before exiting, so the next
+launch can resume the work-in-progress instead of losing it.
+
+- New helper `autodraftIfNeeded` runs on every graceful quit path
+  (`Ctrl+X` global, popup `q`, error-path exits, reword/output flows).
+  Filters by `tabForState`: only fires when the user is in COMPOSE or
+  PIPELINE.
+- Idempotent against manual `Ctrl+D` saves: `SaveDraft` upserts by ID,
+  and the UPDATE branch leaves `status` untouched, so finalized commits
+  are never silently downgraded to drafts.
+- Skips empty buffers — no junk drafts when the user quits without
+  having typed anything.
+- DB errors are logged and swallowed so a SQLite failure can never
+  block the user from exiting the TUI.
+- Popup models that previously returned `tea.Quit` now emit a
+  `programQuitMsg` intercepted at the top of `Update`, routing through
+  the same autodraft hook.
+- Limitations: only graceful quits are intercepted. `SIGKILL`, terminal
+  close, or `kill -9` still drop the in-memory state.
+- After the TUI tears down, a charm-log INFO line is printed to stderr
+  with a git glyph prefix and the saved draft id, e.g.
+  `INFO  3:14PM  Exit in Compose — draft saved draft_id=42`.
+
+### Usage
+
+No new keys. Just press `Ctrl+X` (or any other quit path) while in
+COMPOSE / PIPELINE — on next launch the draft will be listed in the
+History tab with the buffers you had open. Look at stderr after the
+process exits for the confirmation line.
+
 ## v0.32.2 — 2026-04-29
 
 - Fixed formatter output corruption caused by concurrent `gum` invocations in the pre-commit hook.

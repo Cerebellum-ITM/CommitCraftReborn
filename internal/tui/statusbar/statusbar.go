@@ -37,6 +37,25 @@ type ScopeStaleIndicator struct {
 	UseNerdFonts bool
 }
 
+// RewordIndicator drives the persistent pill that signals the TUI is
+// running in reword mode (`-w <hash>`). Visible only while a target
+// commit hash is held in memory; collapses once the user finishes the
+// reword flow. Icon is resolved from the active theme so it follows
+// the same nerd-font/ASCII branch as the rest of the UI.
+type RewordIndicator struct {
+	Active bool
+	Icon   string
+}
+
+// LocalConfigIndicator drives the persistent pill that signals there is
+// a `.commitcraft.toml` file in the working directory overriding the
+// global config. Lets the user spot at a glance which workspace knobs
+// are project-local. Icon is resolved from the active theme.
+type LocalConfigIndicator struct {
+	Present bool
+	Icon    string
+}
+
 // StatusBar holds the state of the top-of-screen status surface. Its
 // rendered output follows the "TYPE - message" two-pill scheme: a coloured
 // label pill on the left, the message body in a darker shade of the same
@@ -57,6 +76,13 @@ type StatusBar struct {
 	// shown when a DB-loaded commit has no linked hash and the picker
 	// cannot resolve its real modified files.
 	ScopeStale ScopeStaleIndicator
+	// Reword drives the persistent reword-mode pill (visible only while
+	// the TUI was launched with `-w` and the target hash is still set).
+	Reword RewordIndicator
+	// LocalConfig drives the persistent ".commitcraft.toml present"
+	// pill, shown when a project-local config is overriding the global
+	// config in the working directory.
+	LocalConfig LocalConfigIndicator
 }
 
 func New(content string, level LogLevel, with int, theme *styles.Theme, version string) StatusBar {
@@ -146,6 +172,12 @@ func (sb StatusBar) Render() string {
 	if sb.ScopeStale.Stale {
 		rightParts = append(rightParts, renderScopeStalePill(sb.ScopeStale), " ")
 	}
+	if sb.Reword.Active {
+		rightParts = append(rightParts, renderRewordPill(sb.Reword), " ")
+	}
+	if sb.LocalConfig.Present {
+		rightParts = append(rightParts, renderLocalConfigPill(sb.LocalConfig), " ")
+	}
 	if sb.Changelog.Present {
 		rightParts = append(rightParts, renderChangelogPill(sb.Changelog), " ")
 	}
@@ -196,6 +228,19 @@ var (
 	msgChangelog = msgStyle.Background(lipgloss.Color("#152821")).
 			Foreground(lipgloss.Color("#a9d2bb"))
 
+	// Reword mode pill — purple/lilac. Distinct from pillAI (which is
+	// reserved for "AI is doing something right now") so the user can
+	// tell at a glance: "this session is rewording an existing commit"
+	// vs. "an AI call is in flight".
+	pillReword = pillStyle.Background(lipgloss.Color("#3f2d5c")).
+			Foreground(lipgloss.Color("#dccaf0"))
+
+	// Local-config pill — slate teal. Picks the same low-saturation
+	// family as the CWD pill (debug palette) so it reads as informational
+	// metadata, not as a state warning.
+	pillLocalConfig = pillStyle.Background(lipgloss.Color("#1f3a44")).
+			Foreground(lipgloss.Color("#bcd9e3"))
+
 	ctxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6f7480"))
 )
 
@@ -244,6 +289,20 @@ func renderChangelogPill(ind ChangelogIndicator) string {
 		}
 	}
 	return pillChangelog.Render(icon)
+}
+
+// renderRewordPill draws the persistent "reword mode" indicator. The
+// glyph comes from the active theme (resolved by the model when it
+// syncs the indicator) so the pill follows the same nerd-font/ASCII
+// branch as everything else without re-plumbing the config flag.
+func renderRewordPill(ind RewordIndicator) string {
+	return pillReword.Render(ind.Icon)
+}
+
+// renderLocalConfigPill draws the persistent ".commitcraft.toml present"
+// indicator. Same theme-driven icon contract as renderRewordPill.
+func renderLocalConfigPill(ind LocalConfigIndicator) string {
+	return pillLocalConfig.Render(ind.Icon)
 }
 
 // renderScopeStalePill draws the persistent warning pill shown when the

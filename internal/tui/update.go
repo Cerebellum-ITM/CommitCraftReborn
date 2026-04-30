@@ -45,6 +45,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	model.WritingStatusBar, cmd = model.WritingStatusBar.Update(msg)
 	cmds = append(cmds, cmd)
+	if _, ok := msg.(programQuitMsg); ok {
+		return quitWithAutodraft(model)
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		model.width = msg.Width
@@ -437,10 +440,10 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				formattedReleaseType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, selectedItem.release.Type)
 				model.FinalMessage = fmt.Sprintf("%s %s: %s\n\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
 			}
-			return model, tea.Quit
+			return quitWithAutodraft(model)
 		case "Output message":
 			model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
-			return model, tea.Quit
+			return quitWithAutodraft(model)
 		case "Reword commit":
 			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
 			model.releaseCommitList.Select(0)
@@ -473,6 +476,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				finalMessage = fmt.Sprintf("%s %s: %s\n%s", formattedReleaseType, selectedItem.release.Branch, selectedItem.release.Title, selectedItem.release.Body)
 			}
 			if model.ToolsInfo.xclip.available {
+				autodraftIfNeeded(model)
 				return model, tea.Sequence(
 					tea.SetClipboard(finalMessage),
 					func() tea.Msg {
@@ -485,7 +489,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				err := fmt.Errorf("%s is not available in the system", model.ToolsInfo.xclip.name)
 				model.log.Error("%s is not available in the system!!")
 				model.err = err
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 		case "Create release in repository":
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
@@ -500,7 +504,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				model.log.Error("Error getting the current branch", "error", err)
 				model.err = err
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 			model.releaseBranch = branch
 			return model, func() tea.Msg { return releaseAction{action: "Create"} }
@@ -510,7 +514,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				model.log.Error("Error getting the current branch", "error", err)
 				model.err = err
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 			return model, func() tea.Msg {
 				return openListPopup{items: branches, width: model.width / 2, height: model.height / 2, title: "Select a branch"}
@@ -524,14 +528,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				model.log.Error("Error getting the current branch", "error", err)
 				model.err = err
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 			model.releaseBranch = branch
 			createRelease(model)
 			release, err := model.db.GetLatestRelease(model.pwd)
 			if err != nil {
 				model.err = err
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 			item := HistoryReleaseItem{release: release}
 			model.pendingReleaseUpload = &item
@@ -808,7 +812,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// component under the cursor. Let the popup consume it
 			// instead of quitting the TUI.
 			if _, ok := model.popup.(versionPopupModel); !ok {
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 		}
 		// Global logs popup toggle — works on top of any state, even with
@@ -882,7 +886,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch {
 		case key.Matches(msg, model.keys.GlobalQuit):
-			return model, tea.Quit
+			return quitWithAutodraft(model)
 		case key.Matches(msg, model.keys.Help):
 			// Skip when an inline text input is focused so the user can
 			// still type "?" into a filter / textarea without triggering

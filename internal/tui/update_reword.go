@@ -27,6 +27,7 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
 				if model.commitAndReword {
 					model.RewordHash = item.Hash
+					model.syncRewordIndicator()
 					model.commitAndReword = false
 					model.useDbCommmit = true
 					diffCode, err := git.GetCommitDiffSummary(item.Hash, model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize)
@@ -59,7 +60,7 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				}
 				model.RewordHash = item.Hash
 				model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
-				return model, tea.Quit
+				return quitWithAutodraft(model)
 			}
 		case key.Matches(msg, model.keys.Esc):
 			model.state = stateChoosingCommit
@@ -87,6 +88,7 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 	hash := model.pendingRewordHash
 	model.pendingRewordHash = ""
 	model.RewordHash = hash
+	model.syncRewordIndicator()
 	model.useDbCommmit = true
 
 	diff, dErr := git.GetCommitDiffSummary(
@@ -122,6 +124,7 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 	model.pendingRewordHash = ""
 	model.RewordHash = ""
+	model.syncRewordIndicator()
 
 	model.AppMode = ReleaseMode
 	model.state = stateReleaseMainMenu

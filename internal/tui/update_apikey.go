@@ -34,7 +34,7 @@ func updateSettingApiKey(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return model.cancelProcess(nextState)
 			}
 		case key.Matches(msg, model.keys.GlobalQuit):
-			return model, tea.Quit
+			return quitWithAutodraft(model)
 		}
 	}
 	return model, cmd

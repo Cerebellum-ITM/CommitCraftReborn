@@ -100,16 +100,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.keyPoints = append(model.keyPoints, v)
 				model.commitsKeysInput.SetValue("")
 			}
-			model.currentCommit.KeyPoints = model.keyPoints
-			model.currentCommit.MessageEN = model.commitTranslate
-			model.currentCommit.Type = model.commitType
-			model.currentCommit.Scope = model.commitScope
-			model.currentCommit.Workspace = model.pwd
-			model.currentCommit.Diff_code = model.diffCode
-			model.currentCommit.IaSummary = model.iaSummaryOutput
-			model.currentCommit.IaCommitRaw = model.iaCommitRawOutput
-			model.currentCommit.IaTitle = model.iaTitleRawOutput
-			model.currentCommit.IaChangelog = model.iaChangelogEntry
+			populateCurrentCommitFromBuffers(model)
 			if err := model.db.SaveDraft(&model.currentCommit); err != nil {
 				model.err = err
 				return model, nil
@@ -142,7 +133,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.useDbCommmit = false
 				if model.RewordHash != "" {
 					model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
-					return model, tea.Quit
+					return quitWithAutodraft(model)
 				}
 				return model, cmd
 			} else {

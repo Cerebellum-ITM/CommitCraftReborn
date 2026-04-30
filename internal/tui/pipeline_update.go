@@ -85,6 +85,29 @@ func (model *Model) syncScopeStaleIndicator() {
 	}
 }
 
+// syncRewordIndicator pushes the current reword-mode state into the
+// WritingStatusBar so the pill reflects whether the TUI is targeting a
+// specific commit hash (`-w` flag or a runtime reword pick). Called at
+// startup and whenever RewordHash / pendingRewordHash change.
+func (model *Model) syncRewordIndicator() {
+	active := model.RewordHash != "" || model.pendingRewordHash != ""
+	model.WritingStatusBar.Reword = statusbar.RewordIndicator{
+		Active: active,
+		Icon:   model.Theme.AppSymbols().Reword,
+	}
+}
+
+// syncLocalConfigIndicator pushes the project-local config presence
+// flag into the WritingStatusBar. Reuses the value detected at startup
+// — the file rarely appears or disappears mid-session, so we don't
+// re-stat on every render.
+func (model *Model) syncLocalConfigIndicator() {
+	model.WritingStatusBar.LocalConfig = statusbar.LocalConfigIndicator{
+		Present: model.hasLocalConfig,
+		Icon:    model.Theme.AppSymbols().LocalConfig,
+	}
+}
+
 // updatePipeline is the Pipeline tab's per-state Update handler. It owns
 // keyboard shortcuts (retry / accept / cancel / panel switch) and forwards
 // progress / spinner / file-list ticks to the right sub-component.

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	charmlog "charm.land/log/v2"
 
 	"commit_craft_reborn/internal/api"
 	"commit_craft_reborn/internal/config"
@@ -17,7 +19,7 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 )
 
-var version = "v0.32.1"
+var version = "v0.34.0"
 
 func main() {
 	log := logger.New()
@@ -116,6 +118,9 @@ func main() {
 	}
 
 	if m, ok := finalModel.(*tui.Model); ok {
+		if m.AutodraftedID != 0 {
+			printAutodraftNotice(m.AutodraftedID, m.AutodraftedTab, m.Theme)
+		}
 		if m.RewordHash != "" {
 			if err := git.RewordCommit(m.RewordHash, m.FinalMessage); err != nil {
 				fmt.Fprintf(os.Stderr, "Error rewording commit: %v\n", err)
@@ -126,6 +131,26 @@ func main() {
 			fmt.Print(m.FinalMessage)
 		}
 	}
+}
+
+// printAutodraftNotice writes a single charm-log INFO line to stderr after
+// the TUI has torn down, telling the user that a draft was auto-saved on
+// the way out. The git glyph comes from the theme's symbol table so it
+// follows the same nerd-font/no-nerd-font branch as the rest of the UI.
+// The brand red stays hardcoded because it is a Git-logo color, not a
+// theme concern.
+func printAutodraftNotice(draftID int, tabLabel string, theme *styles.Theme) {
+	styledIcon := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F05032")). // official Git red
+		Render(theme.AppSymbols().Git)
+	l := charmlog.NewWithOptions(os.Stderr, charmlog.Options{
+		ReportTimestamp: true,
+		TimeFormat:      time.Kitchen,
+	})
+	l.Info(
+		fmt.Sprintf("%s  Exit in %s — draft saved", styledIcon, tabLabel),
+		"draft_id", draftID,
+	)
 }
 
 // registerCommitTypePalettes adapts the config-side palette mirror (raw

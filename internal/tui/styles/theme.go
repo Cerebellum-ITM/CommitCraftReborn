@@ -88,6 +88,21 @@ type Symbols struct {
 	// the extracted commit-type tag in the release inspect commits
 	// list. Falls back to "#" without nerd fonts.
 	Tag string
+	// Git is the generic git logo glyph (nf-dev-git, U+E702) used for
+	// out-of-TUI confirmation lines like the autodraft-on-quit notice.
+	// Falls back to the literal text "git" without nerd fonts so the
+	// message stays readable.
+	Git string
+	// Reword is the "create pull request" glyph
+	// (nf-cod-git_pull_request_create, U+EBBC) shown as a persistent
+	// status-bar pill while the TUI is running in reword mode (`-w`
+	// flag). Falls back to "rw" without nerd fonts.
+	Reword string
+	// LocalConfig is the small gear glyph (nf-seti-config, U+E615)
+	// shown in the status bar when a `.commitcraft.toml` file exists in
+	// the working directory and is overriding the global config. Falls
+	// back to "cfg" without nerd fonts.
+	LocalConfig string
 }
 
 type Styles struct {

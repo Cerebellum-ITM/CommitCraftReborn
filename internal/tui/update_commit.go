@@ -207,7 +207,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Filter):
 			return model, model.historyView.FocusFilter()
 		case key.Matches(msg, model.keys.Quit):
-			return model, tea.Quit
+			return quitWithAutodraft(model)
 		case key.Matches(msg, model.keys.AddCommit):
 			model.currentCommit = storage.Commit{}
 			model.keyPoints = nil

@@ -131,7 +131,7 @@ func (m mentionFilePopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Quit):
-			return m, tea.Quit
+			return m, programQuitCmd()
 		case key.Matches(msg, m.keys.Esc):
 			return m, func() tea.Msg { return closeMentionPopupMsg{} }
 		case key.Matches(msg, m.keys.Enter):

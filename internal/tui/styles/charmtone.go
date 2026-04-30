@@ -19,6 +19,9 @@ func NerdFontSymbols() *Symbols {
 		KeyPoint:         ">",
 		GitCommit:        "", // nf-cod-git_commit
 		Tag:              "", // nf-fa-bandage
+		Git:              "", // nf-dev-git (U+E702)
+		Reword:           "", // nf-cod-git_pull_request_create (U+EBBC)
+		LocalConfig:      "", // nf-seti-config (U+E615)
 	}
 }
 
@@ -36,6 +39,9 @@ func DefaultSymbols() *Symbols {
 		KeyPoint:         ">",
 		GitCommit:        "*",
 		Tag:              "#",
+		Git:              "git",
+		Reword:           "rw",
+		LocalConfig:      "cfg",
 	}
 }
 

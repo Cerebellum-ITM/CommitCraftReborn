@@ -20,6 +20,16 @@ const (
 	globalConfigName = "config.toml"
 )
 
+// HasLocalConfig reports whether a .commitcraft.toml file exists in the
+// given working directory. Used by the TUI to surface a status-bar pill
+// signalling that project-local settings are overriding the global
+// config. Errors other than "not exist" are treated as "not present"
+// because the caller is purely informational.
+func HasLocalConfig(pwd string) bool {
+	_, err := os.Stat(filepath.Join(pwd, localConfigName))
+	return err == nil
+}
+
 // NOTE The following comments tells embed which path to look in from the file path
 
 //go:embed prompts/change_analyzer.prompt.tmpl

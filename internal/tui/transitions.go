@@ -36,6 +36,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.activeTab = 0
 		model.activePipelineStage = 0
 		model.RewordHash = ""
+		model.syncRewordIndicator()
 		model.commitAndReword = false
 		model.useDbCommmit = false
 		model.scopeDataStale = false
@@ -123,7 +124,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	if err != nil {
 		model.log.Error("Error saving commit", "error", err)
 		model.err = err
-		return model, tea.Quit
+		return quitWithAutodraft(model)
 	}
 
 	persistPipelineAICalls(model, model.currentCommit.ID)
@@ -173,7 +174,7 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	if err != nil {
 		model.log.Error("Error creating the release", "error", err)
 		model.err = err
-		return model, tea.Quit
+		return quitWithAutodraft(model)
 	}
 
 	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb)
