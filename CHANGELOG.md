@@ -2,6 +2,25 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.36.2 — 2026-04-30
+
+New `--refresh-diff` flag on `ai regenerate` that re-reads
+`git diff --cached` from the commit's stored workspace and persists
+the new snapshot before the pipeline runs. Without the flag the
+stored snapshot is reused (existing behavior — keeps iteration cheap
+when the message is bad but the code didn't change). Added a
+path-aware `git.GetStagedDiffSummaryAt(workspace, maxDiffChars)` so
+the refresh works from any directory.
+
+### Usage
+
+`commitcraft ai regenerate --id <N> --refresh-diff` re-reads the
+staged diff from the workspace recorded on the commit row and
+overwrites `diff_code` before running the pipeline. Requires a full
+regenerate — combining with `--stage <body|title|changelog>` returns
+`invalid_input` because only stage 1 (the change analyzer) consumes
+the diff.
+
 ## v0.36.1 — 2026-04-30
 
 `ai regenerate --id N` now uses the commit's stored `Workspace` as the

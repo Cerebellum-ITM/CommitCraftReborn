@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"commit_craft_reborn/internal/aiengine"
+	"commit_craft_reborn/internal/git"
 )
 
 // runRegenerate re-runs the pipeline against an existing draft. By
@@ -40,6 +41,14 @@ func runRegenerate(args []string) int {
 			"Empty (default) re-runs the full pipeline. "+
 			"`body` re-runs body+title+changelog; `title` re-runs title+changelog; "+
 			"`changelog` re-runs only the refiner.",
+	)
+	refreshDiff := fs.Bool(
+		"refresh-diff",
+		false,
+		"Re-read `git diff --cached` from the commit's workspace and persist "+
+			"the new snapshot before regenerating. Use when more files were "+
+			"staged after the initial `generate`. Without this flag the stored "+
+			"diff snapshot is reused so iteration stays cheap.",
 	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -84,6 +93,32 @@ func runRegenerate(args []string) int {
 	}
 	if len(scopes) > 0 {
 		c.Scope = strings.Join(scopes, "\n")
+	}
+	if *refreshDiff && *stage != "" {
+		printErrorJSON("invalid_input",
+			"--refresh-diff requires a full regenerate (the diff only feeds stage 1); drop --stage")
+		return 2
+	}
+	if *refreshDiff {
+		fresh, derr := git.GetStagedDiffSummaryAt(
+			c.Workspace,
+			bs.cfg.Prompts.ChangeAnalyzerMaxDiffSize,
+		)
+		if derr != nil {
+			printErrorJSON("api_error", fmt.Sprintf("refresh-diff: %s", derr.Error()))
+			return 1
+		}
+		if strings.TrimSpace(fresh) == "" {
+			printErrorJSON(
+				"no_staged_diff",
+				fmt.Sprintf(
+					"--refresh-diff: no staged changes in %s — run `git add` there first",
+					c.Workspace,
+				),
+			)
+			return 1
+		}
+		c.Diff_code = fresh
 	}
 	if c.Diff_code == "" {
 		printErrorJSON("invalid_input",

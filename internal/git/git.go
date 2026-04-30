@@ -81,9 +81,27 @@ func GetGitDiffStat() (string, error) {
 
 // GetStagedDiffSummary builds a single string with the staged diff of every
 // changed file, capped at maxDiffChars total characters. Used as input for
-// the AI change analyzer.
+// the AI change analyzer. Operates on the current working directory.
 func GetStagedDiffSummary(maxDiffChars int) (string, error) {
-	cmdFiles := exec.Command("git", "diff", "--cached", "--name-only")
+	return GetStagedDiffSummaryAt("", maxDiffChars)
+}
+
+// GetStagedDiffSummaryAt is the path-aware variant: when workspace is
+// non-empty, the underlying git invocations are routed through `-C`
+// so the diff is read from that repo rather than the caller's cwd.
+// An empty workspace falls back to cwd, matching GetStagedDiffSummary.
+// Used by `ai regenerate --refresh-diff` so refreshing the snapshot
+// works from any directory while the commit's stored Workspace is
+// the source of truth for which repo to inspect.
+func GetStagedDiffSummaryAt(workspace string, maxDiffChars int) (string, error) {
+	gitArgs := func(rest ...string) []string {
+		if workspace == "" {
+			return rest
+		}
+		return append([]string{"-C", workspace}, rest...)
+	}
+
+	cmdFiles := exec.Command("git", gitArgs("diff", "--cached", "--name-only")...)
 	stagedFilesBytes, err := cmdFiles.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -106,7 +124,7 @@ func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 			continue
 		}
 
-		cmdDiff := exec.Command("git", "diff", "--cached", "--unified=0", "--", file)
+		cmdDiff := exec.Command("git", gitArgs("diff", "--cached", "--unified=0", "--", file)...)
 		diffBytes, err := cmdDiff.Output()
 		if err != nil {
 			return "", fmt.Errorf("failed to get diff for file %s: %w", file, err)
