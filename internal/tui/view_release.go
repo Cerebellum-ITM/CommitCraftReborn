@@ -44,15 +44,14 @@ func (model *Model) buildReleaseChooseCommitsView(appStyle lipgloss.Style) strin
 
 	chromeCols, chromeRows := titledPanelChrome()
 
-	// Compact commit list: 5 rows. Mode bar render depth depends on its
-	// pill border (3 rows). Filter bar is a single row.
-	const listRows = 5
+	// Workspace commit list height. The "All commits / Selected only"
+	// indicator now lives on the panel's top border (see `middle` slot
+	// of titledPanelOpts) so it doesn't steal rows from the list anymore.
+	const listRows = 9
 	model.releaseChooseFilterBar.SetSize(max(10, totalW-chromeCols-2))
-	model.releaseChooseModeBar.SetSize(max(10, totalW-chromeCols-2))
-	modeBarRows := lipgloss.Height(model.releaseChooseModeBar.View())
 
-	// Top band height = filter(1) + blank(1) + modeBar + blank(1) + list + chrome
-	topInnerH := 1 + 1 + modeBarRows + 1 + listRows
+	// Top band height = filter(1) + blank(1) + list + chrome
+	topInnerH := 1 + 1 + listRows
 	topPanelH := topInnerH + chromeRows
 
 	remaining := totalH - topPanelH - gap
@@ -89,7 +88,6 @@ func (model *Model) buildReleaseChooseCommitsView(appStyle lipgloss.Style) strin
 		lipgloss.Left,
 		model.releaseChooseFilterBar.View(),
 	)
-	modeRow := lipgloss.PlaceHorizontal(innerTopW, lipgloss.Left, model.releaseChooseModeBar.View())
 	listRow := lipgloss.Place(
 		innerTopW,
 		listH,
@@ -101,20 +99,24 @@ func (model *Model) buildReleaseChooseCommitsView(appStyle lipgloss.Style) strin
 	topBody := lipgloss.JoinVertical(lipgloss.Left,
 		filterRow,
 		"",
-		modeRow,
-		"",
 		listRow,
 	)
 
+	// Only the commit list (the bulk of the top panel) drives the panel
+	// border colour. Filter and mode-bar focus already have their own
+	// in-band indicators (arrow colour, virtual cursor on the textinput),
+	// so reusing the same border for all three would confuse the user
+	// into thinking the cursor list still owns up/down keys when it
+	// doesn't.
 	topBorder := model.borderColorForFocus(
-		model.focusedElement == focusReleaseChooseFilter ||
-			model.focusedElement == focusReleaseChooseModeBar ||
-			model.focusedElement == focusReleaseChooseCommitList,
+		model.focusedElement == focusReleaseChooseCommitList,
 	)
 	topPanel := renderTitledPanel(titledPanelOpts{
 		icon:        "✦",
 		title:       "Workspace commits",
 		hintRight:   model.releaseChooseTopHint(),
+		middle:      model.releaseChooseModeIndicator(),
+		middleRaw:   true,
 		content:     topBody,
 		width:       totalW,
 		height:      topPanelH,
@@ -227,7 +229,41 @@ func (model *Model) releaseChooseTopHint() string {
 	hs := model.Theme.AppStyles().Help
 	return hs.ShortKey.Render("ctrl+a") + hs.ShortDesc.Render(" select") +
 		hs.ShortSeparator.Render(" · ") +
-		hs.ShortKey.Render("ctrl+f") + hs.ShortDesc.Render(" filter mode")
+		hs.ShortKey.Render("ctrl+f") + hs.ShortDesc.Render(" filter mode") +
+		hs.ShortSeparator.Render(" · ") +
+		hs.ShortKey.Render("ctrl+e") + hs.ShortDesc.Render(" swap")
+}
+
+// releaseChooseModeIndicator renders the "All commits / Selected only"
+// segmented indicator inline on the workspace-commits panel top border
+// (passed via the `middle` slot of titledPanelOpts). Replaces the old
+// in-body HistoryModeBar pill row, freeing rows for the commit list.
+func (model *Model) releaseChooseModeIndicator() string {
+	theme := model.Theme
+	hs := theme.AppStyles().Help
+
+	left := "All commits"
+	right := "Selected only"
+	mode := model.releaseChooseModeBar.Mode()
+
+	render := func(label string, active bool) string {
+		dot := "○"
+		color := theme.Muted
+		if active {
+			dot = "●"
+			color = theme.Primary
+		}
+		dotStyle := lipgloss.NewStyle().Foreground(color).Bold(true)
+		labelStyle := lipgloss.NewStyle().Foreground(color)
+		if active {
+			labelStyle = labelStyle.Bold(true)
+		}
+		return dotStyle.Render(dot) + " " + labelStyle.Render(label)
+	}
+
+	return render(left, mode == ModeKeyPointsBody) +
+		hs.ShortSeparator.Render("  ·  ") +
+		render(right, mode == ModeStagesResponse)
 }
 
 func (model *Model) releaseChooseFilesHint() string {

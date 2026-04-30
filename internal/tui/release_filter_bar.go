@@ -52,10 +52,61 @@ var currentReleaseFilterMode = ReleaseFilterModeTitle
 // CurrentReleaseFilterMode exposes the active mode to FilterValue.
 func CurrentReleaseFilterMode() ReleaseFilterMode { return currentReleaseFilterMode }
 
+// ReleasePickerFilterMode is the mode set for the workspace commit
+// picker (Compose tab in Release Mode). The picker filters commits, so
+// the meaningful axes (title / hash / type / tag) differ from the
+// release-history axes (title / type / version / branch). Kept in a
+// dedicated package var so cycling on one screen never bleeds into the
+// other — same separation `currentMainFilterMode` enforces for the
+// commit-mode workspace history.
+type ReleasePickerFilterMode int
+
+const (
+	ReleasePickerFilterModeTitle ReleasePickerFilterMode = iota
+	ReleasePickerFilterModeHash
+	ReleasePickerFilterModeType
+	ReleasePickerFilterModeTag
+)
+
+var releasePickerFilterModeOrder = []ReleasePickerFilterMode{
+	ReleasePickerFilterModeTitle,
+	ReleasePickerFilterModeHash,
+	ReleasePickerFilterModeType,
+	ReleasePickerFilterModeTag,
+}
+
+var releasePickerFilterModeMeta = map[ReleasePickerFilterMode]struct {
+	label string
+	tag   string
+}{
+	ReleasePickerFilterModeTitle: {"TITLE", "ADD"},  // green
+	ReleasePickerFilterModeHash:  {"HASH", "STYLE"}, // purple
+	ReleasePickerFilterModeType:  {"TYPE", "FIX"},   // amber
+	ReleasePickerFilterModeTag:   {"TAG", "REVERT"}, // pink/red
+}
+
+var currentReleasePickerFilterMode = ReleasePickerFilterModeTitle
+
+// CurrentReleasePickerFilterMode exposes the picker's active mode to
+// WorkspaceCommitItem.FilterValue.
+func CurrentReleasePickerFilterMode() ReleasePickerFilterMode {
+	return currentReleasePickerFilterMode
+}
+
+// ReleaseFilterBarKind selects which mode set/state the bar reads from.
+// History bars cycle the release-history modes; picker bars cycle the
+// commit-picker modes. Keeping a single component with two kinds
+// preserves the layout/styling logic without forcing a copy.
+type ReleaseFilterBarKind int
+
+const (
+	ReleaseFilterBarHistory ReleaseFilterBarKind = iota
+	ReleaseFilterBarPicker
+)
+
 // ReleaseFilterBar mirrors HistoryFilterBar but with the release-specific
-// mode set (title / type / version / branch). Owning a dedicated component
-// keeps the workspace and release filter state independent — cycling
-// modes on one screen never bleeds into the other.
+// mode sets. The `kind` field decides whether CycleMode/Mode/View read
+// from the release-history or picker package vars.
 type ReleaseFilterBar struct {
 	input   textinput.Model
 	theme   *styles.Theme
@@ -63,17 +114,33 @@ type ReleaseFilterBar struct {
 	width   int
 	visible int
 	total   int
+	kind    ReleaseFilterBarKind
 }
 
 func NewReleaseFilterBar(theme *styles.Theme) ReleaseFilterBar {
+	return newReleaseFilterBar(theme, ReleaseFilterBarHistory)
+}
+
+// NewReleasePickerFilterBar is the picker-side constructor. Its bar
+// cycles `currentReleasePickerFilterMode` (TITLE/HASH/TYPE/TAG) and the
+// pill renders the picker labels.
+func NewReleasePickerFilterBar(theme *styles.Theme) ReleaseFilterBar {
+	return newReleaseFilterBar(theme, ReleaseFilterBarPicker)
+}
+
+func newReleaseFilterBar(theme *styles.Theme, kind ReleaseFilterBarKind) ReleaseFilterBar {
 	ti := textinput.New()
 	ti.Prompt = ""
 	ti.Placeholder = "type to filter…"
 	ti.SetVirtualCursor(true)
-	return ReleaseFilterBar{input: ti, theme: theme}
+	return ReleaseFilterBar{input: ti, theme: theme, kind: kind}
 }
 
 func (f *ReleaseFilterBar) CycleMode() {
+	if f.kind == ReleaseFilterBarPicker {
+		currentReleasePickerFilterMode = releasePickerFilterModeOrder[(int(currentReleasePickerFilterMode)+1)%len(releasePickerFilterModeOrder)]
+		return
+	}
 	currentReleaseFilterMode = releaseFilterModeOrder[(int(currentReleaseFilterMode)+1)%len(releaseFilterModeOrder)]
 }
 
@@ -108,14 +175,24 @@ func (f ReleaseFilterBar) Update(msg tea.Msg) (ReleaseFilterBar, tea.Cmd) {
 // metadata table differs. Kept separate so future tweaks (e.g. adding a
 // release-specific affix) don't have to thread through both screens.
 func (f ReleaseFilterBar) View() string {
-	meta, ok := releaseFilterModeMeta[currentReleaseFilterMode]
-	if !ok {
-		meta = releaseFilterModeMeta[ReleaseFilterModeTitle]
+	var label, tag string
+	if f.kind == ReleaseFilterBarPicker {
+		meta, ok := releasePickerFilterModeMeta[currentReleasePickerFilterMode]
+		if !ok {
+			meta = releasePickerFilterModeMeta[ReleasePickerFilterModeTitle]
+		}
+		label, tag = meta.label, meta.tag
+	} else {
+		meta, ok := releaseFilterModeMeta[currentReleaseFilterMode]
+		if !ok {
+			meta = releaseFilterModeMeta[ReleaseFilterModeTitle]
+		}
+		label, tag = meta.label, meta.tag
 	}
-	modePill := styles.CommitTypeMsgStyle(f.theme, meta.tag).
+	modePill := styles.CommitTypeMsgStyle(f.theme, tag).
 		Bold(true).
 		Padding(0, 1).
-		Render(meta.label)
+		Render(label)
 
 	arrowColor := f.theme.Muted
 	if f.focused {

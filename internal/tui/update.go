@@ -899,6 +899,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if model.state == stateReleaseMainMenu && model.releaseHistoryView.IsFilterFocused() {
 				break
 			}
+			if model.state == stateReleaseChoosingCommits && model.releaseChooseFilterBar.IsFocused() {
+				break
+			}
 			if entries, ok := keybindingsForState(model.state); ok {
 				w := max(50, model.width*2/3)
 				h := max(18, model.height*2/3)

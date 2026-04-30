@@ -2,6 +2,137 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.42.3 — 2026-04-30
+
+Three follow-up fixes for the release commit picker:
+
+- **List frozen after build → back transition.** Tab/Shift+Tab in
+  `stateReleaseBuildingText` was running `switchFocusElement`, which
+  toggles the legacy `focusListElement` / `focusViewportElement` pair.
+  When that landed back on `stateReleaseChoosingCommits`, the picker's
+  focus dispatch (which only knows about `focusReleaseChoose*`) had no
+  case to match, so the commit list looked permanently dead. Tab/Shift
+  now reset to `focusReleaseChooseCommitList`, and the picker also
+  defensively coerces any stray focus on entry through a new
+  `isReleaseChooseFocus` guard.
+- **Selected-only swap was a no-op.** `list.filterItems` short-circuits
+  to "show everything" when `FilterInput.Value()` is empty, bypassing
+  our custom `Filter` entirely — so toggling Selected-only with no
+  query never hid the unselected rows. We now feed the list a
+  non-empty sentinel string when the query is empty + Selected-only is
+  on; `releaseChooseListFilter` recognises the sentinel and treats it
+  as an empty term, then drops the unselected items as expected.
+- **Rewrite popup label.** `rewordChooseAsRelease` reads
+  `Rewrite as release/merge` (was `Open release mode`) so the choice
+  matches the action it triggers.
+
+## v0.42.2 — 2026-04-30
+
+Aligned the release commit picker's filter wiring with the
+commit-mode workspace history pattern:
+
+- `ReleaseFilterBar` now carries a `kind` (history vs picker). The
+  picker constructor `NewReleasePickerFilterBar` flips a dedicated
+  `currentReleasePickerFilterMode` package var so cycling `ctrl+f`
+  inside the picker no longer leaks into the release main menu (and
+  vice-versa).
+- The picker's mode set switched from the release-history axes
+  (TITLE/TYPE/VERSION/BRANCH) to picker-relevant axes
+  **TITLE / HASH / TYPE / TAG**.
+- `WorkspaceCommitItem.FilterValue` switches on the active picker
+  mode, mirroring `HistoryCommitItem.FilterValue`. New helper
+  `extractCommitTypeTag` parses the leading `[XXX]` token off the
+  subject for the TYPE mode.
+- Cycling the filter mode now triggers an immediate refilter so the
+  visible set updates without waiting for a keystroke.
+
+### Usage
+
+- `Ctrl+F` while the picker is on the Compose tab cycles through
+  TITLE → HASH → TYPE → TAG. The pill colour and label change to
+  reflect the active axis. Type into the bar and the list filters
+  against the corresponding field.
+
+## v0.42.1 — 2026-04-30
+
+Real fixes for the regressions reported on top of v0.42.0:
+
+- The workspace commit picker was driven into `list.Filtering` state,
+  which routes every key event into the bubble's internal filter
+  textinput. Symptoms: cursor reset on add, list stops responding
+  after a focus cycle, a second "Filter:" header pops on top of the
+  custom bar when `Ctrl+E` toggles the mode. Now we use
+  `list.FilterApplied` (filter active, navigation enabled) and
+  `SetShowFilter(false)` so the second header never renders.
+- `Ctrl+A` no longer re-runs `applyReleaseChooseModeFilter`. SetItem
+  alone returns the filter-refresh command, so the cursor stays put
+  when toggling a commit; in **Selected only** mode the filter
+  pipeline still picks up the change automatically.
+- Files-changed picker default mode now shows just the filename. The
+  dim parent directory only appears in the `Ctrl+E`-swapped full-path
+  render.
+- `?` opens a dedicated keybindings popup for
+  `stateReleaseChoosingCommits` (`releaseChooseCommitsKeybindings`)
+  with the picker-specific shortcuts. The popup is suppressed while
+  the filter bar is focused so `?` can be typed into the query.
+
+## v0.42.0 — 2026-04-30
+
+Follow-up bug fixes for the workspace commit picker
+(`stateReleaseChoosingCommits`):
+
+- **Filter input** now actually accepts text. The list bubble's
+  built-in `/` keybinding was intercepting the keystroke before our
+  custom filter bar saw it; both `KeyMap.Filter` and `KeyMap.ClearFilter`
+  are now disabled on the workspace list, so `/` reaches the bar
+  consistently.
+- **Selected only** mode no longer pipes commit hashes through the
+  `SetFilterText` channel (which collided with the user's typed
+  filter). A custom `list.Filter` plus a mode-aware `FilterValue` now
+  hide unselected items while still letting the typed filter narrow
+  the visible subset.
+- **Duplicate row count** removed: the list's built-in status bar +
+  pagination strip (`5 commits` / `1/N`) duplicated the counter
+  rendered by the custom filter bar; both are now hidden.
+- **`Ctrl+E` is context-aware**: on the files list it toggles the
+  picker between filename+dim-dir and full relative-path rendering;
+  anywhere else it still flips **All commits ⇄ Selected only**.
+
+### Usage
+
+- `/` focuses the filter input; type to narrow the workspace list.
+- `Ctrl+E` while focused on the files list flips between filename and
+  full-path display. `Ctrl+E` from any other zone swaps the
+  All/Selected indicator on the top border.
+
+## v0.41.0 — 2026-04-30
+
+Release Mode UX fixes for the workspace commit picker
+(`stateReleaseChoosingCommits`):
+
+- The persistent tab strip now tracks Release Mode. Release-compose
+  states map to the `Compose` tab; `stateReleaseMainMenu` stays on
+  `History`. `Ctrl+2` in Release Mode opens the release commit picker
+  instead of the commit-mode compose screen.
+- The `-w` startup popup's `Open Release Mode` entry lands directly on
+  the commit picker (Compose tab) instead of the release main menu.
+- The `All commits / Selected only` indicator moved out of the panel
+  body and onto the top border (inline with the title), giving the
+  workspace commit list ~9 visible rows instead of ~1.
+- `Ctrl+E` now toggles the indicator from any focus — the binding was
+  advertised in the bar but unbound. The mode-bar focus stop was
+  removed from the Tab cycle, so navigating focus never lands on a
+  zone that ignores up/down.
+
+### Usage
+
+- In Release Mode press `Ctrl+1` for History, `Ctrl+2` for the commit
+  picker, `Ctrl+3` for Pipeline.
+- In the commit picker: `Ctrl+E` swaps **All commits ⇄ Selected only**;
+  `Ctrl+F` cycles the filter mode; `Ctrl+A` adds the cursor's commit
+  to the selection. Tab/Shift+Tab cycle Filter → CommitList → MsgVp →
+  Files → Diff.
+
 ## v0.40.0 — 2026-04-30
 
 Headless `ai generate` / `ai regenerate` / `ai show` / `ai promote`

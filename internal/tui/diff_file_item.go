@@ -22,6 +22,18 @@ func (d DiffFileItem) Title() string       { return filepath.Base(d.FilePath) }
 func (d DiffFileItem) Description() string { return d.FilePath }
 func (d DiffFileItem) FilterValue() string { return d.FilePath }
 
+// diffFileShowFullPath toggles the diff-file picker between two
+// rendering modes:
+//   - false: filename-first (default), with the parent directory
+//     dimmed and pushed to the right.
+//   - true: full relative path written out as a single string with no
+//     directory/file split.
+//
+// Flipped via ctrl+e while the release commit picker has focus on the
+// files list. Package-level so the delegate can read it without
+// threading state through every Render call.
+var diffFileShowFullPath bool
+
 type diffFileDelegate struct {
 	useNerdFonts bool
 }
@@ -45,18 +57,13 @@ func (d diffFileDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 		icon = "📄"
 	}
 
-	name := filepath.Base(it.FilePath)
-	dir := filepath.Dir(it.FilePath)
-	if dir == "." {
-		dir = ""
-	}
-
-	dirStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("253"))
 
-	var dirSuffix string
-	if dir != "" {
-		dirSuffix = dirStyle.Render("  " + dir)
+	var name, dirSuffix string
+	if diffFileShowFullPath {
+		name = it.FilePath
+	} else {
+		name = filepath.Base(it.FilePath)
 	}
 
 	if index == m.Index() {

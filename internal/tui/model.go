@@ -431,7 +431,7 @@ func NewModel(
 	// + mode bar (so the top band mirrors the main release view chrome)
 	// plus the per-file diff vp and a placeholder files list. Real items
 	// land when the user enters the state and a commit is selected.
-	releaseChooseFilterBar := NewReleaseFilterBar(theme)
+	releaseChooseFilterBar := NewReleasePickerFilterBar(theme)
 	releaseChooseModeBar := NewHistoryModeBar(theme)
 	releaseChooseModeBar.SetLabels("All commits", "Selected only")
 
@@ -661,7 +661,7 @@ func openRewordChooserCmd(model *Model) tea.Cmd {
 
 const (
 	rewordChooseAsCommit  = "Reword this commit"
-	rewordChooseAsRelease = "Open release mode"
+	rewordChooseAsRelease = "Rewrite as release/merge"
 )
 
 // waitForLogLineCmd reads the next line from the logs subscription channel and

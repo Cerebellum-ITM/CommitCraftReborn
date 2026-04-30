@@ -291,6 +291,10 @@ func releaseKeys() KeyMap {
 			key.WithHelp("ctrl+q", "Togle ia response / preview"),
 			key.WithDisabled(),
 		),
+		SwapMode: key.NewBinding(
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("ctrl+e", "Swap inspect mode"),
+		),
 	}
 }
 
