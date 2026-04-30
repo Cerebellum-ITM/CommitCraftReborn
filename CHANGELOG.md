@@ -2,6 +2,179 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.43.0 — 2026-04-30
+
+Multi-stage AI pipeline for Release Mode, mirroring the commit pipeline.
+
+- **3 release stages.** The single-call release builder is now a 3-stage
+  pipeline: `release_body` (assembles the body from selected commits) →
+  `release_title` (composes the title from body + commits) →
+  `release_refine` (polishes tone, hierarchy, and formatting). Each
+  stage is a separate Groq call with its own customizable prompt and
+  model.
+- **Pipeline tab cards.** When `stateReleaseBuildingText` is active the
+  Pipeline tab UI renders the run with the same per-stage cards used
+  by the commit pipeline: spinner, progress underline, telemetry
+  (tokens / latency / TPM bar), and per-stage history (`H` to compare
+  prior generations). The left panel shows the selected commits
+  instead of the diff file tree.
+- **Telemetry persisted.** A new `release_ai_calls` SQLite table mirrors
+  `ai_calls` and stores per-stage tokens/latency/request-id so the
+  release history dual panel surfaces the same telemetry strip that
+  the commit history already shows.
+- **Release/Merge label.** A discrete pill on the workspace-commits
+  panel border (`m` to toggle) tags the run as either `release` or
+  `merge`. Cosmetic only — both modes use the same prompt set; the
+  value flows through to logs.
+
+### Usage
+
+- The release builder is still triggered with `Enter` from
+  `stateReleaseChoosingCommits`. It transitions to
+  `stateReleaseBuildingText` with the Pipeline cards animated.
+- Press `m` while picking commits to toggle the release/merge pill.
+- Customize prompts per stage via `~/.config/CommitCraft/config.toml`:
+  - `release_body_prompt_file` / `release_body_prompt_model`
+  - `release_title_prompt_file` / `release_title_prompt_model`
+  - `release_refine_prompt_file` / `release_refine_prompt_model`
+      Defaults live in `~/.config/CommitCraft/prompts/release_*.prompt` and
+      are written from the embedded templates on first run.
+- Inspect the new telemetry table with
+  `sqlite3 ~/.config/CommitCraft/commits.db "select * from release_ai_calls"`.
+- The single legacy `release_prompt_*` config keys are replaced; remove
+  them from your TOML if present.
+
+## v0.42.3 — 2026-04-30
+
+Three follow-up fixes for the release commit picker:
+
+- **List frozen after build → back transition.** Tab/Shift+Tab in
+  `stateReleaseBuildingText` was running `switchFocusElement`, which
+  toggles the legacy `focusListElement` / `focusViewportElement` pair.
+  When that landed back on `stateReleaseChoosingCommits`, the picker's
+  focus dispatch (which only knows about `focusReleaseChoose*`) had no
+  case to match, so the commit list looked permanently dead. Tab/Shift
+  now reset to `focusReleaseChooseCommitList`, and the picker also
+  defensively coerces any stray focus on entry through a new
+  `isReleaseChooseFocus` guard.
+- **Selected-only swap was a no-op.** `list.filterItems` short-circuits
+  to "show everything" when `FilterInput.Value()` is empty, bypassing
+  our custom `Filter` entirely — so toggling Selected-only with no
+  query never hid the unselected rows. We now feed the list a
+  non-empty sentinel string when the query is empty + Selected-only is
+  on; `releaseChooseListFilter` recognises the sentinel and treats it
+  as an empty term, then drops the unselected items as expected.
+- **Rewrite popup label.** `rewordChooseAsRelease` reads
+  `Rewrite as release/merge` (was `Open release mode`) so the choice
+  matches the action it triggers.
+
+## v0.42.2 — 2026-04-30
+
+Aligned the release commit picker's filter wiring with the
+commit-mode workspace history pattern:
+
+- `ReleaseFilterBar` now carries a `kind` (history vs picker). The
+  picker constructor `NewReleasePickerFilterBar` flips a dedicated
+  `currentReleasePickerFilterMode` package var so cycling `ctrl+f`
+  inside the picker no longer leaks into the release main menu (and
+  vice-versa).
+- The picker's mode set switched from the release-history axes
+  (TITLE/TYPE/VERSION/BRANCH) to picker-relevant axes
+  **TITLE / HASH / TYPE / TAG**.
+- `WorkspaceCommitItem.FilterValue` switches on the active picker
+  mode, mirroring `HistoryCommitItem.FilterValue`. New helper
+  `extractCommitTypeTag` parses the leading `[XXX]` token off the
+  subject for the TYPE mode.
+- Cycling the filter mode now triggers an immediate refilter so the
+  visible set updates without waiting for a keystroke.
+
+### Usage
+
+- `Ctrl+F` while the picker is on the Compose tab cycles through
+  TITLE → HASH → TYPE → TAG. The pill colour and label change to
+  reflect the active axis. Type into the bar and the list filters
+  against the corresponding field.
+
+## v0.42.1 — 2026-04-30
+
+Real fixes for the regressions reported on top of v0.42.0:
+
+- The workspace commit picker was driven into `list.Filtering` state,
+  which routes every key event into the bubble's internal filter
+  textinput. Symptoms: cursor reset on add, list stops responding
+  after a focus cycle, a second "Filter:" header pops on top of the
+  custom bar when `Ctrl+E` toggles the mode. Now we use
+  `list.FilterApplied` (filter active, navigation enabled) and
+  `SetShowFilter(false)` so the second header never renders.
+- `Ctrl+A` no longer re-runs `applyReleaseChooseModeFilter`. SetItem
+  alone returns the filter-refresh command, so the cursor stays put
+  when toggling a commit; in **Selected only** mode the filter
+  pipeline still picks up the change automatically.
+- Files-changed picker default mode now shows just the filename. The
+  dim parent directory only appears in the `Ctrl+E`-swapped full-path
+  render.
+- `?` opens a dedicated keybindings popup for
+  `stateReleaseChoosingCommits` (`releaseChooseCommitsKeybindings`)
+  with the picker-specific shortcuts. The popup is suppressed while
+  the filter bar is focused so `?` can be typed into the query.
+
+## v0.42.0 — 2026-04-30
+
+Follow-up bug fixes for the workspace commit picker
+(`stateReleaseChoosingCommits`):
+
+- **Filter input** now actually accepts text. The list bubble's
+  built-in `/` keybinding was intercepting the keystroke before our
+  custom filter bar saw it; both `KeyMap.Filter` and `KeyMap.ClearFilter`
+  are now disabled on the workspace list, so `/` reaches the bar
+  consistently.
+- **Selected only** mode no longer pipes commit hashes through the
+  `SetFilterText` channel (which collided with the user's typed
+  filter). A custom `list.Filter` plus a mode-aware `FilterValue` now
+  hide unselected items while still letting the typed filter narrow
+  the visible subset.
+- **Duplicate row count** removed: the list's built-in status bar +
+  pagination strip (`5 commits` / `1/N`) duplicated the counter
+  rendered by the custom filter bar; both are now hidden.
+- **`Ctrl+E` is context-aware**: on the files list it toggles the
+  picker between filename+dim-dir and full relative-path rendering;
+  anywhere else it still flips **All commits ⇄ Selected only**.
+
+### Usage
+
+- `/` focuses the filter input; type to narrow the workspace list.
+- `Ctrl+E` while focused on the files list flips between filename and
+  full-path display. `Ctrl+E` from any other zone swaps the
+  All/Selected indicator on the top border.
+
+## v0.41.0 — 2026-04-30
+
+Release Mode UX fixes for the workspace commit picker
+(`stateReleaseChoosingCommits`):
+
+- The persistent tab strip now tracks Release Mode. Release-compose
+  states map to the `Compose` tab; `stateReleaseMainMenu` stays on
+  `History`. `Ctrl+2` in Release Mode opens the release commit picker
+  instead of the commit-mode compose screen.
+- The `-w` startup popup's `Open Release Mode` entry lands directly on
+  the commit picker (Compose tab) instead of the release main menu.
+- The `All commits / Selected only` indicator moved out of the panel
+  body and onto the top border (inline with the title), giving the
+  workspace commit list ~9 visible rows instead of ~1.
+- `Ctrl+E` now toggles the indicator from any focus — the binding was
+  advertised in the bar but unbound. The mode-bar focus stop was
+  removed from the Tab cycle, so navigating focus never lands on a
+  zone that ignores up/down.
+
+### Usage
+
+- In Release Mode press `Ctrl+1` for History, `Ctrl+2` for the commit
+  picker, `Ctrl+3` for Pipeline.
+- In the commit picker: `Ctrl+E` swaps **All commits ⇄ Selected only**;
+  `Ctrl+F` cycles the filter mode; `Ctrl+A` adds the cursor's commit
+  to the selection. Tab/Shift+Tab cycle Filter → CommitList → MsgVp →
+  Files → Diff.
+
 ## v0.40.1 — 2026-04-30
 
 Headless `ai promote` now writes and stages `CHANGELOG.md` when the
@@ -171,15 +344,15 @@ into git, and whether a new CLI DB row is produced).
 
 - Post-commit menu (`update_commit.go:318`):
   - `"Reword commit"` → `"Reword with this message"` (replay icon
-    `nf-md-replay`, U+F0459).
+      `nf-md-replay`, U+F0459).
   - `"Commit and reword"` → `"Reword with new AI run"` (database-plus
-    icon `nf-md-database_plus`, U+F01BA, signaling that a new row is
-    created in the CLI DB).
+      icon `nf-md-database_plus`, U+F01BA, signaling that a new row is
+      created in the CLI DB).
 - `-w <hash>` popup (`model.go:575`):
   - `"Reword as commit"` → `"Reword this commit"`.
   - `"Reword as release"` → `"Open release mode"` (it discards the
-    hash and switches to release mode; the old label suggested it was
-    a reword variant).
+      hash and switches to release mode; the old label suggested it was
+      a reword variant).
 - New `Theme.Symbols.ReuseMessage` and `Theme.Symbols.NewDbRecord`
   fields with nerd-font glyphs and ASCII fallbacks (`↻`, `db+`).
 - Status-bar messages on commit-pick screens reworded to mirror the
@@ -213,7 +386,7 @@ the Pipeline view shows the loaded commit's per-file diffs.
   `usePreloadedDiff` across the codebase. The flag never meant "data
   came from the SQLite DB" — its real semantics are "use the diff
   already loaded in `model.diffCode` instead of running `git diff
-  --staged`", which covers both DB-loaded drafts and git-hash-loaded
+--staged`", which covers both DB-loaded drafts and git-hash-loaded
   reword targets.
 
 ### Usage
@@ -318,9 +491,9 @@ Add a Ctrl+K command palette and ship two starter commands.
   Scrollable via the embedded viewport.
 - Seed commands:
   - **Generate local config file** — runs `CreateLocalConfigTomlTmpl`,
-    no-op + warning toast if `.commitcraft.toml` already exists.
+      no-op + warning toast if `.commitcraft.toml` already exists.
   - **Show tag palette** — opens the table above against
-    `model.finalCommitTypes` (built-ins + user customs).
+      `model.finalCommitTypes` (built-ins + user customs).
 - `keybindings_popup.go` now lists `^k command palette` under the App
   group on every state that surfaces the popup.
 
@@ -405,7 +578,7 @@ generic hint with the stage number; the full error goes to the log.
 - New `extractPipelineStage` helper parses the `stage N (…):` prefix
   added in v0.30.4 and yields just `stage N`.
 - `IaCommitBuilderResultMsg` now renders `AI pipeline failed on stage N
-  · check logs · ^w to retry` (drops to `AI pipeline failed · …` when
+· check logs · ^w to retry` (drops to `AI pipeline failed · …` when
   no stage can be extracted).
 - `IaResleaseBuilderResultMsg` and `releaseBuildResultMsg` show
   `AI release failed · check logs · …` and `Build failed · check logs`
@@ -492,7 +665,7 @@ spinner on cache misses.
   stale prefetch results that arrive after the cursor has moved on
   warm the cache without touching the visible chrome.
 - New `releaseCommitsResolvedMsg` carries `(releaseID, release,
-  messages, calls, fromSelected)` so the dispatch loop can tell
+messages, calls, fromSelected)` so the dispatch loop can tell
   on-demand fetches (which redraw + stop the spinner) from prefetch
   fetches (which only seed the cache).
 - The full-screen `releaseHistorySyncMsg` path now also seeds the
@@ -548,7 +721,7 @@ Per-tag icons + uniform tag chips in the Release inspect commits list.
   `nf-fa-flask` for TEST, `nf-fa-tachometer` for PERF, `nf-md-broom`
   for CHORE, `nf-fa-cogs` for BUILD, `nf-cod-server_process` for CI,
   `nf-fa-undo` for REVERT, `nf-fa-shield` for SEC. Aliases (`UI →
-  STYLE`, `REL → BUILD`, etc.) inherit the alias's icon.
+STYLE`, `REL → BUILD`, etc.) inherit the alias's icon.
 - The release commit row now renders the tag itself as a
   uniform-width chip (same `CommitTypeChipInnerWidth` + center
   align + padding the History MasterList uses for its type block),
@@ -730,17 +903,17 @@ panel. The create-release flow stays untouched.
   MERGE rides `STYLE` (purple).
 - `release_dual_panel.go` mirrors `HistoryDualPanel`. Modes:
   - **Commits / Body**: left list shows a synthetic `[release]` /
-    `[merge]` row first (✦ glyph) and one row per commit hash from
-    `Release.CommitList`, enriched with the subject resolved via
-    `git.LookupCommitSubjects`. Right viewport renders the body of
-    the active entry — release body when `[release]` is active,
-    commit subject otherwise.
+      `[merge]` row first (✦ glyph) and one row per commit hash from
+      `Release.CommitList`, enriched with the subject resolved via
+      `git.LookupCommitSubjects`. Right viewport renders the body of
+      the active entry — release body when `[release]` is active,
+      commit subject otherwise.
   - **Stages / Response**: single `[1] ✦ Release Builder` entry today.
-    Right side reuses the same header → blank → output → blank →
-    rule → blank → telemetry layout. Telemetry strip wired through
-    `renderStageStatsLine` reading from `stageStats[4]`. The
-    create-release flow doesn't flush ai_calls yet, so the strip
-    prints `(no telemetry stored)` until phase C.
+      Right side reuses the same header → blank → output → blank →
+      rule → blank → telemetry layout. Telemetry strip wired through
+      `renderStageStatsLine` reading from `stageStats[4]`. The
+      create-release flow doesn't flush ai_calls yet, so the strip
+      prints `(no telemetry stored)` until phase C.
 - `release_history_view.go` orchestrates filter + master list + mode
   bar + dual panel inside one rounded outer frame, identical to
   `HistoryView`. `HistoryModeBar.SetLabels` reused so the same
@@ -1154,11 +1327,11 @@ the list visually noisy.
   selection state.
 - Scope and title now switch on selection:
   - **Selected row**: scope is rendered as a pill with the dimmer
-    `bg msg` + `fg msg` colors (helper `CommitTypeMsgStyle` +
-    `Padding(0,1)`); title uses the same msg colors with `Bold`.
+      `bg msg` + `fg msg` colors (helper `CommitTypeMsgStyle` +
+      `Padding(0,1)`); title uses the same msg colors with `Bold`.
   - **Unselected row**: original look restored — scope is plain
-    `Secondary`-colored text with a `": "` separator and the title is
-    `Muted` text without a background.
+      `Secondary`-colored text with a `": "` separator and the title is
+      `Muted` text without a background.
 
 ### Usage
 
@@ -1177,16 +1350,16 @@ Activated colored chips/pills across the History list using the full
   unmatched fall back to the neutral theme palette.
 - New shared helpers in `internal/tui/styles/commit_type_palette.go`:
   - `CommitTypeBlockStyle(theme, tag)` returns the bg/fg pair for chips
-    and pills.
+      and pills.
   - `CommitTypeMsgStyle(theme, tag)` returns the dimmer bg/fg pair for
-    surfaces like the row title.
+      surfaces like the row title.
 - Applied the new helpers to the MasterList delegate:
   - Type chip: bg block + fg block (already used; now goes through the
-    helper).
+      helper).
   - Scope: rendered as a pill with the same bg/fg block colors as the
-    type chip, padded `0 1` for visual breathing room.
+      type chip, padded `0 1` for visual breathing room.
   - Title: bg msg + fg msg dim companions of the type, with `Bold` on
-    the selected row to keep the cursor distinguishable.
+      the selected row to keep the cursor distinguishable.
 
 ### Usage
 
@@ -1267,9 +1440,9 @@ that surfaces commit context without leaving the screen.
 - `ModeBar`: segmented switch between two inspection contexts.
 - `DualPanel`: 28/flex split below the list with two modes:
   - **A — KeyPoints / Body**: keypoints list + viewport with the AI body
-    (`IaCommitRaw`).
+      (`IaCommitRaw`).
   - **B — Stages / Response**: 3 persisted IA stages (`summary`, `body`,
-    `title`) + viewport with the corresponding raw output.
+      `title`) + viewport with the corresponding raw output.
 
 All previous keybindings (Enter, d, e, n/Tab, r, ctrl+d, ctrl+s, /, q, ?,
 ctrl+x, ctrl+c) keep their behaviour.
@@ -1277,8 +1450,8 @@ ctrl+x, ctrl+c) keep their behaviour.
 ### Usage
 
 - Press `/` to focus the new FilterBar; `Esc` clears it and unfocuses.
-- Press `Ctrl+M` to swap the DualPanel between *KeyPoints / Body* and
-  *Stages / Response*.
+- Press `Ctrl+M` to swap the DualPanel between _KeyPoints / Body_ and
+  _Stages / Response_.
 - `pgup` / `pgdown` scroll the active right-side viewport.
 - Drafts toggle (`Ctrl+D`) keeps the new layout — only the dataset changes.
 
@@ -1379,7 +1552,7 @@ Mechanics:
 - `LimitRequests` (header) is still used as the bar denominator so the
   ceiling matches the one Groq actually enforces.
 - TPM bar (per-minute tokens) keeps using the header `remaining-tokens`
-  because that bucket header *does* refresh on every call.
+  because that bucket header _does_ refresh on every call.
 
 ## v0.18.2 — 2026-04-28
 
@@ -1389,7 +1562,7 @@ fully consumed (100%) for models whose response omitted an
 formula `used = limit - remaining` collapsed to `used = limit`.
 
 - `api.RateLimits` gains `RequestsParsed` / `TokensParsed` flags. The
-  parser only sets each flag when *both* halves of the bucket
+  parser only sets each flag when _both_ halves of the bucket
   (limit + remaining) were present and parsed; otherwise the renderer
   falls back to the "no data yet" placeholder instead of a misleading
   full bar.
@@ -1472,8 +1645,8 @@ the TUI:
 No new keybindings — the telemetry is purely visual:
 
 - After an AI run, check the bottom of each stage card for the `↳ ... tok ·
-  ...ms` line.
-- On the Compose tab, focus the *pipeline models* section and observe the two
+...ms` line.
+- On the Compose tab, focus the _pipeline models_ section and observe the two
   bars below each stage's model name. Bars stay muted and read `— no data yet`
   until the corresponding model has been called at least once in the current
   session.
@@ -1515,9 +1688,11 @@ disabled with a warning. Setting `build_tool` to anything other than `"make"`
 also disables it with a warning.
 
 # v0.16.2 — 2026-04-27
+
 Adds direct exit sequence via `Ctrl+X` for the Text User Interface.
-  - Checks for `ctrl+x` message and returns model and `tea.Quit` command on match
-  - Conditional check enables direct exit sequence from anywhere in the TUI
+
+- Checks for `ctrl+x` message and returns model and `tea.Quit` command on match
+- Conditional check enables direct exit sequence from anywhere in the TUI
 
 # Usage
 
@@ -1526,6 +1701,7 @@ Adds direct exit sequence via `Ctrl+X` for the Text User Interface.
 # v0.16.1 — 2026-04-27
 
 ### Changed
+
 - Added contextual info bar below the compose panels in the bottom status bar.
 
 - Updated `renderComposeBottomBar` to use `composeBottomBarContent`.
@@ -1758,7 +1934,7 @@ widest row instead of locking it at half the terminal width.
   New `CommitTypePopupContentWidth` helper computes the minimum
   width needed by the longest row (tag + description).
 - `internal/tui/update_writing.go`: pass `max(model.width/2,
-  contentW)` clamped to `model.width-4`, so the popup grows when
+contentW)` clamped to `model.width-4`, so the popup grows when
   needed and never overflows the terminal.
 
 ### Usage
@@ -1920,9 +2096,9 @@ tab and add a persistent CHANGELOG indicator pill to the status bar.
   true the right side of the bar gets a green pill (reusing
   `pillChangelog`) showing one of two NerdFont icons:
   - `󱇼` (U+F11FC) — file detected but auto-update will not run
-    (feature off, dirty file, etc.).
+      (feature off, dirty file, etc.).
   - `󱫓` (U+F1AD3) — auto-update will run on the next Ctrl+W.
-  Without NerdFonts the icon falls back to the existing `≡` glyph.
+      Without NerdFonts the icon falls back to the existing `≡` glyph.
 
 ### Usage
 
@@ -2315,7 +2491,7 @@ Add a scope (focus the scope section in compose, press `e` / `Enter` to pick one
 Three Pipeline-tab fixes covering surface size, diff visibility, and the final commit card content.
 
 - **Full terminal surface.** The shared `availableWidthForMainContent` / `availableHeightForMainContent` calc in `view.go` was double-subtracting horizontal padding (the `appStyle` it accounts for is never applied to mainContent) and shaving 20% off the height for unclear historical reasons. The Pipeline tab now bypasses both: it receives `model.width` directly and a height equal to `model.height − statusBar − tabBar − help − VerticalSpace`, so the right panel actually spans the full terminal width and stretches all the way to the help line.
-- **Diff sub-block always renders.** Layout math in `renderPipelinePanel` was reserving stage card heights first (including focused-stage growth) and *then* trying to fit the diff with the leftover, which collapsed to 0 once the final-commit card appeared. Order reversed: stages-at-default + `DiffMinHeight` are reserved up front; only the *leftover* is spent on focused-stage growth. Diff now keeps a guaranteed floor (default 6 rows) even after the AI flow finishes.
+- **Diff sub-block always renders.** Layout math in `renderPipelinePanel` was reserving stage card heights first (including focused-stage growth) and _then_ trying to fit the diff with the leftover, which collapsed to 0 once the final-commit card appeared. Order reversed: stages-at-default + `DiffMinHeight` are reserved up front; only the _leftover_ is spent on focused-stage growth. Diff now keeps a guaranteed floor (default 6 rows) even after the AI flow finishes.
 - **Final card shows the full assembled commit.** `renderFinalCommitCard` was previously rendering only the first line of `commitTranslate` (just the title from stage 3). It now wraps the full `title\n\nbody` into a multi-line viewport sized by `computeFinalBodyRows` (3-8 rows depending on body length), with the title bolded in the fade-in colour and the body underneath in `theme.FG`.
 
 ### Usage
@@ -2405,14 +2581,14 @@ Status bar redesigned around a flat two-pill `TYPE  MESSAGE` scheme with a fixed
 
 - Updating the bar is unchanged: `model.WritingStatusBar.Level = statusbar.LevelInfo` and `model.WritingStatusBar.Content = "..."`. Or call `ShowMessageForDuration("...", level, dur)` for transient messages.
 - Pick the level by intent — never invent new ones:
-  - `LevelInfo`    · neutral hints, ready / idle states.
+  - `LevelInfo` · neutral hints, ready / idle states.
   - `LevelSuccess` · successful completion.
   - `LevelWarning` · recoverable issue.
-  - `LevelError`   · failure that blocks the user.
-  - `LevelFatal`   · unrecoverable error.
-  - `LevelAI`      · AI / model activity.
-  - `LevelRun`     · long-running op in progress.
-  - `LevelDebug`   · verbose-only trace.
+  - `LevelError` · failure that blocks the user.
+  - `LevelFatal` · unrecoverable error.
+  - `LevelAI` · AI / model activity.
+  - `LevelRun` · long-running op in progress.
+  - `LevelDebug` · verbose-only trace.
 - For ad-hoc one-shot rendering anywhere in the TUI (popups, secondary panels) use `statusbar.RenderStatus(level, "msg")`. Use `statusbar.RenderStatusFull(level, msg, ctx, width)` when you also need a right-aligned metadata column (e.g. token counts, latencies).
 
 ## v0.9.3 — 2026-04-26

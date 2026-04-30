@@ -148,6 +148,53 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	return model, cmd
 }
 
+// persistReleaseAICalls writes one release_ai_calls row per release
+// pipeline stage that has captured telemetry. Looks up the freshly
+// inserted release via GetLatestRelease so the FK in release_ai_calls
+// points at the right row. Best-effort: errors are logged but not
+// surfaced — the release itself is already persisted.
+func persistReleaseAICalls(model *Model) {
+	if model == nil || model.db == nil {
+		return
+	}
+	if model.pipeline.preset != pipelinePresetRelease {
+		return
+	}
+	r, err := model.db.GetLatestRelease(model.pwd)
+	if err != nil {
+		model.log.Warn("release_ai_calls persist: cannot read latest release", "error", err)
+		return
+	}
+	stageNames := map[stageID]string{
+		stageSummary: "body",
+		stageBody:    "title",
+		stageTitle:   "refine",
+	}
+	for id, name := range stageNames {
+		st := model.pipeline.stages[id]
+		if !st.HasStats {
+			continue
+		}
+		call := storage.AICall{
+			CommitID:         r.ID,
+			Stage:            name,
+			Model:            st.StatsModel,
+			PromptTokens:     st.PromptTokens,
+			CompletionTokens: st.CompletionTokens,
+			TotalTokens:      st.TotalTokens,
+			QueueTimeMs:      int(st.QueueTime.Milliseconds()),
+			PromptTimeMs:     int(st.PromptTime.Milliseconds()),
+			CompletionTimeMs: int(st.CompletionTime.Milliseconds()),
+			TotalTimeMs:      int(st.APITotalTime.Milliseconds()),
+			RequestID:        st.RequestID,
+			TPMLimitAtCall:   st.TPMLimitAtCall,
+		}
+		if _, err := model.db.CreateReleaseAICall(call); err != nil {
+			model.log.Warn("release_ai_calls insert failed", "stage", name, "error", err)
+		}
+	}
+}
+
 func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	var commitList []string
 
@@ -175,6 +222,7 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 		model.err = err
 		return quitWithAutodraft(model)
 	}
+	persistReleaseAICalls(model)
 
 	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb)
 	model.state = stateReleaseMainMenu

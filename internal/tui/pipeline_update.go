@@ -182,35 +182,39 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			return model, nil
 		}
+	}
+	cmds = append(cmds, updatePipelineAnimations(msg, model))
+	return model, tea.Batch(cmds...)
+}
 
+// updatePipelineAnimations fans out the tick messages that drive the
+// pipeline cards' animations (spinner, progress bar, pulse, flash,
+// fade, shake). Lives in its own function so both updatePipeline (the
+// Pipeline tab) and updateReleaseBuildingText (the release flow re-using
+// the same cards) can consume the ticks regardless of which state the
+// model is in.
+func updatePipelineAnimations(msg tea.Msg, model *Model) tea.Cmd {
+	var cmds []tea.Cmd
+	switch m := msg.(type) {
 	case spinner.TickMsg:
 		if model.pipeline.anyRunning() {
 			var spCmd tea.Cmd
 			model.pipeline.spinner, spCmd = model.pipeline.spinner.Update(m)
 			cmds = append(cmds, spCmd)
 		}
-
 	case progress.FrameMsg:
-		// Forward progress animation frames to every bar — they discard
-		// frames that don't match their internal id.
 		for i := range model.pipeline.progress {
 			updated, pCmd := model.pipeline.progress[i].Update(msg)
 			model.pipeline.progress[i] = updated
 			cmds = append(cmds, pCmd)
 		}
-
 	case tickPulseMsg:
 		if model.pipeline.anyRunning() {
 			model.pipeline.pulsePhase++
 			cmds = append(cmds, tickPulse())
 		}
-
 	case tickFlashMsg:
-		// flashExpiresAt is checked in the View; nothing else to do here
-		// other than triggering a redraw, which already happens because
-		// the message itself causes Update→View.
 		_ = m
-
 	case tickFadeMsg:
 		if m.frame > model.pipeline.fadeFrame {
 			model.pipeline.fadeFrame = m.frame
@@ -218,7 +222,6 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		if m.frame < 2 {
 			cmds = append(cmds, tickFade(m.frame+1))
 		}
-
 	case tickShakeMsg:
 		st := &model.pipeline.stages[m.id]
 		if m.frame >= 3 {
@@ -228,8 +231,7 @@ func updatePipeline(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, tickShake(m.id, m.frame+1))
 		}
 	}
-
-	return model, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
 
 // pipelineStartFullRun resets every stage and kicks off the regular

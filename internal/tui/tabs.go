@@ -50,14 +50,16 @@ func tabForState(s appState) TabID {
 		stateChoosingScope,
 		stateWritingMessage,
 		stateConfirming,
-		stateOutput:
+		stateOutput,
+		stateReleaseChoosingCommits,
+		stateReleaseBuildingText:
 		return TabCompose
 	case statePipeline:
 		return TabPipeline
 	default:
-		// Everything else (history, releases, reword pickers, api key,
-		// stateDone) falls under History; that's where the user lands by
-		// default and where most flows originate.
+		// Everything else (history, release main menu, reword pickers,
+		// api key, stateDone) falls under History; that's where the user
+		// lands by default and where most flows originate.
 		return TabHistory
 	}
 }
@@ -67,6 +69,9 @@ func tabForState(s appState) TabID {
 func (model *Model) defaultStateForTab(t TabID) appState {
 	switch t {
 	case TabCompose:
+		if model.AppMode == ReleaseMode {
+			return stateReleaseChoosingCommits
+		}
 		return stateWritingMessage
 	case TabPipeline:
 		return statePipeline
@@ -96,8 +101,11 @@ func (model *Model) switchToTab(target TabID) (*Model, bool, tea.Cmd) {
 	next, ok := model.lastStatePerTab[target]
 	if !ok {
 		next = model.defaultStateForTab(target)
-		if target == TabCompose && next == stateWritingMessage {
+		switch {
+		case target == TabCompose && next == stateWritingMessage:
 			cmd = model.initFreshCompose()
+		case target == TabCompose && next == stateReleaseChoosingCommits:
+			cmd = model.initFreshReleaseCompose()
 		}
 	}
 	model.state = next

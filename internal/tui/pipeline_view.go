@@ -39,17 +39,86 @@ func (model *Model) viewPipeline(width, height int) string {
 	rightW := width - leftW - 1
 	stacked := width < 90 || rightW < 50
 
+	leftPanel := func(w, h int) string {
+		if model.pipeline.preset == pipelinePresetRelease {
+			return model.renderReleaseCommitsPanel(w, h)
+		}
+		return model.renderFilesPanel(w, h)
+	}
+
 	if stacked {
 		filesH := max(8, height/2-1)
 		rightH := height - filesH - 1
-		left := model.renderFilesPanel(width, filesH)
+		left := leftPanel(width, filesH)
 		right := model.renderPipelinePanel(width, rightH)
 		return lipgloss.JoinVertical(lipgloss.Left, left, "", right)
 	}
 
-	left := model.renderFilesPanel(leftW, height)
+	left := leftPanel(leftW, height)
 	right := model.renderPipelinePanel(rightW, height)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right)
+}
+
+// renderReleaseCommitsPanel draws the left column for the release
+// pipeline: the selected commits from stateReleaseChoosingCommits as a
+// compact "subject — date" list, plus a footer with the release/merge
+// label and total count. No diff sub-block — the release pipeline does
+// not rely on per-file diffs.
+func (model *Model) renderReleaseCommitsPanel(width, height int) string {
+	theme := model.Theme
+	cw, _ := titledPanelChrome()
+	innerW := max(1, width-cw-2)
+
+	mode := model.releaseMode
+	if mode == "" {
+		mode = "release"
+	}
+	count := len(model.selectedCommitList)
+	footer := lipgloss.NewStyle().
+		Foreground(theme.Muted).
+		Render(fmt.Sprintf("%d commit(s) · %s", count, mode))
+
+	rows := make([]string, 0, count)
+	subjStyle := lipgloss.NewStyle().Foreground(theme.FG)
+	dateStyle := lipgloss.NewStyle().Foreground(theme.Subtle)
+	for _, c := range model.selectedCommitList {
+		subject := c.Subject
+		dateW := lipgloss.Width(c.Date)
+		room := innerW - dateW - 1
+		if room < 4 {
+			room = max(1, innerW)
+		}
+		if lipgloss.Width(subject) > room {
+			subject = ansi.Truncate(subject, room, "…")
+		}
+		gap := innerW - lipgloss.Width(subject) - dateW
+		if gap < 1 {
+			gap = 1
+		}
+		rows = append(rows,
+			subjStyle.Render(subject)+strings.Repeat(" ", gap)+dateStyle.Render(c.Date),
+		)
+	}
+	if len(rows) == 0 {
+		rows = append(rows, lipgloss.NewStyle().
+			Foreground(theme.Muted).
+			Render("No commits selected"))
+	}
+
+	mutedRule := lipgloss.NewStyle().
+		Foreground(theme.Subtle).
+		Render(strings.Repeat("─", innerW))
+	content := strings.Join(rows, "\n") + "\n" + mutedRule + "\n" + footer
+
+	return renderTitledPanel(titledPanelOpts{
+		title:       "selected commits",
+		content:     content,
+		width:       width,
+		height:      height,
+		borderColor: theme.Subtle,
+		titleColor:  theme.FG,
+		hintColor:   theme.Muted,
+	})
 }
 
 // hydratePipelineFromCompose mirrors persisted compose outputs onto the
@@ -138,7 +207,8 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 		numStages = 3
 	}
 
-	showFinal := model.pipeline.allDone() && strings.TrimSpace(model.commitTranslate) != ""
+	showFinal := model.pipeline.preset == pipelinePresetCommit &&
+		model.pipeline.allDone() && strings.TrimSpace(model.commitTranslate) != ""
 	focusedFinal := model.pipeline.focusedFinal && showFinal
 
 	baseFinalBody := 0
@@ -237,6 +307,17 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 // Used by the renderer so the per-stage content stays a pure projection of
 // the model with no extra cache to keep in sync.
 func (model *Model) stageRawOutput(id stageID) string {
+	if model.pipeline.preset == pipelinePresetRelease {
+		switch id {
+		case stageSummary:
+			return model.releaseBodyOutput
+		case stageBody:
+			return model.releaseTitleOutput
+		case stageTitle:
+			return model.releaseFinalOutput
+		}
+		return ""
+	}
 	switch id {
 	case stageSummary:
 		return model.iaSummaryOutput
@@ -265,7 +346,7 @@ func (model *Model) renderStageContent(id stageID, width int) string {
 	if width < 1 {
 		width = 1
 	}
-	if id == stageSummary {
+	if model.shouldGlamourStage(id) {
 		renderer, err := glamour.NewTermRenderer(
 			glamour.WithStyles(glamourstyles.TokyoNightStyleConfig),
 			glamour.WithWordWrap(width),
@@ -294,7 +375,7 @@ func (model *Model) renderStageHistoryEntry(id stageID, raw string, width int) s
 	if width < 1 {
 		width = 1
 	}
-	if id == stageSummary {
+	if model.shouldGlamourStage(id) {
 		renderer, err := glamour.NewTermRenderer(
 			glamour.WithStyles(glamourstyles.TokyoNightStyleConfig),
 			glamour.WithWordWrap(width),
@@ -310,6 +391,18 @@ func (model *Model) renderStageHistoryEntry(id stageID, raw string, width int) s
 	}
 	const glamourGutter = 3
 	return model.renderCommitMessage(raw, max(1, width-glamourGutter))
+}
+
+// shouldGlamourStage decides whether a stage's raw output should be
+// rendered through Glamour (markdown) or plain. Commit stage 1 (the
+// change analyzer summary) is markdown; commit stages 2-4 are not.
+// Release stages 1 (body) and 3 (refine, in the stageTitle slot) are
+// markdown; the title stage is short plain text.
+func (model *Model) shouldGlamourStage(id stageID) bool {
+	if model.pipeline.preset == pipelinePresetRelease {
+		return id == stageSummary || id == stageTitle
+	}
+	return id == stageSummary
 }
 
 // renderStageCardCollapsed draws the one-line summary used for non-focused

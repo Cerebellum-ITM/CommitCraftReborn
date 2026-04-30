@@ -147,15 +147,9 @@ func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 	model.syncRewordIndicator()
 
 	model.AppMode = ReleaseMode
-	model.state = stateReleaseMainMenu
-	model.keys = releaseMainListKeys()
-	loadCmd := enterReleaseHistoryLoading(model)
-	model.WritingStatusBar.Content = fmt.Sprintf(
-		"choose, create, or edit a release ::: %s",
-		model.Theme.AppStyles().
-			Base.Foreground(model.Theme.Tertiary).
-			SetString(model.releaseMainList.Title),
-	)
-	model.WritingStatusBar.Level = statusbar.LevelInfo
-	return model, loadCmd
+	model.state = stateReleaseChoosingCommits
+	model.topTab = TabCompose
+	model.keys = releaseKeys()
+	cmd := model.initFreshReleaseCompose()
+	return model, cmd
 }

@@ -130,8 +130,53 @@ func keybindingsForState(s appState) ([]keybindingGroup, bool) {
 		return workspaceKeybindings(), true
 	case stateReleaseMainMenu:
 		return releaseKeybindings(), true
+	case stateReleaseChoosingCommits:
+		return releaseChooseCommitsKeybindings(), true
 	}
 	return nil, false
+}
+
+// releaseChooseCommitsKeybindings is the popup for the workspace commit
+// picker (Compose tab in Release Mode). Mirrors the workspace history
+// popup but with the picker-specific keys (ctrl+a select, ctrl+e
+// context-aware swap).
+func releaseChooseCommitsKeybindings() []keybindingGroup {
+	return []keybindingGroup{
+		{
+			title: "Navigate",
+			entries: []helpEntry{
+				{"↑↓", "move cursor"},
+				{"tab / shift+tab", "cycle focus (filter → commits → message → files → diff)"},
+				{"/", "filter"},
+				{"esc", "back to release menu"},
+			},
+		},
+		{
+			title: "Commit picker",
+			entries: []helpEntry{
+				{"^a", "add/remove the highlighted commit from the release"},
+				{"^f", "cycle filter mode (TITLE/TYPE/VERSION/BRANCH)"},
+				{"^e (commits)", "swap All commits ⇄ Selected only"},
+				{"^e (files panel)", "toggle filename ⇄ full relative path"},
+				{"↵", "generate the release text from the selected commits"},
+			},
+		},
+		{
+			title: "Inspect",
+			entries: []helpEntry{
+				{"pgup/pgdn", "scroll the focused viewport"},
+			},
+		},
+		{
+			title: "App",
+			entries: []helpEntry{
+				{"^1 / ^2 / ^3", "switch tab (history / compose / pipeline)"},
+				{"^k", "command palette"},
+				{"^l", "logs"},
+				{"^x", "quit"},
+			},
+		},
+	}
 }
 
 // releaseKeybindings lists the shortcuts available on the Release history

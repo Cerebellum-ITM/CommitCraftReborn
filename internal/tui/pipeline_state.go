@@ -10,6 +10,19 @@ import (
 	"commit_craft_reborn/internal/git"
 )
 
+// pipelinePreset selects which pipeline the cards represent: the
+// commit-message pipeline (3-4 stages: change analyzer / body / title /
+// optional changelog) or the release-note pipeline (3 stages: body /
+// title / refine). The numeric stageID values are reused across presets
+// so progress, focus and animation state stay shared — the preset only
+// drives titles, active count, and the per-stage output projection.
+type pipelinePreset int
+
+const (
+	pipelinePresetCommit pipelinePreset = iota
+	pipelinePresetRelease
+)
+
 // stageID identifies one of the three AI stages displayed on the Pipeline
 // tab. The numeric values are reused as indices into the
 // pipelineModel.stages / .progress arrays — keep them contiguous.
@@ -91,6 +104,10 @@ type stageHistoryEntry struct {
 // main Model. It lives as a single embedded field so resets and animation
 // scheduling stay local to this file.
 type pipelineModel struct {
+	// preset decides which pipeline (commit vs release) the cards
+	// represent. Default is pipelinePresetCommit; release flow flips
+	// it before kicking off the run.
+	preset   pipelinePreset
 	stages   [4]pipelineStage
 	progress [4]progress.Model
 	spinner  spinner.Model
@@ -128,8 +145,12 @@ type pipelineModel struct {
 // allocate the file list (that lives on the parent Model as
 // pipelineDiffList so it can share git status across views).
 func newPipelineModel() pipelineModel {
-	titles := [4]string{"Change Analyzer", "Commit Body", "Commit Title", "Changelog Refiner"}
-	pm := pipelineModel{focusedStage: stageSummary, activeStages: 3}
+	pm := pipelineModel{
+		preset:       pipelinePresetCommit,
+		focusedStage: stageSummary,
+		activeStages: 3,
+	}
+	titles := pipelinePresetTitles(pm.preset)
 	for i := 0; i < len(pm.stages); i++ {
 		pm.stages[i] = pipelineStage{
 			ID:                 stageID(i),
@@ -147,6 +168,43 @@ func newPipelineModel() pipelineModel {
 	pm.spinner = sp
 	pm.diffViewport = viewport.New()
 	return pm
+}
+
+// pipelinePresetTitles returns the per-stage title slots for a preset.
+// The 4-element array matches the fixed pipelineModel.stages length;
+// release fills three slots (body / title / refine) and leaves the
+// fourth as the empty-string placeholder.
+func pipelinePresetTitles(preset pipelinePreset) [4]string {
+	switch preset {
+	case pipelinePresetRelease:
+		return [4]string{"Release Body", "Release Title", "Release Refine", ""}
+	default:
+		return [4]string{"Change Analyzer", "Commit Body", "Commit Title", "Changelog Refiner"}
+	}
+}
+
+// switchPreset flips the preset and re-labels every stage card. Stage
+// state (status, telemetry, history) is otherwise untouched — the
+// caller is responsible for resetting whatever needs to start fresh
+// (typically resetAll right after).
+func (pm *pipelineModel) switchPreset(preset pipelinePreset) {
+	pm.preset = preset
+	titles := pipelinePresetTitles(preset)
+	for i := range pm.stages {
+		pm.stages[i].Title = titles[i]
+	}
+	switch preset {
+	case pipelinePresetRelease:
+		pm.activeStages = 3
+	default:
+		// Commit pipeline activeStages is recomputed by
+		// refreshChangelogState before each run.
+		if pm.activeStages == 0 {
+			pm.activeStages = 3
+		}
+	}
+	pm.focusedStage = stageSummary
+	pm.focusedFinal = false
 }
 
 // cycleFocus advances the focus cursor by one slot, wrapping at the last

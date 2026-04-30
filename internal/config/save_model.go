@@ -28,7 +28,9 @@ const (
 	StageCommitBody     ModelStage = "commit_body"
 	StageCommitTitle    ModelStage = "commit_title"
 	StageOnlyTranslate  ModelStage = "only_translate"
-	StageRelease        ModelStage = "release"
+	StageReleaseBody    ModelStage = "release_body"
+	StageReleaseTitle   ModelStage = "release_title"
+	StageReleaseRefine  ModelStage = "release_refine"
 	StageChangelog      ModelStage = "changelog"
 )
 
@@ -42,7 +44,9 @@ var stageMappings = map[ModelStage]stageMapping{
 	StageCommitBody:     {"prompts", "commit_body_generator_prompt_model"},
 	StageCommitTitle:    {"prompts", "commit_title_generator_prompt_model"},
 	StageOnlyTranslate:  {"prompts", "only_translate_prompt_model"},
-	StageRelease:        {"prompts", "release_prompt_model"},
+	StageReleaseBody:    {"prompts", "release_body_prompt_model"},
+	StageReleaseTitle:   {"prompts", "release_title_prompt_model"},
+	StageReleaseRefine:  {"prompts", "release_refine_prompt_model"},
 	StageChangelog:      {"changelog", "prompt_model"},
 }
 
@@ -103,8 +107,12 @@ func ApplyModelToConfig(cfg *Config, stage ModelStage, modelID string) {
 		cfg.Prompts.CommitTitleGeneratorPromptModel = modelID
 	case StageOnlyTranslate:
 		cfg.Prompts.OnlyTranslatePromptModel = modelID
-	case StageRelease:
-		cfg.Prompts.ReleasePromptModel = modelID
+	case StageReleaseBody:
+		cfg.Prompts.ReleaseBodyPromptModel = modelID
+	case StageReleaseTitle:
+		cfg.Prompts.ReleaseTitlePromptModel = modelID
+	case StageReleaseRefine:
+		cfg.Prompts.ReleaseRefinePromptModel = modelID
 	case StageChangelog:
 		cfg.Changelog.PromptModel = modelID
 	}
@@ -122,8 +130,12 @@ func CurrentModelForStage(cfg Config, stage ModelStage) string {
 		return cfg.Prompts.CommitTitleGeneratorPromptModel
 	case StageOnlyTranslate:
 		return cfg.Prompts.OnlyTranslatePromptModel
-	case StageRelease:
-		return cfg.Prompts.ReleasePromptModel
+	case StageReleaseBody:
+		return cfg.Prompts.ReleaseBodyPromptModel
+	case StageReleaseTitle:
+		return cfg.Prompts.ReleaseTitlePromptModel
+	case StageReleaseRefine:
+		return cfg.Prompts.ReleaseRefinePromptModel
 	case StageChangelog:
 		return cfg.Changelog.PromptModel
 	}

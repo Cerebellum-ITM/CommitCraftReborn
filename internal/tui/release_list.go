@@ -7,11 +7,28 @@ import (
 	"os/exec"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/tui/styles"
 )
+
+// releaseChooseSelectedOnly mirrors the workspace commit picker's
+// segmented "All commits / Selected only" indicator into FilterValue.
+// When true, unselected items return an empty FilterValue, which the
+// custom list.Filter below treats as "skip" — that's how we hide
+// non-selected rows without rebuilding the underlying items slice
+// (rebuilding would lose the cursor + scroll position).
+var releaseChooseSelectedOnly bool
+
+// releaseChooseSentinel is the magic filter text we feed the list
+// bubble when "Selected only" is on but the user hasn't typed any
+// query. The list short-circuits filterItems to "show everything"
+// whenever FilterInput.Value() is empty — bypassing our custom Filter
+// entirely — so we hand it a non-empty sentinel that
+// `releaseChooseListFilter` recognises and treats as "no user term".
+const releaseChooseSentinel = "\x00release-choose-selected-only\x00"
 
 type WorkspaceCommitItem struct {
 	Selected bool
@@ -44,7 +61,74 @@ func extractTagsFromRefs(refs string) []string {
 }
 
 func (wsi WorkspaceCommitItem) FilterValue() string {
-	return wsi.Hash + " " + wsi.Subject
+	if releaseChooseSelectedOnly && !wsi.Selected {
+		return ""
+	}
+	// Mirror HistoryCommitItem.FilterValue: switch on the active picker
+	// mode so cycling ctrl+f re-evaluates against a different field
+	// without rebuilding items.
+	switch CurrentReleasePickerFilterMode() {
+	case ReleasePickerFilterModeHash:
+		return wsi.Hash
+	case ReleasePickerFilterModeType:
+		return extractCommitTypeTag(wsi.Subject)
+	case ReleasePickerFilterModeTag:
+		return strings.Join(wsi.Tags, " ")
+	default:
+		return wsi.Subject
+	}
+}
+
+// extractCommitTypeTag pulls the leading "[XXX]" tag off a Conventional
+// Commit-style subject so the picker's TYPE filter mode can match
+// against just the type. Returns "" when the subject doesn't start
+// with a bracketed token.
+func extractCommitTypeTag(subject string) string {
+	s := strings.TrimSpace(subject)
+	if !strings.HasPrefix(s, "[") {
+		return ""
+	}
+	end := strings.IndexByte(s, ']')
+	if end <= 1 {
+		return ""
+	}
+	return s[1:end]
+}
+
+// releaseChooseListFilter is the workspace picker's filter func. It
+// honours `releaseChooseSelectedOnly` by dropping items whose
+// FilterValue is "" (i.e. unselected ones) and otherwise delegates to
+// list.DefaultFilter for the actual fuzzy match. The empty-term path
+// returns every kept index in order so the cursor remains usable when
+// the user hasn't typed anything yet.
+func releaseChooseListFilter(term string, targets []string) []list.Rank {
+	if term == releaseChooseSentinel {
+		term = ""
+	}
+	if !releaseChooseSelectedOnly {
+		return list.DefaultFilter(term, targets)
+	}
+	keptIdx := make([]int, 0, len(targets))
+	keptStr := make([]string, 0, len(targets))
+	for i, t := range targets {
+		if t == "" {
+			continue
+		}
+		keptIdx = append(keptIdx, i)
+		keptStr = append(keptStr, t)
+	}
+	if term == "" {
+		out := make([]list.Rank, len(keptIdx))
+		for i, idx := range keptIdx {
+			out[i] = list.Rank{Index: idx}
+		}
+		return out
+	}
+	ranks := list.DefaultFilter(term, keptStr)
+	for i := range ranks {
+		ranks[i].Index = keptIdx[ranks[i].Index]
+	}
+	return ranks
 }
 
 type ReleaseListDelegate struct {
@@ -213,6 +297,20 @@ func NewReleaseCommitList(pwd string, theme *styles.Theme) list.Model {
 	releaseList := list.New(items, NewReleaseListDelegate(theme), 0, 0)
 	releaseList.SetShowHelp(false)
 	releaseList.SetShowTitle(false)
-	releaseList.SetStatusBarItemName("commit", "commits")
+	// The custom ReleaseFilterBar owns the "/" key + visible counter, so
+	// drop the built-in status bar and pagination strip (they duplicate
+	// the count rendered by the bar) and disable the list's filter
+	// keybinding so "/" reaches our handler instead of opening the
+	// list's own filter input.
+	releaseList.SetShowStatusBar(false)
+	releaseList.SetShowPagination(false)
+	// SetShowFilter(false) hides the list's built-in "Filter: …" prompt
+	// in the title row; the custom ReleaseFilterBar already renders it.
+	// Without this, every time we drive the list into FilterApplied
+	// state the bubble pops a second filter input on top of ours.
+	releaseList.SetShowFilter(false)
+	releaseList.KeyMap.Filter = key.NewBinding(key.WithDisabled())
+	releaseList.KeyMap.ClearFilter = key.NewBinding(key.WithDisabled())
+	releaseList.Filter = releaseChooseListFilter
 	return releaseList
 }

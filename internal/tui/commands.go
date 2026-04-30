@@ -67,7 +67,7 @@ func callIaChangelogOnlyCmd(model *Model) tea.Cmd {
 func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
 	return func() tea.Msg {
 		err := iaReleaseBuilder(model)
-		return IaResleaseBuilderResultMsg{Err: err}
+		return IaReleaseBuilderResultMsg{Err: err}
 	}
 }
 

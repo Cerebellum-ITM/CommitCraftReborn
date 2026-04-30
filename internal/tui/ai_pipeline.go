@@ -11,7 +11,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"commit_craft_reborn/internal/aiengine"
 	"commit_craft_reborn/internal/api"
@@ -205,32 +204,43 @@ func stageStatsToCallStats(s aiengine.StageStats) *api.CallStats {
 	}
 }
 
-// iaReleaseBuilder remains here because the release flow has its own
-// prompt + storage path that doesn't share any logic with the commit
-// pipeline. Lives next to its TUI callers for locality.
+// iaReleaseBuilder runs the 3-stage release pipeline (body → title →
+// refine) by delegating to aiengine.RunRelease. Per-stage telemetry is
+// projected into the same pipelineModel.stages array used by the commit
+// pipeline so the Pipeline tab cards render the run uniformly. Output
+// fields land on the model so the existing release view paths keep
+// working unchanged.
 func iaReleaseBuilder(model *Model) error {
-	var input strings.Builder
-	delimiter := "--- COMMIT SEPARATOR ---"
+	commits := make([]aiengine.ReleaseCommit, 0, len(model.selectedCommitList))
 	for _, item := range model.selectedCommitList {
-		commitContent := fmt.Sprintf(
-			"%s\nCommit.Date:%s\nCommit.Title:%s\ncommit.body:%s\n%s\n",
-			delimiter,
-			item.Date,
-			item.Subject,
-			item.Body,
-			delimiter,
-		)
-		input.WriteString(commitContent)
+		commits = append(commits, aiengine.ReleaseCommit{
+			Hash:    item.Hash,
+			Date:    item.Date,
+			Subject: item.Subject,
+			Body:    item.Body,
+		})
 	}
-	pc := model.globalConfig.Prompts
-	model.log.Debug("release ia Input", "input", input)
+	mode := model.releaseMode
+	if mode == "" {
+		mode = "release"
+	}
+	in := aiengine.ReleaseInput{Commits: commits, Mode: mode}
 
-	iaResponse, _, err := aiengine.SendIaMessage(
-		engineDeps(model),
-		pc.ReleasePrompt,
-		input.String(),
-		pc.ReleasePromptModel,
-	)
+	out, err := aiengine.RunRelease(engineDeps(model), in)
+
+	model.releaseBodyOutput = out.Body
+	model.releaseTitleOutput = out.Title
+	model.releaseFinalOutput = out.Final
+	if out.Body != "" {
+		recordStageStats(model, stageSummary, stageStatsToCallStats(out.Stages[0]))
+	}
+	if out.Title != "" {
+		recordStageStats(model, stageBody, stageStatsToCallStats(out.Stages[1]))
+	}
+	if out.Final != "" {
+		recordStageStats(model, stageTitle, stageStatsToCallStats(out.Stages[2]))
+	}
+
 	if err != nil {
 		model.log.Error(
 			fmt.Sprintf("An error occurred while trying to generate the release output.\n%s", err),
@@ -240,7 +250,7 @@ func iaReleaseBuilder(model *Model) error {
 			ExtractJSONError(err.Error()),
 		)
 	}
-	model.commitLivePreview = iaResponse
-	model.releaseText = iaResponse
+	model.commitLivePreview = out.Final
+	model.releaseText = out.Final
 	return nil
 }

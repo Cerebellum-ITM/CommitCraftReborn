@@ -325,6 +325,79 @@ func (db *DB) DeleteAICallsByCommitID(commitID int) error {
 	return errors.Wrap(err, "failed to delete ai_calls")
 }
 
+// CreateReleaseAICall inserts one per-stage telemetry record into the
+// release_ai_calls table. The AICall struct is reused; its CommitID
+// field carries the owning release id for release rows.
+func (db *DB) CreateReleaseAICall(call AICall) (int64, error) {
+	createdAt := time.Now().UTC().Format(time.RFC3339)
+	res, err := db.Exec(
+		"INSERT INTO release_ai_calls (release_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, tpm_limit_at_call, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		call.CommitID,
+		call.Stage,
+		call.Model,
+		call.PromptTokens,
+		call.CompletionTokens,
+		call.TotalTokens,
+		call.QueueTimeMs,
+		call.PromptTimeMs,
+		call.CompletionTimeMs,
+		call.TotalTimeMs,
+		call.RequestID,
+		call.TPMLimitAtCall,
+		createdAt,
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to insert release_ai_call")
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to retrieve last insert id for release_ai_call")
+	}
+	return id, nil
+}
+
+// GetAICallsByReleaseID returns the release_ai_calls rows linked to
+// releaseID, in insertion order. Empty slice + nil error when none.
+func (db *DB) GetAICallsByReleaseID(releaseID int) ([]AICall, error) {
+	rows, err := db.Query(
+		"SELECT id, release_id, stage, model, prompt_tokens, completion_tokens, total_tokens, queue_time_ms, prompt_time_ms, completion_time_ms, total_time_ms, request_id, tpm_limit_at_call, created_at FROM release_ai_calls WHERE release_id = ? ORDER BY id ASC",
+		releaseID,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query release_ai_calls")
+	}
+	defer rows.Close()
+
+	var calls []AICall
+	for rows.Next() {
+		var c AICall
+		var createdAt string
+		if err := rows.Scan(
+			&c.ID, &c.CommitID, &c.Stage, &c.Model,
+			&c.PromptTokens, &c.CompletionTokens, &c.TotalTokens,
+			&c.QueueTimeMs, &c.PromptTimeMs, &c.CompletionTimeMs, &c.TotalTimeMs,
+			&c.RequestID, &c.TPMLimitAtCall, &createdAt,
+		); err != nil {
+			return nil, errors.Wrap(err, "failed to scan release_ai_call row")
+		}
+		t, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse release_ai_call created_at: "+createdAt)
+		}
+		c.CreatedAt = t.Local()
+		calls = append(calls, c)
+	}
+	return calls, nil
+}
+
+// DeleteAICallsByReleaseID purges every release_ai_call linked to
+// releaseID. Used when re-inserting fresh stats so the table doesn't
+// grow orphan rows when the user re-runs the release pipeline.
+func (db *DB) DeleteAICallsByReleaseID(releaseID int) error {
+	_, err := db.Exec("DELETE FROM release_ai_calls WHERE release_id = ?", releaseID)
+	return errors.Wrap(err, "failed to delete release_ai_calls")
+}
+
 // SaveModelRateLimits UPSERTs the latest rate-limit snapshot for one
 // model. captured_at is overwritten on every call so freshness checks
 // at render time can decide when the bucket has refilled.

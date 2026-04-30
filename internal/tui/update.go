@@ -27,7 +27,7 @@ type IaCommitBuilderResultMsg struct {
 	Err error
 }
 
-type IaResleaseBuilderResultMsg struct {
+type IaReleaseBuilderResultMsg struct {
 	Err error
 }
 
@@ -742,20 +742,32 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return model, tea.Batch(cmds...)
 
-	case IaResleaseBuilderResultMsg:
+	case IaReleaseBuilderResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 
 		if msg.Err != nil {
 			// Same rationale as IaCommitBuilderResultMsg: recoverable AI
 			// failure, the user can re-run the release builder. Don't
 			// promote it to a fatal model.err. Full error goes to logs.
-			model.log.Warn("AI release builder failed", "error", msg.Err)
-			model.WritingStatusBar.Content = "AI release failed · check logs · retry to try again"
+			stage := extractPipelineStage(msg.Err)
+			model.log.Warn("AI release pipeline failed", "stage", stage, "error", msg.Err)
+			label := "AI release pipeline failed"
+			if stage != "" {
+				label = fmt.Sprintf("%s on %s", label, stage)
+			}
+			model.WritingStatusBar.Content = label + " · check logs · retry to try again"
 			model.WritingStatusBar.Level = statusbar.LevelError
 		} else {
 			model.WritingStatusBar.Content = "AI release message ready!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
+		touchedR := []stageID{stageSummary, stageBody, stageTitle}
+		if msg.Err == nil {
+			model.pipeline.pushStageHistory(stageSummary, model.releaseBodyOutput)
+			model.pipeline.pushStageHistory(stageBody, model.releaseTitleOutput)
+			model.pipeline.pushStageHistory(stageTitle, model.releaseFinalOutput)
+		}
+		cmds = append(cmds, model.applyPipelineResult(touchedR, msg.Err))
 		return model, tea.Batch(cmds...)
 	case releaseBuildResultMsg:
 		if msg.Err != nil {
@@ -897,6 +909,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 			if model.state == stateReleaseMainMenu && model.releaseHistoryView.IsFilterFocused() {
+				break
+			}
+			if model.state == stateReleaseChoosingCommits && model.releaseChooseFilterBar.IsFocused() {
 				break
 			}
 			if entries, ok := keybindingsForState(model.state); ok {
