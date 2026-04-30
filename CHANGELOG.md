@@ -2,6 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.35.1 — 2026-04-29
+
+New `commitcraft ai promote --id <N>` subcommand that flips a draft's
+status to `completed` via `storage.FinalizeCommit`. Does not execute
+`git commit` — the caller takes the printed `final_message` and
+commits it themselves.
+
+### Usage
+
+`commitcraft ai promote --id <N>` validates that the draft exists and
+has a non-empty `final_message`, then updates its status to
+`completed` and prints the refreshed JSON. Errors: `not_found`
+(unknown id), `invalid_input` (missing id or empty draft), `db_error`.
+
 ## v0.35.0 — 2026-04-29
 
 Headless `commitcraft ai …` subcommand suite so an external agent can

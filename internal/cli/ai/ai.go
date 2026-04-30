@@ -29,6 +29,7 @@ Subcommands:
   regenerate   Re-run the pipeline on an existing draft (--id), reusing stored inputs and diff.
   show         Print the JSON for a draft/commit by --id.
   list         List drafts/commits in the current workspace.
+  promote      Mark a draft as completed (--id). Does not run git commit.
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -50,6 +51,8 @@ func Dispatch(args []string) int {
 		return runShow(rest)
 	case "list":
 		return runList(rest)
+	case "promote":
+		return runPromote(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
