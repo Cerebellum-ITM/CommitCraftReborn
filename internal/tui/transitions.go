@@ -133,14 +133,13 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 	// The CHANGELOG file likely changed (we just prepended an entry) — refresh
 	// the indicator so the pill flips between auto/passive on the next render.
 	model.refreshChangelogState()
-	model.state = stateChoosingCommit
-	model.keys = mainListKeys()
-	model.WritingStatusBar.Content = fmt.Sprintf(
-		"choose, create, or edit a commit ::: %s",
-		model.Theme.AppStyles().
-			Base.Foreground(model.Theme.Tertiary).
-			SetString(model.mainList.Title),
-	)
+	model.state = stateOutput
+	model.keys = outputViewKeys()
+	model.outputSegment = outSegFinal
+	model.focusedElement = focusOutputContent
+	model.outputReportViewport.GotoTop()
+	model.iaViewport.GotoTop()
+	model.WritingStatusBar.Content = "Review the generated commit · enter to print · esc to history"
 	cmd := model.WritingStatusBar.ShowMessageForDuration(
 		"Record created in the db successfully",
 		statusbar.LevelSuccess,

@@ -46,6 +46,33 @@ const (
 	focusComposeKeypoints
 	focusComposePipelineModels
 	focusComposeAISuggestion
+	// Release · choose commits sub-view focus targets. Drive the new
+	// 6-zone layout (top band: filter/mode/list, middle: msg vp,
+	// bottom: file list + per-file diff vp).
+	focusReleaseChooseFilter
+	focusReleaseChooseModeBar
+	focusReleaseChooseCommitList
+	focusReleaseChooseMsgVp
+	focusReleaseChooseFileList
+	focusReleaseChooseDiffVp
+	// Output review view focus targets. Tab cycles report (left) ↔
+	// content (right). On the right pane, ←/→ swap segment and ↑/↓
+	// scroll the viewport.
+	focusOutputReport
+	focusOutputContent
+)
+
+// outputSegment identifies which slice of generated content the right
+// panel of the Output view is currently rendering. Cycled with ←/→ when
+// focusOutputContent is active.
+type outputSegment int
+
+const (
+	outSegFinal outputSegment = iota
+	outSegSummary
+	outSegBody
+	outSegTitle
+	outSegChangelog
 )
 
 // We use iota to create an "enum" for our application states.
@@ -111,6 +138,7 @@ const (
 	stateRewordSelectCommit
 	stateDone
 	statePipeline
+	stateOutput
 )
 
 // model is the main struct that holds the entire application state.
@@ -132,13 +160,35 @@ type Model struct {
 	releaseCommitList   list.Model
 	commitsKeysViewport viewport.Model
 	releaseViewport     viewport.Model
-	releaseEditText     *textarea.Model
-	releaseViewState    *releaseViewState
-	releaseText         string
-	releaseType         string
-	releaseBranch       string
-	releaseMainList     list.Model
-	releaseHistoryView  ReleaseHistoryView
+	// releaseChooseFilterBar is the top-band filter input for the
+	// release · choose commits sub-view. Independent instance so its
+	// focus/value never bleed into the main release view's filter.
+	releaseChooseFilterBar ReleaseFilterBar
+	// releaseChooseModeBar is the segmented pill toggle in the same
+	// top band ("All / Selected" — when Selected is active the commit
+	// list is filtered to only the queued commits).
+	releaseChooseModeBar HistoryModeBar
+	// releaseFilesList holds the changed files of the currently
+	// selected commit; selecting an item swaps the diff vp content.
+	releaseFilesList list.Model
+	// releaseDiffViewport renders the diff of the file selected in
+	// releaseFilesList. Only the per-file hunk is shown — the full
+	// commit diff is split file-by-file when the commit changes.
+	releaseDiffViewport viewport.Model
+	// releaseSelectedCommitHash tracks which commit's per-file data is
+	// currently materialized in releaseFilesList / releaseDiffViewport,
+	// so navigation that doesn't move the selection skips the rebuild.
+	releaseSelectedCommitHash string
+	// releaseFileDiffsByCommit caches the parsed per-file diffs of every
+	// commit shown in the picker so flipping selection is instant.
+	releaseFileDiffsByCommit map[string]map[string]string
+	releaseEditText          *textarea.Model
+	releaseViewState         *releaseViewState
+	releaseText              string
+	releaseType              string
+	releaseBranch            string
+	releaseMainList          list.Model
+	releaseHistoryView       ReleaseHistoryView
 	// releaseLoading is set when an async releaseHistorySync command is
 	// in flight. The view renders a centered loading panel for
 	// stateReleaseMainMenu while it's true so the user sees a clean
@@ -212,8 +262,16 @@ type Model struct {
 	pipelineViewport2       viewport.Model
 	pipelineViewport3       viewport.Model
 	pipelineViewport4       viewport.Model
-	pipeline                pipelineModel
-	usePreloadedDiff        bool
+	// outputReportViewport scrolls the report column of the Output
+	// review view (inputs + telemetry + stage outputs) so long content
+	// stays reachable on small terminals.
+	outputReportViewport viewport.Model
+	// outputSegment picks the slice of generated content rendered in
+	// the Output view's right viewport: assembled final message or one
+	// of the four stage outputs.
+	outputSegment    outputSegment
+	pipeline         pipelineModel
+	usePreloadedDiff bool
 	// scopeDataStale flips on when a commit is loaded from the DB without a
 	// linked git hash (drafts and history commits committed outside the
 	// CLI). In that mode gitStatusData still reflects the live workspace,
@@ -369,6 +427,30 @@ func NewModel(
 		BorderForeground(theme.FocusableElement).
 		PaddingRight(2)
 
+	// Release · choose-commits sub-view extras: a dedicated filter bar
+	// + mode bar (so the top band mirrors the main release view chrome)
+	// plus the per-file diff vp and a placeholder files list. Real items
+	// land when the user enters the state and a commit is selected.
+	releaseChooseFilterBar := NewReleaseFilterBar(theme)
+	releaseChooseModeBar := NewHistoryModeBar(theme)
+	releaseChooseModeBar.SetLabels("All commits", "Selected only")
+
+	releaseDiffViewport := viewport.New()
+	releaseDiffViewport.Style = lipgloss.NewStyle().
+		BorderForeground(theme.FocusableElement).
+		PaddingRight(2)
+
+	releaseFilesList := list.New(
+		[]list.Item{},
+		diffFileDelegate{useNerdFonts: config.TUI.UseNerdFonts},
+		0, 0,
+	)
+	releaseFilesList.SetShowHelp(false)
+	releaseFilesList.SetShowPagination(false)
+	releaseFilesList.SetShowTitle(false)
+	releaseFilesList.SetShowStatusBar(false)
+	releaseFilesList.SetFilteringEnabled(false)
+
 	pipelineVpStyle := lipgloss.NewStyle().
 		BorderForeground(theme.FocusableElement).
 		PaddingRight(2)
@@ -446,53 +528,59 @@ func NewModel(
 	}
 
 	m := &Model{
-		AppMode:                 appMode,
-		ToolsInfo:               toolInfo,
-		finalCommitTypes:        finalCommitTypes,
-		log:                     log,
-		pwd:                     pwd,
-		currentBranch:           branch,
-		db:                      database,
-		apiKeyInput:             apiKeyInput,
-		state:                   initalState,
-		pendingRewordHash:       pendingRewordHash,
-		mainList:                workspaceCommitsList,
-		historyView:             NewHistoryView(theme),
-		releaseMainList:         releaseList,
-		releaseHistoryView:      NewReleaseHistoryView(theme),
-		releaseViewport:         releaseViewport,
-		releaseViewState:        &releaseViewState{selecting: false, releaseCreated: false},
-		commitTypeList:          commitTypesList,
-		iaViewport:              vp,
-		focusedElement:          focusMsgInput,
-		fileList:                fileList,
-		fileListFilter:          false,
-		pipelineDiffList:        NewDiffFileList(gitStatusData, config.TUI.UseNerdFonts),
-		currentUpdateFileListFn: ChooseUpdateFileListFunction(false),
-		gitStatusData:           gitStatusData,
-		WritingStatusBar:        WritingStatusBar,
-		keyPoints:               []string{},
-		commitsKeysInput:        commitsKeysInput,
-		spinner:                 spinner,
-		keys:                    initialKeys,
-		help:                    help,
-		logViewVisible:          false,
-		logViewport:             viewport.New(),
-		globalConfig:            config,
-		Theme:                   theme,
-		commitsKeysViewport:     ckiVp,
-		pipelineViewport1:       pvp1,
-		pipelineViewport2:       pvp2,
-		pipelineViewport3:       pvp3,
-		pipelineViewport4:       pvp4,
-		pipeline:                newPipelineModel(),
-		usePreloadedDiff:        false,
-		OutputDirect:            outputDirect,
-		Version:                 version,
-		topTab:                  tabForState(initalState),
-		lastStatePerTab:         map[TabID]appState{},
-		themeName:               themeName,
-		hasLocalConfig:          configpkg.HasLocalConfig(pwd),
+		AppMode:                  appMode,
+		ToolsInfo:                toolInfo,
+		finalCommitTypes:         finalCommitTypes,
+		log:                      log,
+		pwd:                      pwd,
+		currentBranch:            branch,
+		db:                       database,
+		apiKeyInput:              apiKeyInput,
+		state:                    initalState,
+		pendingRewordHash:        pendingRewordHash,
+		mainList:                 workspaceCommitsList,
+		historyView:              NewHistoryView(theme),
+		releaseMainList:          releaseList,
+		releaseHistoryView:       NewReleaseHistoryView(theme),
+		releaseViewport:          releaseViewport,
+		releaseChooseFilterBar:   releaseChooseFilterBar,
+		releaseChooseModeBar:     releaseChooseModeBar,
+		releaseFilesList:         releaseFilesList,
+		releaseDiffViewport:      releaseDiffViewport,
+		releaseFileDiffsByCommit: map[string]map[string]string{},
+		releaseViewState:         &releaseViewState{selecting: false, releaseCreated: false},
+		commitTypeList:           commitTypesList,
+		iaViewport:               vp,
+		outputReportViewport:     viewport.New(),
+		focusedElement:           focusMsgInput,
+		fileList:                 fileList,
+		fileListFilter:           false,
+		pipelineDiffList:         NewDiffFileList(gitStatusData, config.TUI.UseNerdFonts),
+		currentUpdateFileListFn:  ChooseUpdateFileListFunction(false),
+		gitStatusData:            gitStatusData,
+		WritingStatusBar:         WritingStatusBar,
+		keyPoints:                []string{},
+		commitsKeysInput:         commitsKeysInput,
+		spinner:                  spinner,
+		keys:                     initialKeys,
+		help:                     help,
+		logViewVisible:           false,
+		logViewport:              viewport.New(),
+		globalConfig:             config,
+		Theme:                    theme,
+		commitsKeysViewport:      ckiVp,
+		pipelineViewport1:        pvp1,
+		pipelineViewport2:        pvp2,
+		pipelineViewport3:        pvp3,
+		pipelineViewport4:        pvp4,
+		pipeline:                 newPipelineModel(),
+		usePreloadedDiff:         false,
+		OutputDirect:             outputDirect,
+		Version:                  version,
+		topTab:                   tabForState(initalState),
+		lastStatePerTab:          map[TabID]appState{},
+		themeName:                themeName,
+		hasLocalConfig:           configpkg.HasLocalConfig(pwd),
 	}
 	if len(finalCommitTypes) > 0 {
 		m.commitType = finalCommitTypes[0].Tag

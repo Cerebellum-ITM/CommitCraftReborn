@@ -129,6 +129,25 @@ func writingMessageKeys() KeyMap {
 	}
 }
 
+func outputViewKeys() KeyMap {
+	return KeyMap{
+		Up:        key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "scroll up")),
+		Down:      key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "scroll down")),
+		Left:      key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "prev segment")),
+		Right:     key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next segment")),
+		PgUp:      key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "page up")),
+		PgDown:    key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "page down")),
+		NextField: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel")),
+		PrevField: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("shift+tab", "switch panel"),
+		),
+		Enter:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "print to stdout")),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back to history")),
+		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+	}
+}
+
 func fileListKeys() KeyMap {
 	return KeyMap{
 		Up:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),

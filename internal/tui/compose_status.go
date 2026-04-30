@@ -354,6 +354,15 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 			{"↵", "save"},
 			{"esc", "cancel"},
 		}
+	case stateOutput:
+		return []helpEntry{
+			{"↵", "print to stdout"},
+			{"tab", "switch panel"},
+			{"←/→", "segment"},
+			{"↑↓/pgup/pgdn", "scroll"},
+			{"esc", "back"},
+			{"^x", "quit"},
+		}
 	case statePipeline:
 		return []helpEntry{
 			{"r", "retry all"},
