@@ -33,6 +33,14 @@ func runRegenerate(args []string) int {
 		false,
 		"Skip the changelog refiner stage even when enabled in config",
 	)
+	stage := fs.String(
+		"stage",
+		"",
+		"Re-run only one stage: body | title | changelog. "+
+			"Empty (default) re-runs the full pipeline. "+
+			"`body` re-runs body+title+changelog; `title` re-runs title+changelog; "+
+			"`changelog` re-runs only the refiner.",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -83,19 +91,43 @@ func runRegenerate(args []string) int {
 		return 1
 	}
 
-	in := aiengine.Input{
-		KeyPoints:       c.KeyPoints,
-		Type:            c.Type,
-		Scope:           c.Scope,
-		Diff:            c.Diff_code,
-		ChangelogActive: !*noChangelog && bs.cfg.Changelog.Enabled,
+	// Use the commit's stored Workspace as the engine's Pwd so the
+	// changelog refiner targets the repo that owns the commit, not
+	// whatever cwd the caller happens to be in. Falls back to bs.pwd
+	// for legacy rows without a stored workspace.
+	pwd := c.Workspace
+	if pwd == "" {
+		pwd = bs.pwd
 	}
-	out, err := aiengine.Run(aiengine.Deps{
-		Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: bs.pwd,
-	}, in)
-	if err != nil {
-		printErrorJSON("api_error", err.Error())
-		return 1
+	deps := aiengine.Deps{Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: pwd}
+	changelogActive := !*noChangelog && bs.cfg.Changelog.Enabled
+
+	var out aiengine.Output
+	switch *stage {
+	case "":
+		// Full re-run. Behaves exactly like the old default path.
+		in := aiengine.Input{
+			KeyPoints:       c.KeyPoints,
+			Type:            c.Type,
+			Scope:           c.Scope,
+			Diff:            c.Diff_code,
+			ChangelogActive: changelogActive,
+		}
+		out, err = aiengine.Run(deps, in)
+		if err != nil {
+			printErrorJSON("api_error", err.Error())
+			return 1
+		}
+	case "body", "title", "changelog":
+		out, err = runStagePartial(deps, c, *stage, changelogActive)
+		if err != nil {
+			printErrorJSON("api_error", err.Error())
+			return 1
+		}
+	default:
+		printErrorJSON("invalid_input",
+			fmt.Sprintf("--stage must be one of body|title|changelog (got %q)", *stage))
+		return 2
 	}
 
 	c.IaSummary = out.Summary

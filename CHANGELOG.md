@@ -2,6 +2,44 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.36.1 — 2026-04-30
+
+`ai regenerate --id N` now uses the commit's stored `Workspace` as the
+pipeline working directory instead of the caller's cwd. The changelog
+refiner was previously detecting whichever `CHANGELOG.md` happened to
+sit next to the shell when `regenerate` was invoked, which polluted
+cross-workspace iterations (a draft created in repo A but regenerated
+from repo B's cwd would acquire B's changelog mention). With this fix
+the refiner always targets the repo that owns the commit.
+
+### Usage
+
+No flag changes. `regenerate --id <N>` is now safe to invoke from any
+directory; the engine reads the commit's stored workspace internally.
+Legacy rows without a workspace fall back to cwd.
+
+## v0.36.0 — 2026-04-29
+
+Two new headless surfaces driven by the upcoming Claude Code skill: a
+`commitcraft ai list-tags` subcommand that emits the resolved tag set
+as JSON (with `source` attribution per tag), and a `--stage` flag on
+`ai regenerate` that re-runs only one stage of an existing draft. The
+per-stage cascade mirrors the TUI's retry shortcuts, so an agent can
+fix a broken title without re-spending tokens on the change analyzer.
+
+### Usage
+
+- `commitcraft ai list-tags` — prints `[{"tag","description","source"}]`
+  on stdout. `source` is `default` for built-in tags, `global` for
+  entries from `~/.config/CommitCraft/config.toml`, and `local` for
+  entries from the workspace's `.commitcraft.toml`. Useful for an
+  external agent picking the tag that best matches the staged diff.
+- `commitcraft ai regenerate --id <N> --stage <body|title|changelog>` —
+  re-runs only the named stage, reusing the upstream outputs stored on
+  the draft. Cascade: `body` → body+title+changelog; `title` →
+  title+changelog; `changelog` → only the refiner. Existing
+  `ai_calls` rows for stages that don't re-run are preserved.
+
 ## v0.35.1 — 2026-04-29
 
 New `commitcraft ai promote --id <N>` subcommand that flips a draft's
