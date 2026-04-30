@@ -33,27 +33,46 @@ fi
 if command -v goimports-reviser >/dev/null 2>&1; then
   say info "goimports-reviser ${#existing[@]} file(s)"
   # goimports-reviser prints "Paths: […]" / "Processing …" via Go's log
-  # package on stderr for every file. Re-emit those through `say debug`
-  # so they ride the same gum-styled stream as the rest of the hook
-  # (and respect GUM_LOG_LEVEL — hidden by default, visible when the
-  # user opts into debug). Strip the leading "YYYY/MM/DD HH:MM:SS "
-  # timestamp since gum adds its own. Anything else on stderr is a real
-  # problem and goes through `say error` at the matching level.
+  # package on stderr for every file. We want them rendered through the
+  # same gum-styled debug stream as the rest of the hook, but the
+  # previous `2> >(while read; do say; done)` setup ran the gum calls
+  # inside a process substitution that shared the tty with the still-
+  # running goimports-reviser. The concurrent gum spawns each fired
+  # OSC/CPR queries against the terminal; the terminal's responses
+  # leaked into stdout as raw escape sequences (`^[]11;rgb:…`,
+  # `^[[29;…R`) between batches.
+  #
+  # Two-phase fix: capture all stderr first (sequentially, no concurrent
+  # subshells), let goimports-reviser fully release the tty, then walk
+  # the buffered lines through gum from the main shell. Strip the
+  # leading "YYYY/MM/DD HH:MM:SS " timestamp since gum adds its own.
+  # Anything that doesn't match the noise pattern is a real problem and
+  # goes through `say error`.
   ts_re='^[0-9]{4}/[0-9]{2}/[0-9]{2} [0-9:]+ '
   noise_re='(Paths:|Processing )'
+  collected=""
   for f in "${existing[@]}"; do
-    goimports-reviser -output file "$f" >/dev/null 2> >(
-      while IFS= read -r line; do
-        stripped="${line}"
-        [[ "$stripped" =~ $ts_re ]] && stripped="${stripped#$BASH_REMATCH}"
-        if [[ "$stripped" =~ ^$noise_re ]]; then
-          say debug "$stripped"
-        else
-          say error "$stripped"
-        fi
-      done
-    )
+    # 2>&1 >/dev/null swaps fds so the command substitution captures
+    # stderr (the log lines) and discards stdout. `|| true` prevents
+    # set -e from aborting the hook when goimports-reviser exits non-
+    # zero on a file it cannot rewrite — we still want to report it.
+    err=$(goimports-reviser -output file "$f" 2>&1 >/dev/null) || true
+    if [ -n "$err" ]; then
+      collected+="${err}"$'\n'
+    fi
   done
+  if [ -n "$collected" ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      stripped="${line}"
+      [[ "$stripped" =~ $ts_re ]] && stripped="${stripped#$BASH_REMATCH}"
+      if [[ "$stripped" =~ ^$noise_re ]]; then
+        say debug "$stripped"
+      else
+        say error "$stripped"
+      fi
+    done <<<"$collected"
+  fi
   ran_any=1
 fi
 

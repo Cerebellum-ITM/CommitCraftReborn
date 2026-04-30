@@ -2,6 +2,11 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.32.2 — 2026-04-29
+
+- Fixed formatter output corruption caused by concurrent `gum` invocations in the pre-commit hook.
+- Improved the reliability of the formatting process by capturing and processing `goimports-reviser` output in a sequential manner.
+
 ## v0.32.1 — 2026-04-29
 
 Refresh the Tag palette popup layout so it reads as a real reference
