@@ -2,6 +2,44 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.35.0 — 2026-04-29
+
+Headless `commitcraft ai …` subcommand suite so an external agent can
+drive the AI commit-message pipeline without a TUI. The same three
+stages (change analyzer → commit body → commit title, plus the
+optional changelog refiner) now live in `internal/aiengine` and are
+shared by the TUI and the headless CLI; the TUI shim in
+`internal/tui/ai_pipeline.go` delegates to the engine and copies stage
+telemetry back onto the pipeline cards. New helper
+`storage.GetCommitByID` for fetching a single draft.
+
+### Usage
+
+The headless flow is rooted at `commitcraft ai`:
+
+- `commitcraft ai generate -k "<keypoint>" [-k …] -t <TAG> -s <scope> [-s …] [--no-changelog]` —
+  reads `git diff --cached`, runs the pipeline, persists a `draft` row
+  in the local SQLite DB, and prints the resulting JSON to stdout
+  (`id`, `final_message`, `summary`, `body`, `title`, `stages` …). At
+  least one keypoint and one scope are required; the tag is validated
+  against the resolved type list.
+- `commitcraft ai regenerate --id <N> [-k …] [-t …] [-s …] [--no-changelog]` —
+  re-runs the pipeline against the diff snapshot stored on the draft
+  (so the staged set can change between runs without affecting the
+  iteration). Any of `-k/-t/-s` overrides the stored value before the
+  pipeline fires; the row is updated in place and the new JSON is
+  printed.
+- `commitcraft ai show --id <N>` — prints the JSON for an existing
+  draft/commit, including per-stage telemetry rebuilt from `ai_calls`.
+- `commitcraft ai list [--status draft|completed]` — prints a JSON
+  array of rows in the current workspace with id, status, type, scope,
+  title snippet and creation timestamp. Defaults to `draft`.
+
+Errors are emitted as JSON on stderr (`{"error":"…","code":"…"}`) with
+codes `invalid_input`, `no_staged_diff`, `not_found`, `bootstrap_error`,
+`db_error`, `api_error`. The headless command never executes
+`git commit` — promoting a draft is intentionally out of scope.
+
 ## v0.34.2 — 2026-04-29
 
 Clearer labels and dedicated icons for the reword menus, so the

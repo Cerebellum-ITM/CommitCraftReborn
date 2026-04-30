@@ -1,123 +1,39 @@
+// AI commit-message pipeline (Bubble Tea side).
+//
+// The actual prompt assembly + Groq calls + changelog refiner now live
+// in internal/aiengine so the headless `commitcraft ai …` subcommands
+// can run the same pipeline without spinning up a TUI. This file is a
+// thin shim that builds aiengine.Deps from the *Model, dispatches the
+// per-stage helpers, and copies their results back onto the model so
+// the existing per-stage retry commands and pipeline cards keep
+// working unchanged.
 package tui
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
-	"regexp"
 	"strings"
-	"time"
 
+	"commit_craft_reborn/internal/aiengine"
 	"commit_craft_reborn/internal/api"
-	"commit_craft_reborn/internal/changelog"
-	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/storage"
 )
 
-// mentionStripRegex matches an `@token` mention preceded by start-of-line
-// or whitespace, capturing the leading boundary and the bare token so we
-// can drop the `@` while keeping the path text. The path itself is
-// information the AI needs ("which files are referenced"); only the
-// visual marker is for the human.
-var mentionStripRegex = regexp.MustCompile(`(^|\s)@([\w./-]+)`)
-
-// stripMentions removes the leading `@` from every mention in s, leaving
-// the file path/identifier intact. Called on every user-supplied snippet
-// (key points, summary) right before assembling an AI prompt.
-func stripMentions(s string) string {
-	return mentionStripRegex.ReplaceAllString(s, "$1$2")
-}
-
-func createAndSendIaMessage(
-	systemPrompt string,
-	userInput string,
-	iaModel string,
-	model *Model,
-) (string, *api.CallStats, error) {
-	if iaModel == "" {
-		iaModel = "llama-3.1-8b-instant"
-	}
-	apiKey := model.globalConfig.TUI.GroqAPIKey
-	messages := []api.Message{
-		{
-			Role:    "system",
-			Content: systemPrompt,
-		},
-		{
-			Role:    "user",
-			Content: userInput,
-		},
-	}
-	response, stats, err := api.GetGroqChatCompletion(apiKey, iaModel, messages)
-	if err != nil {
-		return "", stats, fmt.Errorf(
-			"An error occurred while making the following call:\n systemPrompt: %s\n userInput: %s\n Error: %s",
-			systemPrompt,
-			userInput,
-			err,
-		)
-	}
-	if stats != nil {
-		api.RecordRateLimits(iaModel, stats.RateLimits)
-		persistRateLimits(model, iaModel, stats.RateLimits)
-		logRateLimits(model, iaModel, stats.RateLimits)
-	}
-	return response, stats, nil
-}
-
-// logRateLimits emits a debug line with the parsed rate-limit fields so
-// the user can confirm via Ctrl+L which headers Groq actually returned
-// for a given model. A `*Parsed=false` flag is the signal that the
-// matching `remaining-*` header was absent from the response.
-func logRateLimits(model *Model, modelID string, rl api.RateLimits) {
-	if model == nil || model.log == nil {
-		return
-	}
-	model.log.Debug(
-		"rate-limit headers",
-		"model", modelID,
-		"limit_requests", rl.LimitRequests,
-		"remaining_requests", rl.RemainingRequests,
-		"reset_requests", rl.ResetRequests,
-		"requests_parsed", rl.RequestsParsed,
-		"limit_tokens", rl.LimitTokens,
-		"remaining_tokens", rl.RemainingTokens,
-		"reset_tokens", rl.ResetTokens,
-		"tokens_parsed", rl.TokensParsed,
-	)
-}
-
-// persistRateLimits UPSERTs the just-captured rate-limit snapshot for
-// modelID so the in-memory cache can be rehydrated on the next launch.
-// Best-effort — DB failures are logged but never propagated, the live
-// cache already has the data for the current session.
-func persistRateLimits(model *Model, modelID string, rl api.RateLimits) {
-	if model == nil || model.db == nil || modelID == "" {
-		return
-	}
-	row := storage.ModelRateLimits{
-		ModelID:           modelID,
-		LimitRequests:     rl.LimitRequests,
-		RemainingRequests: rl.RemainingRequests,
-		ResetRequestsMs:   int(rl.ResetRequests / time.Millisecond),
-		LimitTokens:       rl.LimitTokens,
-		RemainingTokens:   rl.RemainingTokens,
-		ResetTokensMs:     int(rl.ResetTokens / time.Millisecond),
-		CapturedAt:        rl.CapturedAt,
-		RequestsParsed:    rl.RequestsParsed,
-		TokensParsed:      rl.TokensParsed,
-		RequestsToday:     rl.RequestsToday,
-		RequestsDay:       rl.RequestsDay,
-	}
-	if err := model.db.SaveModelRateLimits(row); err != nil {
-		model.log.Warn("rate-limit persistence failed", "model", modelID, "error", err)
+// engineDeps is a small adapter that converts a TUI *Model into the
+// dependency bundle that aiengine functions expect. The pipeline only
+// reads from cfg/db/log/pwd, so this stays a pure projection.
+func engineDeps(model *Model) aiengine.Deps {
+	return aiengine.Deps{
+		Cfg: model.globalConfig,
+		DB:  model.db,
+		Log: model.log,
+		Pwd: model.pwd,
 	}
 }
 
 // recordStageStats copies a CallStats into the per-stage record on the
-// pipeline model so the card and the persistence layer can read the same
-// numbers. Safe with stats == nil (no-op) so error paths can still call it.
+// pipeline model so the card and the persistence layer can read the
+// same numbers. Safe with stats == nil (no-op) so error paths can
+// still call it without an extra branch.
 func recordStageStats(model *Model, id stageID, stats *api.CallStats) {
 	if model == nil || stats == nil {
 		return
@@ -139,78 +55,55 @@ func recordStageStats(model *Model, id stageID, stats *api.CallStats) {
 	st.TPMLimitAtCall = stats.RateLimits.LimitTokens
 }
 
-func iaCallChangeAnalyzer(model *Model) (string, error) {
-	promptConfig := model.globalConfig.Prompts
-
-	var gitChanges string
-	var err error
-	if model.usePreloadedDiff {
-		gitChanges = model.diffCode
-	} else {
-		gitChanges, err = git.GetStagedDiffSummary(model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize)
-		if err != nil {
-			return "", fmt.Errorf("failed to get staged diff: %w", err)
-		}
-	}
-	model.diffCode = gitChanges
-
-	developerPoints := stripMentions(strings.Join(model.keyPoints, "\n"))
-	model.log.Debug(
-		"Change Analyzer input",
-		"developerPoints",
-		developerPoints,
-		"gitChanges",
-		gitChanges,
-	)
-
-	result, stats, err := createAndSendIaMessage(
-		promptConfig.ChangeAnalyzerPrompt,
-		fmt.Sprintf("DEVELOPER_POINTS:\n%s\nGIT_CHANGES:\n%s", developerPoints, gitChanges),
-		promptConfig.ChangeAnalyzerPromptModel,
-		model,
-	)
-	if err != nil {
-		return "", fmt.Errorf("stage 1 (change analyzer): %w", err)
-	}
-	recordStageStats(model, stageSummary, stats)
-	model.log.Debug("Change Analyzer output", "result", result)
-	return result, nil
-}
-
 func iaCallCommitBodyGenerator(model *Model, summaryParagraphs string) (string, error) {
-	promptConfig := model.globalConfig.Prompts
-
-	result, stats, err := createAndSendIaMessage(
-		promptConfig.CommitBodyGeneratorPrompt,
-		fmt.Sprintf("TAG:\n%s\nMODULE:\n%s\nSUMMARY_PARAGRAPHS:\n%s",
-			model.commitType, model.commitScope, summaryParagraphs),
-		promptConfig.CommitBodyGeneratorPromptModel,
-		model,
+	result, stats, err := aiengine.CallCommitBody(
+		engineDeps(model), model.commitType, model.commitScope, summaryParagraphs,
 	)
 	if err != nil {
 		return "", fmt.Errorf("stage 2 (commit body): %w", err)
 	}
 	recordStageStats(model, stageBody, stats)
-	model.log.Debug("Commit Body Generator output", "result", result)
 	return result, nil
 }
 
 func iaCallCommitTitleGenerator(model *Model, commitBody string) (string, error) {
-	promptConfig := model.globalConfig.Prompts
-
-	result, stats, err := createAndSendIaMessage(
-		promptConfig.CommitTitleGeneratorPrompt,
-		fmt.Sprintf("TAG:\n%s\nMODULE:\n%s\nCOMMIT_BODY:\n%s",
-			model.commitType, model.commitScope, commitBody),
-		promptConfig.CommitTitleGeneratorPromptModel,
-		model,
+	result, stats, err := aiengine.CallCommitTitle(
+		engineDeps(model), model.commitType, model.commitScope, commitBody,
 	)
 	if err != nil {
 		return "", fmt.Errorf("stage 3 (commit title): %w", err)
 	}
 	recordStageStats(model, stageTitle, stats)
-	model.log.Debug("Commit Title Generator output", "result", result)
-	return strings.TrimSpace(result), nil
+	return result, nil
+}
+
+// runChangelogRefiner is the optional 4th step. Delegates to aiengine;
+// the changelogActive flag is the single source of truth (set by
+// pipelineStartFullRun, which already evaluated cfg.Enabled plus the
+// dirty-file safeguard) so we re-check it here to preserve that gate.
+func runChangelogRefiner(model *Model) {
+	model.iaChangelogEntry = ""
+	model.iaChangelogMentionLine = ""
+	if !model.changelogActive {
+		return
+	}
+	partial := aiengine.Output{
+		Body:   model.iaCommitRawOutput,
+		Title:  model.iaTitleRawOutput,
+		Stages: make([]aiengine.StageStats, 4),
+	}
+	aiengine.RunChangelogRefiner(engineDeps(model), &partial)
+	if partial.Stages[aiengine.StageChangelog].HasStats {
+		recordStageStats(
+			model,
+			stageChangelog,
+			stageStatsToCallStats(partial.Stages[aiengine.StageChangelog]),
+		)
+	}
+	model.iaChangelogEntry = partial.ChangelogEntry
+	model.iaChangelogMentionLine = partial.ChangelogMentionLine
+	model.iaChangelogTargetPath = partial.ChangelogTargetPath
+	model.iaChangelogSuggestedVersion = partial.ChangelogSuggestedVersion
 }
 
 func assembleCommitMessage(titleText, commitBody string) string {
@@ -222,205 +115,80 @@ func assembleOutputCommitMessage(model *Model, commit storage.Commit) string {
 	return fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
 }
 
+// composeFinalCommitMessage builds the user-visible commit message:
+// stage 3 title + stage 2 body verbatim, plus the refiner's mention
+// line appended at the end when present. Stage 2's stored output is
+// never modified — the appended line only lives in the final string.
+func composeFinalCommitMessage(model *Model) string {
+	return aiengine.ComposeFinalMessage(
+		model.iaTitleRawOutput,
+		model.iaCommitRawOutput,
+		model.iaChangelogMentionLine,
+	)
+}
+
+// ia_commit_builder runs the full 3-stage pipeline (plus optional
+// stage 4) end-to-end. Used by Ctrl+W on the writing-message screen
+// and by the full-pipeline retry command.
 func ia_commit_builder(model *Model) error {
-	summaryParagraphs, err := iaCallChangeAnalyzer(model)
+	deps := engineDeps(model)
+	in := aiengine.Input{
+		KeyPoints:       model.keyPoints,
+		Type:            model.commitType,
+		Scope:           model.commitScope,
+		ChangelogActive: model.changelogActive,
+	}
+	if model.usePreloadedDiff {
+		in.Diff = model.diffCode
+	}
+
+	out, err := aiengine.Run(deps, in)
 	if err != nil {
 		return err
 	}
-	model.iaSummaryOutput = summaryParagraphs
 
-	commitBody, err := iaCallCommitBodyGenerator(model, summaryParagraphs)
-	if err != nil {
-		return err
+	model.diffCode = out.Diff
+	model.iaSummaryOutput = out.Summary
+	model.iaCommitRawOutput = out.Body
+	model.iaTitleRawOutput = out.Title
+	model.iaChangelogEntry = out.ChangelogEntry
+	model.iaChangelogMentionLine = out.ChangelogMentionLine
+	model.iaChangelogTargetPath = out.ChangelogTargetPath
+	model.iaChangelogSuggestedVersion = out.ChangelogSuggestedVersion
+	model.commitTranslate = out.FinalMessage
+
+	for i := range out.Stages {
+		if !out.Stages[i].HasStats {
+			continue
+		}
+		recordStageStats(model, stageID(i), stageStatsToCallStats(out.Stages[i]))
 	}
-	model.iaCommitRawOutput = commitBody
-
-	titleText, err := iaCallCommitTitleGenerator(model, commitBody)
-	if err != nil {
-		return err
-	}
-
-	model.iaTitleRawOutput = titleText
-	runChangelogRefiner(model)
-	model.commitTranslate = composeFinalCommitMessage(model)
 	model.log.Debug("Final commit message", "commitTranslate", model.commitTranslate)
 	return nil
 }
 
-// changelogRefinerOutput mirrors the JSON contract documented in
-// prompts/changelog_refiner.prompt.tmpl. The refiner emits two independent
-// pieces of text: the new CHANGELOG block and a single mention line that
-// will be appended to the commit body. Stage 2's body is never rewritten —
-// the mention line is added on top, the existing bullets stay verbatim.
-type changelogRefinerOutput struct {
-	ChangelogEntry    string `json:"changelog_entry"`
-	CommitMentionLine string `json:"commit_mention_line"`
+// stageStatsToCallStats projects an aiengine.StageStats back into an
+// api.CallStats so the existing recordStageStats helper can ingest it
+// without forking the per-field copy. RateLimits.LimitTokens is the
+// only field the recorder reads from there — the rest stays zero.
+func stageStatsToCallStats(s aiengine.StageStats) *api.CallStats {
+	return &api.CallStats{
+		PromptTokens:     s.PromptTokens,
+		CompletionTokens: s.CompletionTokens,
+		TotalTokens:      s.TotalTokens,
+		QueueTime:        s.QueueTime,
+		PromptTime:       s.PromptTime,
+		CompletionTime:   s.CompletionTime,
+		TotalTime:        s.APITotalTime,
+		RequestID:        s.RequestID,
+		Model:            s.StatsModel,
+		RateLimits:       api.RateLimits{LimitTokens: s.TPMLimitAtCall},
+	}
 }
 
-// runChangelogRefiner is the optional 4th step. It detects the project's
-// CHANGELOG and asks the AI for two independent pieces of text: the new
-// CHANGELOG block and a one-line mention to append to the commit body.
-// Stage 2's body is sent purely as input context for the entry — this
-// function never mutates iaCommitRawOutput, so the stage 2 viewport keeps
-// showing the real model output. The mention line lives in
-// iaChangelogMentionLine and is concatenated by composeFinalCommitMessage.
-func runChangelogRefiner(model *Model) {
-	model.iaChangelogEntry = ""
-	model.iaChangelogMentionLine = ""
-
-	cfg := model.globalConfig.Changelog
-	// changelogActive is the single source of truth: pipelineStartFullRun
-	// already evaluated `Enabled` plus the dirty-file safeguard and decided
-	// whether the refiner should run. Re-checking only `cfg.Enabled` here
-	// would bypass the safeguard (the file exists and is readable, so the
-	// downstream Detect would succeed and the AI call would still fire).
-	if !cfg.Enabled || !model.changelogActive {
-		return
-	}
-
-	info, err := changelog.Detect(model.pwd, cfg.Path)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			model.log.Warn("Changelog detect failed, skipping refiner", "error", err)
-		}
-		return
-	}
-
-	suggested := changelog.SuggestNextVersion(info.LatestVersion, cfg.BumpStrategy)
-	prompt := cfg.Prompt
-	if prompt == "" {
-		model.log.Warn("Changelog prompt is empty, skipping refiner")
-		return
-	}
-
-	bulletHint := pickBulletStyle(model.iaCommitRawOutput)
-	if bulletHint == "" {
-		bulletHint = "none"
-	}
-
-	userInput := fmt.Sprintf(
-		"FORMAT_SAMPLE:\n%s\nSUGGESTED_VERSION:\n%s\nDATE:\n%s\nSTAGE2_BODY:\n%s\nSTAGE3_TITLE:\n%s\nBODY_BULLET_STYLE:\n%s",
-		info.FormatSample,
-		suggested,
-		time.Now().Format("2006-01-02"),
-		model.iaCommitRawOutput,
-		model.iaTitleRawOutput,
-		bulletHint,
-	)
-
-	response, stats, err := createAndSendIaMessage(prompt, userInput, cfg.PromptModel, model)
-	if err != nil {
-		model.log.Warn("Changelog refiner call failed", "error", err)
-		return
-	}
-	recordStageStats(model, stageChangelog, stats)
-
-	parsed, perr := parseChangelogRefinerJSON(response)
-	if perr != nil {
-		model.log.Warn("Changelog refiner JSON parse failed, using fallback", "error", perr)
-		model.iaChangelogEntry = fallbackChangelogEntry(
-			suggested,
-			model.iaTitleRawOutput,
-			model.iaCommitRawOutput,
-		)
-		model.iaChangelogMentionLine = fallbackMentionLine(model.iaCommitRawOutput, suggested)
-		model.iaChangelogTargetPath = info.Path
-		model.iaChangelogSuggestedVersion = suggested
-		return
-	}
-
-	mention := strings.TrimSpace(parsed.CommitMentionLine)
-	// Safety net: if the model dropped the mention or omitted the
-	// CHANGELOG.md token, build a deterministic fallback so the final
-	// commit message always documents the update.
-	if mention == "" || !strings.Contains(strings.ToLower(mention), "changelog.md") {
-		mention = fallbackMentionLine(model.iaCommitRawOutput, suggested)
-	}
-
-	model.iaChangelogEntry = strings.TrimSpace(parsed.ChangelogEntry)
-	model.iaChangelogMentionLine = mention
-	model.iaChangelogTargetPath = info.Path
-	model.iaChangelogSuggestedVersion = suggested
-	model.log.Debug(
-		"Changelog refiner output",
-		"entry", model.iaChangelogEntry,
-		"mention", model.iaChangelogMentionLine,
-		"version", suggested,
-	)
-}
-
-// composeFinalCommitMessage builds the user-visible commit message: stage 3
-// title + stage 2 body verbatim, plus the refiner's mention line appended at
-// the end when present. Stage 2's stored output is never modified — the
-// appended line only lives in the final commitTranslate string.
-func composeFinalCommitMessage(model *Model) string {
-	body := model.iaCommitRawOutput
-	if model.iaChangelogMentionLine != "" {
-		body = strings.TrimRight(body, " \n\t") + "\n\n" + model.iaChangelogMentionLine
-	}
-	return assembleCommitMessage(model.iaTitleRawOutput, body)
-}
-
-// parseChangelogRefinerJSON extracts the refiner's JSON payload, tolerating
-// the model wrapping it in prose or a markdown code fence.
-func parseChangelogRefinerJSON(raw string) (changelogRefinerOutput, error) {
-	var out changelogRefinerOutput
-	trimmed := strings.TrimSpace(raw)
-	if i := strings.Index(trimmed, "{"); i >= 0 {
-		if j := strings.LastIndex(trimmed, "}"); j > i {
-			trimmed = trimmed[i : j+1]
-		}
-	}
-	if err := json.Unmarshal([]byte(trimmed), &out); err != nil {
-		return out, err
-	}
-	if out.ChangelogEntry == "" {
-		return out, fmt.Errorf("missing changelog_entry field")
-	}
-	return out, nil
-}
-
-// fallbackMentionLine builds a deterministic single-line mention used when
-// the refiner doesn't return a usable commit_mention_line. The bullet
-// character is matched to the existing body so the appended line blends in.
-func fallbackMentionLine(body, version string) string {
-	bullet := pickBulletStyle(body)
-	if bullet == "" {
-		return fmt.Sprintf("Updated CHANGELOG.md with %s entry.", version)
-	}
-	return fmt.Sprintf("%s Updated CHANGELOG.md with %s entry.", bullet, version)
-}
-
-// pickBulletStyle scans body for the first existing bullet and returns the
-// same prefix character. Returns the empty string when the body has no
-// bullets — callers should treat that as "use a plain sentence".
-func pickBulletStyle(body string) string {
-	for _, line := range strings.Split(body, "\n") {
-		trimmed := strings.TrimLeft(line, " \t")
-		if len(trimmed) >= 2 {
-			switch trimmed[0] {
-			case '-', '*', '+':
-				if trimmed[1] == ' ' {
-					return string(trimmed[0])
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// fallbackChangelogEntry builds a minimal entry when the AI response is
-// unusable. Conservative: heading + title + first paragraph of the body.
-func fallbackChangelogEntry(version, title, body string) string {
-	first := strings.SplitN(strings.TrimSpace(body), "\n\n", 2)[0]
-	return fmt.Sprintf("## %s — %s\n\n%s\n\n%s",
-		version,
-		time.Now().Format("2006-01-02"),
-		strings.TrimSpace(title),
-		first,
-	)
-}
-
+// iaReleaseBuilder remains here because the release flow has its own
+// prompt + storage path that doesn't share any logic with the commit
+// pipeline. Lives next to its TUI callers for locality.
 func iaReleaseBuilder(model *Model) error {
 	var input strings.Builder
 	delimiter := "--- COMMIT SEPARATOR ---"
@@ -435,14 +203,14 @@ func iaReleaseBuilder(model *Model) error {
 		)
 		input.WriteString(commitContent)
 	}
-	promptConfig := model.globalConfig.Prompts
+	pc := model.globalConfig.Prompts
 	model.log.Debug("release ia Input", "input", input)
 
-	iaResponse, _, err := createAndSendIaMessage(
-		promptConfig.ReleasePrompt,
+	iaResponse, _, err := aiengine.SendIaMessage(
+		engineDeps(model),
+		pc.ReleasePrompt,
 		input.String(),
-		promptConfig.ReleasePromptModel,
-		model,
+		pc.ReleasePromptModel,
 	)
 	if err != nil {
 		model.log.Error(

@@ -50,6 +50,35 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	return commits, nil
 }
 
+// GetCommitByID returns the commit row matching id, with key points
+// decoded back into a slice. Returns sql.ErrNoRows wrapped when the id
+// doesn't exist so callers can branch on errors.Is(err, sql.ErrNoRows).
+func (db *DB) GetCommitByID(id int) (Commit, error) {
+	row := db.QueryRow(
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, created_at FROM commits WHERE id = ?",
+		id,
+	)
+	var c Commit
+	var createdAt, messageES string
+	if err := row.Scan(
+		&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace,
+		&c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog,
+		&createdAt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c, errors.Wrap(err, "commit not found")
+		}
+		return c, errors.Wrap(err, "failed to scan commit row")
+	}
+	c.KeyPoints = splitKeyPoints(messageES)
+	t, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return c, errors.Wrap(err, "failed to parse created_at: "+createdAt)
+	}
+	c.CreatedAt = t.Local()
+	return c, nil
+}
+
 // CreateCommit adds a new commit to the database and writes the new row
 // id back into c.ID so callers can persist child rows (e.g. ai_calls)
 // using the freshly minted commit id.

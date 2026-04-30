@@ -11,6 +11,7 @@ import (
 	charmlog "charm.land/log/v2"
 
 	"commit_craft_reborn/internal/api"
+	aicli "commit_craft_reborn/internal/cli/ai"
 	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/logger"
@@ -19,9 +20,17 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 )
 
-var version = "v0.34.2"
+var version = "v0.35.0"
 
 func main() {
+	// Headless subcommand path: when the first positional arg is "ai",
+	// route to the JSON-output subcommand dispatcher and skip the TUI
+	// bootstrap entirely. This keeps the agent-facing CLI free of the
+	// global flag noise (-r/-o/-w) the TUI uses.
+	if len(os.Args) > 1 && os.Args[1] == "ai" {
+		os.Exit(aicli.Dispatch(os.Args[2:]))
+	}
+
 	log := logger.New()
 	log.Info("Starting Commit Crafter application...")
 	startInReleaseMode := flag.Bool(
