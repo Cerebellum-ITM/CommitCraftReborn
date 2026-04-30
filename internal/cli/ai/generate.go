@@ -114,6 +114,11 @@ func runGenerate(args []string) int {
 		saved = c
 		saved.Status = "draft"
 	}
-	printCommitJSON(commitToJSON(saved, out.Stages))
+	cj, err := commitToJSON(saved, out.Stages, bs.cfg.CommitFormat.TypeFormat)
+	if err != nil {
+		printErrorJSON("incomplete_commit", err.Error())
+		return 1
+	}
+	printCommitJSON(cj)
 	return 0
 }

@@ -311,7 +311,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			} else {
 				model.currentCommit = commit
 				if model.OutputDirect {
-					model.FinalMessage = assembleOutputCommitMessage(model, commit)
+					model.FinalMessage = outputCommitMessageOrFallback(model, commit)
 					return model, tea.Quit
 				}
 				var menuOptions []itemsOptions

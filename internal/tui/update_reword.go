@@ -63,7 +63,7 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					return model, nil
 				}
 				model.RewordHash = item.Hash
-				model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+				model.FinalMessage = outputCommitMessageOrFallback(model, model.currentCommit)
 				return quitWithAutodraft(model)
 			}
 		case key.Matches(msg, model.keys.Esc):

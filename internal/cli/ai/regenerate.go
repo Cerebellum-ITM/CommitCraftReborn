@@ -182,6 +182,11 @@ func runRegenerate(args []string) int {
 	if err != nil {
 		saved = c
 	}
-	printCommitJSON(commitToJSON(saved, out.Stages))
+	cj, err := commitToJSON(saved, out.Stages, bs.cfg.CommitFormat.TypeFormat)
+	if err != nil {
+		printErrorJSON("incomplete_commit", err.Error())
+		return 1
+	}
+	printCommitJSON(cj)
 	return 0
 }

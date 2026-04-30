@@ -2,6 +2,37 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.40.0 — 2026-04-30
+
+Headless `ai generate` / `ai regenerate` / `ai show` / `ai promote`
+now emit `final_message` with the same `[TAG] scope: …` header the
+TUI's post-commit view shows, so the field can be piped straight
+into `git commit -F -` without caller-side reassembly. The header
+respects `commit_format.type_format` from the user's TOML config
+(default `[%s]`); when `Type` or `Scope` is empty, `final_message`
+falls back to the bare title+body so partial drafts never produce
+malformed headers like `[ADD] : foo`. TUI and headless now share a
+single `commit.FormatFinalMessage` helper — closes #1.
+
+`FormatFinalMessage` treats missing `tag`, `scope` or `message` as a
+programmer error (`commit.ErrIncompleteCommit`); headless callers
+surface it as a structured `incomplete_commit` JSON error and exit
+1, while the TUI logs the error and degrades to the raw `MessageEN`
+so the user is never left with a blank screen.
+
+### Usage
+
+- No flag changes. Run `commitcraft ai generate -k "…" -t ADD -s wt`
+  and `jq -r '.final_message'` will now start with `[ADD] wt: …`.
+- To override the wrapper, set under `[commit_format]` in
+  `~/.config/CommitCraft/config.toml` or `.commitcraft.toml`:
+  `type_format = "<%s>"` → `final_message` becomes `<ADD> wt: …`.
+- `body` and `title` fields are unchanged, so consumers that wanted
+  the unprefixed text still have it.
+- If a draft is missing `type` or `scope`, `ai show/promote/...`
+  now exit 1 with `{"code":"incomplete_commit", ...}` on stderr
+  instead of silently emitting a half-formed `final_message`.
+
 ## v0.36.2 — 2026-04-30
 
 New `--refresh-diff` flag on `ai regenerate` that re-reads

@@ -40,6 +40,11 @@ func runShow(args []string) int {
 		return 1
 	}
 	stages := loadStagesForCommit(bs.db, c.ID)
-	printCommitJSON(commitToJSON(c, stages))
+	cj, err := commitToJSON(c, stages, bs.cfg.CommitFormat.TypeFormat)
+	if err != nil {
+		printErrorJSON("incomplete_commit", err.Error())
+		return 1
+	}
+	printCommitJSON(cj)
 	return 0
 }

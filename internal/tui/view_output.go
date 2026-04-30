@@ -46,7 +46,7 @@ func (model *Model) outputSegmentText() string {
 	case outSegChangelog:
 		return model.iaChangelogEntry
 	default:
-		return assembleOutputCommitMessage(model, model.currentCommit)
+		return outputCommitMessageOrFallback(model, model.currentCommit)
 	}
 }
 

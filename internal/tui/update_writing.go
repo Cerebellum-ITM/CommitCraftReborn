@@ -132,7 +132,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				_, cmd := createCommit(model)
 				model.usePreloadedDiff = false
 				if model.RewordHash != "" {
-					model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+					model.FinalMessage = outputCommitMessageOrFallback(model, model.currentCommit)
 					return quitWithAutodraft(model)
 				}
 				return model, cmd

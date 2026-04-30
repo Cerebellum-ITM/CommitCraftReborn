@@ -442,7 +442,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return quitWithAutodraft(model)
 		case "Output message":
-			model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+			model.FinalMessage = outputCommitMessageOrFallback(model, model.currentCommit)
 			return quitWithAutodraft(model)
 		case "Open output view":
 			return openOutputViewFromHistory(model)

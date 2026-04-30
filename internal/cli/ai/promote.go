@@ -63,6 +63,11 @@ func runPromote(args []string) int {
 		saved.Status = "completed"
 	}
 	stages := loadStagesForCommit(bs.db, saved.ID)
-	printCommitJSON(commitToJSON(saved, stages))
+	cj, err := commitToJSON(saved, stages, bs.cfg.CommitFormat.TypeFormat)
+	if err != nil {
+		printErrorJSON("incomplete_commit", err.Error())
+		return 1
+	}
+	printCommitJSON(cj)
 	return 0
 }

@@ -16,7 +16,7 @@ func updateOutput(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	}
 	switch {
 	case key.Matches(m, model.keys.Enter):
-		model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
+		model.FinalMessage = outputCommitMessageOrFallback(model, model.currentCommit)
 		return quitWithAutodraft(model)
 	case key.Matches(m, model.keys.Esc):
 		return model.cancelProcess(stateChoosingCommit)

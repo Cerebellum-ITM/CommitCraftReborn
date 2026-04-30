@@ -15,6 +15,7 @@ import (
 
 	"commit_craft_reborn/internal/aiengine"
 	"commit_craft_reborn/internal/api"
+	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/storage"
 )
 
@@ -110,9 +111,27 @@ func assembleCommitMessage(titleText, commitBody string) string {
 	return fmt.Sprintf("%s\n\n%s", titleText, commitBody)
 }
 
-func assembleOutputCommitMessage(model *Model, commit storage.Commit) string {
-	formattedCommitType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, commit.Type)
-	return fmt.Sprintf("%s %s: %s", formattedCommitType, commit.Scope, commit.MessageEN)
+func assembleOutputCommitMessage(model *Model, c storage.Commit) (string, error) {
+	return commit.FormatFinalMessage(
+		model.globalConfig.CommitFormat.TypeFormat,
+		c.Type,
+		c.Scope,
+		c.MessageEN,
+	)
+}
+
+// outputCommitMessageOrFallback wraps assembleOutputCommitMessage for
+// TUI call sites that need a non-empty string no matter what. If the
+// invariant (tag/scope/message all populated) is violated, log the
+// error and degrade to the raw MessageEN so the user still sees
+// something instead of a blank screen.
+func outputCommitMessageOrFallback(model *Model, c storage.Commit) string {
+	msg, err := assembleOutputCommitMessage(model, c)
+	if err != nil {
+		model.log.Error("assemble output commit message", "error", err, "commit_id", c.ID)
+		return c.MessageEN
+	}
+	return msg
 }
 
 // composeFinalCommitMessage builds the user-visible commit message:

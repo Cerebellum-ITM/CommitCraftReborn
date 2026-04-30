@@ -178,7 +178,15 @@ type stageJSON struct {
 
 var stageNames = [...]string{"summary", "body", "title", "changelog"}
 
-func commitToJSON(c storage.Commit, stages []aiengine.StageStats) commitJSON {
+func commitToJSON(
+	c storage.Commit,
+	stages []aiengine.StageStats,
+	typeFormat string,
+) (commitJSON, error) {
+	final, err := commit.FormatFinalMessage(typeFormat, c.Type, c.Scope, c.MessageEN)
+	if err != nil {
+		return commitJSON{}, err
+	}
 	cj := commitJSON{
 		ID:             c.ID,
 		Status:         c.Status,
@@ -189,7 +197,7 @@ func commitToJSON(c storage.Commit, stages []aiengine.StageStats) commitJSON {
 		Body:           c.IaCommitRaw,
 		Title:          c.IaTitle,
 		ChangelogEntry: c.IaChangelog,
-		FinalMessage:   c.MessageEN,
+		FinalMessage:   final,
 		Workspace:      c.Workspace,
 		CreatedAt:      c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -212,7 +220,7 @@ func commitToJSON(c storage.Commit, stages []aiengine.StageStats) commitJSON {
 			RequestID:        s.RequestID,
 		})
 	}
-	return cj
+	return cj, nil
 }
 
 func firstNonEmpty(a, b string) string {
