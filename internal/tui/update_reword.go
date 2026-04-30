@@ -29,7 +29,7 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.RewordHash = item.Hash
 					model.syncRewordIndicator()
 					model.commitAndReword = false
-					model.useDbCommmit = true
+					model.usePreloadedDiff = true
 					diffCode, err := git.GetCommitDiffSummary(item.Hash, model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize)
 					if err != nil {
 						model.log.Error("Error getting commit diff", "error", err)
@@ -43,6 +43,7 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					} else {
 						model.log.Error("Error getting commit git status data", "error", gErr)
 					}
+					loadPipelineFilesFromDb(model, diffCode)
 					model.currentCommit = storage.Commit{}
 					model.keyPoints = nil
 					model.commitTranslate = ""
@@ -51,11 +52,14 @@ func updateRewordSelectCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					model.iaTitleRawOutput = ""
 					model.activeTab = 0
 					model.activePipelineStage = 0
-					model.state = stateChoosingType
-					model.keys = listKeys()
-					model.WritingStatusBar.Content = "Select a prefix for the commit"
+					model.state = stateWritingMessage
+					model.focusedElement = focusComposeSummary
+					model.keys = writingMessageKeys()
+					model.WritingStatusBar.Content = fmt.Sprintf("Reword %s · compose key points and run AI", item.Hash[:7])
 					model.WritingStatusBar.Level = statusbar.LevelInfo
-					ResetAndActiveFilterOnList(&model.commitTypeList)
+					if cmd := model.commitsKeysInput.Focus(); cmd != nil {
+						return model, cmd
+					}
 					return model, nil
 				}
 				model.RewordHash = item.Hash
@@ -89,7 +93,7 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 	model.pendingRewordHash = ""
 	model.RewordHash = hash
 	model.syncRewordIndicator()
-	model.useDbCommmit = true
+	model.usePreloadedDiff = true
 
 	diff, dErr := git.GetCommitDiffSummary(
 		hash,
@@ -109,11 +113,27 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 		model.log.Error("Error getting commit git status data for reword", "error", gErr)
 	}
 
-	model.state = stateChoosingType
-	model.keys = listKeys()
-	model.WritingStatusBar.Content = fmt.Sprintf("Reword %s · select a prefix", hash[:7])
+	loadPipelineFilesFromDb(model, diff)
+	model.currentCommit = storage.Commit{}
+	model.keyPoints = nil
+	model.commitTranslate = ""
+	model.iaSummaryOutput = ""
+	model.iaCommitRawOutput = ""
+	model.iaTitleRawOutput = ""
+	model.activeTab = 0
+	model.activePipelineStage = 0
+
+	model.state = stateWritingMessage
+	model.focusedElement = focusComposeSummary
+	model.keys = writingMessageKeys()
+	model.WritingStatusBar.Content = fmt.Sprintf(
+		"Reword %s · compose key points and run AI",
+		hash[:7],
+	)
 	model.WritingStatusBar.Level = statusbar.LevelInfo
-	ResetAndActiveFilterOnList(&model.commitTypeList)
+	if cmd := model.commitsKeysInput.Focus(); cmd != nil {
+		return model, cmd
+	}
 	return model, nil
 }
 

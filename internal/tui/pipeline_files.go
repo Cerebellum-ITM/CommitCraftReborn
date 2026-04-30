@@ -39,7 +39,7 @@ func setDiffFromSelectedFile(model *Model) {
 	}
 	var diff string
 	var err error
-	if model.useDbCommmit {
+	if model.usePreloadedDiff {
 		diff = model.dbFileDiffs[it.FilePath]
 	} else {
 		diff, err = git.GetStagedFileDiff(it.FilePath)

@@ -252,7 +252,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.iaCommitRawOutput = commit.IaCommitRaw
 				model.iaTitleRawOutput = commit.IaTitle
 				model.iaChangelogEntry = commit.IaChangelog
-				model.useDbCommmit = true
+				model.usePreloadedDiff = true
 				model.scopeDataStale = true
 				model.syncScopeStaleIndicator()
 				model.keyPoints = commit.KeyPoints
@@ -294,7 +294,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				model.iaCommitRawOutput = commit.IaCommitRaw
 				model.iaTitleRawOutput = commit.IaTitle
 				model.iaChangelogEntry = commit.IaChangelog
-				model.useDbCommmit = true
+				model.usePreloadedDiff = true
 				model.scopeDataStale = true
 				model.syncScopeStaleIndicator()
 				loadPipelineFilesFromDb(model, commit.Diff_code)

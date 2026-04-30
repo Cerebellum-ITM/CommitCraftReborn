@@ -38,7 +38,7 @@ func (model *Model) cancelProcess(state appState) (tea.Model, tea.Cmd) {
 		model.RewordHash = ""
 		model.syncRewordIndicator()
 		model.commitAndReword = false
-		model.useDbCommmit = false
+		model.usePreloadedDiff = false
 		model.scopeDataStale = false
 		model.syncScopeStaleIndicator()
 		if gitData, gErr := git.GetAllGitStatusData(); gErr == nil {

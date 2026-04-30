@@ -265,7 +265,7 @@ func (model *Model) pipelineStartFullRun() tea.Cmd {
 	model.pipelineViewport2.SetContent("")
 	model.pipelineViewport3.SetContent("")
 	model.pipelineViewport4.SetContent("")
-	if !model.useDbCommmit {
+	if !model.usePreloadedDiff {
 		refreshPipelineNumstat(model)
 		applyPipelineFilesDelegate(model)
 	}

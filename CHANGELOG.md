@@ -2,6 +2,34 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.34.1 — 2026-04-29
+
+Reword flow polish: both reword paths now land on the Compose panel and
+the Pipeline view shows the loaded commit's per-file diffs.
+
+- `setupCommitReword` (CLI `-w <hash>` → "Reword as commit") and the
+  "Commit and reword" menu branch in `updateRewordSelectCommit` now
+  transition to `stateWritingMessage` with `focusComposeSummary` and
+  `writingMessageKeys()`, instead of dropping the user into the prefix
+  selector.
+- Both paths call `loadPipelineFilesFromDb(model, diff)` after fetching
+  `git.GetCommitDiffSummary`, so `pipelineDiffList` and `dbFileDiffs`
+  are populated and the Pipeline tab renders the file list and per-file
+  diff for the targeted commit.
+- Renamed the `useDbCommmit` field (note the triple `m`) to
+  `usePreloadedDiff` across the codebase. The flag never meant "data
+  came from the SQLite DB" — its real semantics are "use the diff
+  already loaded in `model.diffCode` instead of running `git diff
+  --staged`", which covers both DB-loaded drafts and git-hash-loaded
+  reword targets.
+
+### Usage
+
+Run `commit_craft -w <hash>` (or pick "Commit and reword" from the
+main menu and choose a commit) and you now arrive directly on the
+Compose panel with the commit's diff visible in the Pipeline tab.
+Write key points and trigger the AI pipeline with `Ctrl+W` as usual.
+
 ## v0.34.0 — 2026-04-29
 
 Two new persistent pills on the right side of the main status bar that

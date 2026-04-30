@@ -130,7 +130,7 @@ func updateWritingMessage(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Enter):
 			if model.commitTranslate != "" {
 				_, cmd := createCommit(model)
-				model.useDbCommmit = false
+				model.usePreloadedDiff = false
 				if model.RewordHash != "" {
 					model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
 					return quitWithAutodraft(model)

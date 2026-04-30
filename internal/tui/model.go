@@ -213,7 +213,7 @@ type Model struct {
 	pipelineViewport3       viewport.Model
 	pipelineViewport4       viewport.Model
 	pipeline                pipelineModel
-	useDbCommmit            bool
+	usePreloadedDiff        bool
 	// scopeDataStale flips on when a commit is loaded from the DB without a
 	// linked git hash (drafts and history commits committed outside the
 	// CLI). In that mode gitStatusData still reflects the live workspace,
@@ -486,7 +486,7 @@ func NewModel(
 		pipelineViewport3:       pvp3,
 		pipelineViewport4:       pvp4,
 		pipeline:                newPipelineModel(),
-		useDbCommmit:            false,
+		usePreloadedDiff:        false,
 		OutputDirect:            outputDirect,
 		Version:                 version,
 		topTab:                  tabForState(initalState),

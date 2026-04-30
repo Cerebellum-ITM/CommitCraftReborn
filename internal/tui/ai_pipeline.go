@@ -144,7 +144,7 @@ func iaCallChangeAnalyzer(model *Model) (string, error) {
 
 	var gitChanges string
 	var err error
-	if model.useDbCommmit {
+	if model.usePreloadedDiff {
 		gitChanges = model.diffCode
 	} else {
 		gitChanges, err = git.GetStagedDiffSummary(model.globalConfig.Prompts.ChangeAnalyzerMaxDiffSize)
