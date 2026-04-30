@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -145,6 +147,51 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, nil
 	case closeKeybindingsPopupMsg:
 		model.popup = nil
+		return model, nil
+	case closeCommandPaletteMsg:
+		model.popup = nil
+		return model, nil
+	case closeTagPalettePopupMsg:
+		model.popup = nil
+		return model, nil
+	case commandRunMsg:
+		model.popup = nil
+		switch msg.id {
+		case cmdGenerateLocalConfig:
+			workDir, _ := os.Getwd()
+			localPath := filepath.Join(workDir, ".commitcraft.toml")
+			if _, err := os.Stat(localPath); err == nil {
+				return model, model.WritingStatusBar.ShowMessageForDuration(
+					".commitcraft.toml already exists in this directory",
+					statusbar.LevelWarning,
+					3*time.Second,
+				)
+			}
+			if err := CreateLocalConfigTomlTmpl(); err != nil {
+				model.log.Error("create local config failed", "error", err)
+				return model, model.WritingStatusBar.ShowMessageForDuration(
+					fmt.Sprintf("Could not create local config: %s", err),
+					statusbar.LevelError,
+					3*time.Second,
+				)
+			}
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				"Created .commitcraft.toml in the current directory",
+				statusbar.LevelSuccess,
+				2*time.Second,
+			)
+		case cmdShowTagPalette:
+			w := max(80, model.width*4/5)
+			h := max(20, model.height*4/5)
+			if w > model.width-2 {
+				w = model.width - 2
+			}
+			if h > model.height-2 {
+				h = model.height - 2
+			}
+			model.popup = newTagPalettePopup(w, h, model.Theme, model.finalCommitTypes)
+			return model, nil
+		}
 		return model, nil
 	case releaseHistorySyncMsg:
 		// Async result of startReleaseHistorySync — apply it to the
@@ -793,6 +840,18 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if key.Matches(msg, versionPopupKey) {
 			model.popup = openVersionEditor(model)
+			return model, nil
+		}
+		if msg.String() == "ctrl+k" {
+			w := max(60, model.width*2/3)
+			h := max(16, model.height/2)
+			if w > model.width-4 {
+				w = model.width - 4
+			}
+			if h > model.height-4 {
+				h = model.height - 4
+			}
+			model.popup = newCommandPalettePopup(w, h, model.Theme, model.globalConfig.TUI.UseNerdFonts)
 			return model, nil
 		}
 		if key.Matches(msg, openConfigPopupKey) {

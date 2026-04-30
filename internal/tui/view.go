@@ -300,6 +300,12 @@ func (model *Model) View() tea.View {
 	case keybindingsPopupModel:
 		ok = true
 		popupView = popupModel.View()
+	case commandPalettePopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case tagPalettePopupModel:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}

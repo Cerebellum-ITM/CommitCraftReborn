@@ -169,6 +169,7 @@ func releaseKeybindings() []keybindingGroup {
 		{
 			title: "App",
 			entries: []helpEntry{
+				{"^k", "command palette"},
 				{"^s", "switch app mode"},
 				{"^l", "logs"},
 				{"^x", "quit"},
