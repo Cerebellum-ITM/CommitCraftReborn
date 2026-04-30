@@ -328,14 +328,20 @@ func startReleaseHistorySync(model *Model) tea.Cmd {
 
 // loadReleaseAICalls is the release counterpart of loadCommitAICalls. It
 // reads the release-side telemetry rows so the dual panel can render the
-// stages telemetry strip. Today we don't have a release_ai_calls table
-// yet, so this returns nil — a follow-up phase will add the table and
-// flush the create-release pipeline through it. The hook lives here now
-// so the dual panel doesn't have to know whether persistence is wired.
+// stages telemetry strip. Returns nil on error so the caller can keep
+// rendering the panel without telemetry instead of crashing.
 func loadReleaseAICalls(model *Model, releaseID int) []storage.AICall {
-	_ = model
-	_ = releaseID
-	return nil
+	if model == nil || model.db == nil || releaseID <= 0 {
+		return nil
+	}
+	calls, err := model.db.GetAICallsByReleaseID(releaseID)
+	if err != nil {
+		if model.log != nil {
+			model.log.Warn("load release_ai_calls failed", "release_id", releaseID, "error", err)
+		}
+		return nil
+	}
+	return calls
 }
 
 func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
@@ -345,6 +351,11 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	case focusViewportElement:
 		model.releaseViewport, cmd = model.releaseViewport.Update(msg)
 	}
+
+	// Forward pipeline-card animation ticks so the spinner/pulse/flash
+	// keep firing while we're on the release flow (the global Update
+	// only routes them through state-specific handlers).
+	animCmd := updatePipelineAnimations(msg, model)
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -374,7 +385,7 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return model, cmd
+	return model, tea.Batch(cmd, animCmd)
 }
 
 // releaseChooseFocusOrder is the canonical Tab cycle for the
@@ -511,6 +522,17 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			applyReleaseChooseModeFilter(model)
 			return model, nil
 		}
+		// `m` toggles the release/merge label pill on the picker
+		// border. Cosmetic — the prompt set is the same; the value
+		// flows into ReleaseInput.Mode for logging only.
+		if msg.String() == "m" && model.focusedElement != focusReleaseChooseFilter {
+			if model.releaseMode == "merge" {
+				model.releaseMode = "release"
+			} else {
+				model.releaseMode = "merge"
+			}
+			return model, nil
+		}
 		// ctrl+e is context-aware:
 		//   - on the files list: swap between filename+dim-dir and the
 		//     full relative path render mode.
@@ -543,17 +565,39 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			}
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
-			// Enter kicks off the AI release builder. The mode-bar
-			// toggle moved to ctrl+e (handled above) since the bar
-			// is no longer a focus target.
+			// Enter kicks off the AI release pipeline. Flip the
+			// pipeline preset to release, reset every stage to
+			// running, and dispatch the builder cmd alongside the
+			// animation ticks the cards rely on.
+			if len(model.selectedCommitList) == 0 {
+				model.WritingStatusBar.Content = "Select at least one commit before running the release pipeline."
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				return model, nil
+			}
+			model.pipeline.switchPreset(pipelinePresetRelease)
+			model.releaseBodyOutput = ""
+			model.releaseTitleOutput = ""
+			model.releaseFinalOutput = ""
+			model.commitTranslate = ""
+			model.pipeline.resetAll(time.Now())
+			model.pipelineViewport1.SetContent("")
+			model.pipelineViewport2.SetContent("")
+			model.pipelineViewport3.SetContent("")
+			model.pipelineViewport4.SetContent("")
+
 			model.state = stateReleaseBuildingText
 			model.focusedElement = focusViewportElement
 			model.WritingStatusBar.Level = statusbar.LevelWarning
-			model.WritingStatusBar.Content = "Making a request to the AI. Please wait ..."
-			spinnerCmd := model.WritingStatusBar.StartSpinner()
+			model.WritingStatusBar.Content = "release pipeline started · 3 stages"
+			spinnerBarCmd := model.WritingStatusBar.StartSpinner()
 			iaBuilderCmd := callIaReleaseBuilderCmd(model)
 			model.releaseViewState.releaseCreated = true
-			return model, tea.Batch(spinnerCmd, iaBuilderCmd)
+			return model, tea.Batch(
+				spinnerBarCmd,
+				model.pipeline.spinner.Tick,
+				tickPulse(),
+				iaBuilderCmd,
+			)
 		case key.Matches(msg, model.keys.AddCommit):
 			item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem)
 			if !ok {

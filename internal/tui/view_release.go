@@ -261,9 +261,18 @@ func (model *Model) releaseChooseModeIndicator() string {
 		return dotStyle.Render(dot) + " " + labelStyle.Render(label)
 	}
 
-	return render(left, mode == ModeKeyPointsBody) +
+	pill := render(left, mode == ModeKeyPointsBody) +
 		hs.ShortSeparator.Render("  ·  ") +
 		render(right, mode == ModeStagesResponse)
+
+	releaseMode := model.releaseMode
+	if releaseMode == "" {
+		releaseMode = "release"
+	}
+	modeLabel := hs.ShortDesc.Render(releaseMode)
+	modeKey := hs.ShortKey.Render("m")
+	modePill := modeKey + hs.ShortDesc.Render(":") + modeLabel
+	return pill + hs.ShortSeparator.Render("  ·  ") + modePill
 }
 
 func (model *Model) releaseChooseFilesHint() string {

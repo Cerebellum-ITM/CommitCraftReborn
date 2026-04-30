@@ -2,6 +2,48 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.43.0 — 2026-04-30
+
+Multi-stage AI pipeline for Release Mode, mirroring the commit pipeline.
+
+- **3 release stages.** The single-call release builder is now a 3-stage
+  pipeline: `release_body` (assembles the body from selected commits) →
+  `release_title` (composes the title from body + commits) →
+  `release_refine` (polishes tone, hierarchy, and formatting). Each
+  stage is a separate Groq call with its own customizable prompt and
+  model.
+- **Pipeline tab cards.** When `stateReleaseBuildingText` is active the
+  Pipeline tab UI renders the run with the same per-stage cards used
+  by the commit pipeline: spinner, progress underline, telemetry
+  (tokens / latency / TPM bar), and per-stage history (`H` to compare
+  prior generations). The left panel shows the selected commits
+  instead of the diff file tree.
+- **Telemetry persisted.** A new `release_ai_calls` SQLite table mirrors
+  `ai_calls` and stores per-stage tokens/latency/request-id so the
+  release history dual panel surfaces the same telemetry strip that
+  the commit history already shows.
+- **Release/Merge label.** A discrete pill on the workspace-commits
+  panel border (`m` to toggle) tags the run as either `release` or
+  `merge`. Cosmetic only — both modes use the same prompt set; the
+  value flows through to logs.
+
+### Usage
+
+- The release builder is still triggered with `Enter` from
+  `stateReleaseChoosingCommits`. It transitions to
+  `stateReleaseBuildingText` with the Pipeline cards animated.
+- Press `m` while picking commits to toggle the release/merge pill.
+- Customize prompts per stage via `~/.config/CommitCraft/config.toml`:
+  - `release_body_prompt_file` / `release_body_prompt_model`
+  - `release_title_prompt_file` / `release_title_prompt_model`
+  - `release_refine_prompt_file` / `release_refine_prompt_model`
+  Defaults live in `~/.config/CommitCraft/prompts/release_*.prompt` and
+  are written from the embedded templates on first run.
+- Inspect the new telemetry table with
+  `sqlite3 ~/.config/CommitCraft/commits.db "select * from release_ai_calls"`.
+- The single legacy `release_prompt_*` config keys are replaced; remove
+  them from your TOML if present.
+
 ## v0.42.3 — 2026-04-30
 
 Three follow-up fixes for the release commit picker:

@@ -18,9 +18,15 @@ type PromptsConfig struct {
 	OnlyTranslatePromptFile         string `toml:"only_translate_prompt_file"`
 	OnlyTranslatePromptModel        string `toml:"only_translate_prompt_model"`
 	OnlyTranslatePrompt             string `toml:"-"`
-	ReleasePromptFIle               string `toml:"release_prompt_file"`
-	ReleasePromptModel              string `toml:"release_prompt_model"`
-	ReleasePrompt                   string `toml:"-"`
+	ReleaseBodyPromptFile           string `toml:"release_body_prompt_file"`
+	ReleaseBodyPromptModel          string `toml:"release_body_prompt_model"`
+	ReleaseBodyPrompt               string `toml:"-"`
+	ReleaseTitlePromptFile          string `toml:"release_title_prompt_file"`
+	ReleaseTitlePromptModel         string `toml:"release_title_prompt_model"`
+	ReleaseTitlePrompt              string `toml:"-"`
+	ReleaseRefinePromptFile         string `toml:"release_refine_prompt_file"`
+	ReleaseRefinePromptModel        string `toml:"release_refine_prompt_model"`
+	ReleaseRefinePrompt             string `toml:"-"`
 }
 
 type TUIConfig struct {
@@ -135,6 +141,12 @@ func NewDefaultConfig() Config {
 			CommitTitleGeneratorPromptModel: "llama-3.1-8b-instant",
 			OnlyTranslatePromptFile:         "prompts/only_translate.prompt",
 			OnlyTranslatePromptModel:        "llama-3.1-8b-instant",
+			ReleaseBodyPromptFile:           "prompts/release_body.prompt",
+			ReleaseBodyPromptModel:          "llama-3.1-8b-instant",
+			ReleaseTitlePromptFile:          "prompts/release_title.prompt",
+			ReleaseTitlePromptModel:         "llama-3.1-8b-instant",
+			ReleaseRefinePromptFile:         "prompts/release_refine.prompt",
+			ReleaseRefinePromptModel:        "llama-3.1-8b-instant",
 		},
 		Changelog: ChangelogConfig{
 			Enabled:      false,

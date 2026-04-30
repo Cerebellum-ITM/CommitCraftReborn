@@ -44,8 +44,14 @@ var defaultCommitTitleGeneratorPrompt string
 //go:embed prompts/only_translate.prompt.tmpl
 var defaultOnlyTranslateFormatPrompt string
 
-//go:embed prompts/release.prompt.tmpl
-var defaultReleaseFormatPrompt string
+//go:embed prompts/release_body.prompt.tmpl
+var defaultReleaseBodyPrompt string
+
+//go:embed prompts/release_title.prompt.tmpl
+var defaultReleaseTitlePrompt string
+
+//go:embed prompts/release_refine.prompt.tmpl
+var defaultReleaseRefinePrompt string
 
 //go:embed prompts/changelog_refiner.prompt.tmpl
 var defaultChangelogRefinerPrompt string
@@ -90,8 +96,12 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 			defaultPromptContent = defaultCommitTitleGeneratorPrompt
 		case "only_translate":
 			defaultPromptContent = defaultOnlyTranslateFormatPrompt
-		case "release":
-			defaultPromptContent = defaultReleaseFormatPrompt
+		case "release_body":
+			defaultPromptContent = defaultReleaseBodyPrompt
+		case "release_title":
+			defaultPromptContent = defaultReleaseTitlePrompt
+		case "release_refine":
+			defaultPromptContent = defaultReleaseRefinePrompt
 		case "changelog_refiner":
 			defaultPromptContent = defaultChangelogRefinerPrompt
 		}
@@ -150,9 +160,25 @@ func loadIaPrompts(
 		return err
 	}
 
-	releasePrompt, err := createOrLoadPromptFile(
+	releaseBodyPrompt, err := createOrLoadPromptFile(
 		configDir,
-		globalConfig.Prompts.ReleasePromptFIle,
+		globalConfig.Prompts.ReleaseBodyPromptFile,
+	)
+	if err != nil {
+		return err
+	}
+
+	releaseTitlePrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.ReleaseTitlePromptFile,
+	)
+	if err != nil {
+		return err
+	}
+
+	releaseRefinePrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.ReleaseRefinePromptFile,
 	)
 	if err != nil {
 		return err
@@ -162,7 +188,9 @@ func loadIaPrompts(
 	globalConfig.Prompts.CommitBodyGeneratorPrompt = commitBodyGeneratorPrompt
 	globalConfig.Prompts.CommitTitleGeneratorPrompt = commitTitleGeneratorPrompt
 	globalConfig.Prompts.OnlyTranslatePrompt = onlyTranslatePrompt
-	globalConfig.Prompts.ReleasePrompt = releasePrompt
+	globalConfig.Prompts.ReleaseBodyPrompt = releaseBodyPrompt
+	globalConfig.Prompts.ReleaseTitlePrompt = releaseTitlePrompt
+	globalConfig.Prompts.ReleaseRefinePrompt = releaseRefinePrompt
 
 	if globalConfig.Changelog.PromptFile != "" {
 		changelogPrompt, err := createOrLoadPromptFile(

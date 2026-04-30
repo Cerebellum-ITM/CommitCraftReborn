@@ -55,6 +55,10 @@ func InitDB() (*DB, error) {
 		return nil, errors.Wrap(err, "failed to create ai_calls table")
 	}
 
+	if err := createReleaseAICallsTable(sqlDB); err != nil {
+		return nil, errors.Wrap(err, "failed to create release_ai_calls table")
+	}
+
 	if err := createModelRateLimitsTable(sqlDB); err != nil {
 		return nil, errors.Wrap(err, "failed to create model_rate_limits table")
 	}
@@ -113,6 +117,39 @@ func createAICallsTable(db *sql.DB) error {
 		return err
 	}
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_ai_calls_commit ON ai_calls(commit_id);`)
+	return err
+}
+
+// createReleaseAICallsTable mirrors createAICallsTable for the release
+// pipeline. One row per stage call (body / title / refine) attached to
+// a Release row; CASCADE delete keeps the table clean when releases are
+// purged.
+func createReleaseAICallsTable(db *sql.DB) error {
+	_, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS release_ai_calls (
+            id INTEGER PRIMARY KEY,
+            release_id INTEGER NOT NULL,
+            stage TEXT NOT NULL,
+            model TEXT NOT NULL,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            completion_tokens INTEGER NOT NULL DEFAULT 0,
+            total_tokens INTEGER NOT NULL DEFAULT 0,
+            queue_time_ms INTEGER NOT NULL DEFAULT 0,
+            prompt_time_ms INTEGER NOT NULL DEFAULT 0,
+            completion_time_ms INTEGER NOT NULL DEFAULT 0,
+            total_time_ms INTEGER NOT NULL DEFAULT 0,
+            request_id TEXT NOT NULL DEFAULT '',
+            tpm_limit_at_call INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE
+        );
+    `)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(
+		`CREATE INDEX IF NOT EXISTS idx_release_ai_calls_release ON release_ai_calls(release_id);`,
+	)
 	return err
 }
 

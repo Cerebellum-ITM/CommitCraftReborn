@@ -220,7 +220,13 @@ func (model *Model) View() tea.View {
 	case stateReleaseChoosingCommits:
 		mainContent = model.buildReleaseChooseCommitsView(appStyle)
 	case stateReleaseBuildingText:
-		mainContent = model.buildReleaseView(appStyle)
+		// The release builder reuses the Pipeline tab cards: stage 1 =
+		// Release Body, stage 2 = Release Title, stage 3 = Release
+		// Refine. The pipeline preset is flipped to release in
+		// updateReleaseChoosingCommits before the run kicks off.
+		pipeW := model.width
+		pipeH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
+		mainContent = model.viewPipeline(pipeW, pipeH)
 	case statePipeline:
 		// The shared availableWidth/Height calc subtracts paddings that
 		// aren't actually applied to mainContent (mainView is composed
