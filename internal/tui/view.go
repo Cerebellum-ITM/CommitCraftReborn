@@ -217,7 +217,9 @@ func (model *Model) View() tea.View {
 
 	case stateWritingMessage:
 		mainContent = model.buildWritingMessageView(appStyle)
-	case stateReleaseChoosingCommits, stateReleaseBuildingText:
+	case stateReleaseChoosingCommits:
+		mainContent = model.buildReleaseChooseCommitsView(appStyle)
+	case stateReleaseBuildingText:
 		mainContent = model.buildReleaseView(appStyle)
 	case statePipeline:
 		// The shared availableWidth/Height calc subtracts paddings that
@@ -230,6 +232,8 @@ func (model *Model) View() tea.View {
 		mainContent = model.viewPipeline(pipeW, pipeH)
 	case stateRewordSelectCommit:
 		mainContent = model.buildRewordSelectView()
+	case stateOutput:
+		mainContent = model.buildOutputView(appStyle)
 	}
 
 	// Final layout: WritingStatusBar is the very first element, separated

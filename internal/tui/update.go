@@ -444,6 +444,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "Output message":
 			model.FinalMessage = assembleOutputCommitMessage(model, model.currentCommit)
 			return quitWithAutodraft(model)
+		case "Open output view":
+			return openOutputViewFromHistory(model)
 		case "Reword with this message":
 			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
 			model.releaseCommitList.Select(0)
@@ -935,6 +937,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		subModel, subCmd = updatePipeline(msg, model)
 	case stateRewordSelectCommit:
 		subModel, subCmd = updateRewordSelectCommit(msg, model)
+	case stateOutput:
+		subModel, subCmd = updateOutput(msg, model)
 	}
 
 	cmds = append(cmds, subCmd)

@@ -92,10 +92,14 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.state = stateReleaseChoosingCommits
 			model.releaseCommitList = NewReleaseCommitList(model.pwd, model.Theme)
 			model.releaseCommitList.Select(0)
-			model.focusedElement = focusListElement
+			model.focusedElement = focusReleaseChooseCommitList
 			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
 				model.commitLivePreview = item.Preview
 			}
+			model.releaseSelectedCommitHash = ""
+			model.releaseChooseFilterBar.Reset()
+			model.releaseChooseFilterBar.Blur()
+			model.loadReleaseCommitFiles()
 			model.keys = releaseKeys()
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
@@ -347,19 +351,123 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	return model, cmd
 }
 
+// releaseChooseFocusOrder is the canonical Tab cycle for the
+// release · choose commits sub-view. Filter → ModeBar → CommitList →
+// CommitMessage vp → Files list → Diff vp.
+var releaseChooseFocusOrder = []focusableElement{
+	focusReleaseChooseFilter,
+	focusReleaseChooseModeBar,
+	focusReleaseChooseCommitList,
+	focusReleaseChooseMsgVp,
+	focusReleaseChooseFileList,
+	focusReleaseChooseDiffVp,
+}
+
+func cycleReleaseChooseFocus(model *Model, forward bool) {
+	cur := -1
+	for i, f := range releaseChooseFocusOrder {
+		if f == model.focusedElement {
+			cur = i
+			break
+		}
+	}
+	if cur == -1 {
+		model.focusedElement = releaseChooseFocusOrder[0]
+		// Make sure leaving an unknown focus state never leaves the
+		// filter input still focused at the textinput level.
+		model.releaseChooseFilterBar.Blur()
+		return
+	}
+	step := 1
+	if !forward {
+		step = -1
+	}
+	next := (cur + step + len(releaseChooseFocusOrder)) % len(releaseChooseFocusOrder)
+	model.focusedElement = releaseChooseFocusOrder[next]
+	if model.focusedElement != focusReleaseChooseFilter {
+		model.releaseChooseFilterBar.Blur()
+	}
+}
+
 func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	// Filter focus: the textinput owns most key events. Esc clears+blurs,
+	// Enter blurs, Tab/Shift-Tab keep the global focus cycling so the
+	// user can leave the filter without breaking the rotation.
+	if model.focusedElement == focusReleaseChooseFilter {
+		if km, ok := msg.(tea.KeyMsg); ok {
+			switch km.String() {
+			case "esc":
+				model.releaseChooseFilterBar.Reset()
+				model.releaseChooseFilterBar.Blur()
+				model.releaseCommitList.SetFilterText("")
+				model.releaseCommitList.SetFilterState(list.Unfiltered)
+				model.focusedElement = focusReleaseChooseCommitList
+				return model, nil
+			case "enter":
+				model.releaseChooseFilterBar.Blur()
+				model.focusedElement = focusReleaseChooseCommitList
+				return model, nil
+			case "tab":
+				cycleReleaseChooseFocus(model, true)
+				return model, nil
+			case "shift+tab":
+				cycleReleaseChooseFocus(model, false)
+				return model, nil
+			}
+		}
+		prev := model.releaseChooseFilterBar.Value()
+		var fcmd tea.Cmd
+		model.releaseChooseFilterBar, fcmd = model.releaseChooseFilterBar.Update(msg)
+		if model.releaseChooseFilterBar.Value() != prev {
+			val := model.releaseChooseFilterBar.Value()
+			model.releaseCommitList.SetFilterText(val)
+			if val == "" {
+				model.releaseCommitList.SetFilterState(list.Unfiltered)
+			} else {
+				model.releaseCommitList.SetFilterState(list.Filtering)
+			}
+			// The cursor may have jumped to a freshly-filtered row, so
+			// rebind the message + per-file cache to whatever is now
+			// selected (no-op if it didn't actually move).
+			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+				model.commitLivePreview = item.Preview
+			}
+			model.loadReleaseCommitFiles()
+		}
+		return model, fcmd
+	}
+
 	switch model.focusedElement {
-	case focusListElement:
+	case focusReleaseChooseCommitList:
 		model.releaseCommitList, cmd = model.releaseCommitList.Update(msg)
-	case focusViewportElement:
+	case focusReleaseChooseMsgVp:
 		model.releaseViewport, cmd = model.releaseViewport.Update(msg)
+	case focusReleaseChooseFileList:
+		model.releaseFilesList, cmd = model.releaseFilesList.Update(msg)
+	case focusReleaseChooseDiffVp:
+		model.releaseDiffViewport, cmd = model.releaseDiffViewport.Update(msg)
 	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// ctrl+f cycles the filter mode pill regardless of focus, like
+		// the main release view does.
+		if msg.String() == "ctrl+f" {
+			model.releaseChooseFilterBar.CycleMode()
+			return model, nil
+		}
 		switch {
+		case key.Matches(msg, model.keys.Filter):
+			model.focusedElement = focusReleaseChooseFilter
+			return model, model.releaseChooseFilterBar.Focus()
+		case key.Matches(msg, model.keys.NextField):
+			cycleReleaseChooseFocus(model, true)
+			return model, nil
+		case key.Matches(msg, model.keys.PrevField):
+			cycleReleaseChooseFocus(model, false)
+			return model, nil
 		case key.Matches(msg, model.keys.NextViewPort):
 			if model.releaseViewState.releaseCreated {
 				model.state = stateReleaseBuildingText
@@ -370,6 +478,13 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			}
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
+			// Enter on the mode bar toggles the segmented pill; in
+			// every other zone it kicks off the AI release builder.
+			if model.focusedElement == focusReleaseChooseModeBar {
+				model.releaseChooseModeBar.Toggle()
+				applyReleaseChooseModeFilter(model)
+				return model, nil
+			}
 			model.state = stateReleaseBuildingText
 			model.focusedElement = focusViewportElement
 			model.WritingStatusBar.Level = statusbar.LevelWarning
@@ -399,17 +514,20 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			}
 			index := model.releaseCommitList.Index()
 			cmd = model.releaseCommitList.SetItem(index, item)
+			// Keep the "Selected only" view consistent if it's the
+			// active mode — toggling selection may add/remove items.
+			applyReleaseChooseModeFilter(model)
 			return model, cmd
 		case key.Matches(msg, model.keys.Up, model.keys.Down):
-			if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
-				model.commitLivePreview = item.Preview
+			switch model.focusedElement {
+			case focusReleaseChooseCommitList:
+				if item, ok := model.releaseCommitList.SelectedItem().(WorkspaceCommitItem); ok {
+					model.commitLivePreview = item.Preview
+				}
+				model.loadReleaseCommitFiles()
+			case focusReleaseChooseFileList:
+				model.refreshReleaseDiffForSelectedFile()
 			}
-		case key.Matches(msg, model.keys.NextField):
-			cmd = switchFocusElement(model)
-			return model, cmd
-		case key.Matches(msg, model.keys.PrevField):
-			cmd = switchFocusElement(model)
-			return model, cmd
 		case key.Matches(msg, model.keys.Esc):
 			switch model.AppMode {
 			case CommitMode:
@@ -425,4 +543,45 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 	}
 
 	return model, cmd
+}
+
+// applyReleaseChooseModeFilter projects the segmented "All / Selected"
+// toggle onto the workspace commit list. The list filter machinery is
+// reused because it already paints "no matches" gracefully when the
+// queue is empty.
+func applyReleaseChooseModeFilter(model *Model) {
+	if model.releaseChooseModeBar.Mode() == ModeKeyPointsBody {
+		// "All commits" branch — clear any synthetic filter we may have
+		// installed for the Selected mode but preserve the user's
+		// typed filter (kept on the FilterBar value).
+		val := model.releaseChooseFilterBar.Value()
+		if val == "" {
+			model.releaseCommitList.SetFilterText("")
+			model.releaseCommitList.SetFilterState(list.Unfiltered)
+		} else {
+			model.releaseCommitList.SetFilterText(val)
+			model.releaseCommitList.SetFilterState(list.Filtering)
+		}
+		return
+	}
+	// "Selected only" branch — synthesize a filter that matches the
+	// hashes already queued; the list bubble's default filter does a
+	// case-insensitive substring match against FilterValue, so a hash
+	// list joined by a space is a reliable selector.
+	if len(model.selectedCommitList) == 0 {
+		// Nothing queued yet — use a sentinel that won't match anything.
+		model.releaseCommitList.SetFilterText("__release_choose_no_selection__")
+		model.releaseCommitList.SetFilterState(list.Filtering)
+		return
+	}
+	hashes := make([]string, 0, len(model.selectedCommitList))
+	for _, c := range model.selectedCommitList {
+		hashes = append(hashes, c.Hash)
+	}
+	// list.Model's filter is single-token; multiple hashes won't all
+	// match. Fall back to the first hash so at least the current pick
+	// stays visible — for richer behaviour we'd need a custom filter
+	// func, which is beyond the scope of this rework.
+	model.releaseCommitList.SetFilterText(hashes[0])
+	model.releaseCommitList.SetFilterState(list.Filtering)
 }

@@ -2,11 +2,246 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
+	"strings"
 
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
 )
+
+// buildReleaseChooseCommitsView renders the redesigned layout for
+// stateReleaseChoosingCommits: a thin top band (filter + mode bar +
+// compact commit list, mirroring the main release view chrome), a
+// middle panel with the selected commit's message rendered as
+// markdown, and a bottom row split between a per-file picker and a
+// diff viewport scoped to the chosen file.
+func (model *Model) buildReleaseChooseCommitsView(appStyle lipgloss.Style) string {
+	const (
+		glamourGutter = 3
+		gap           = 1
+	)
+
+	statusBarH := lipgloss.Height(model.WritingStatusBar.Render())
+	helpH := lipgloss.Height(model.help.View(model.keys))
+	vSpaceH := lipgloss.Height(VerticalSpace)
+
+	totalH := model.height -
+		appStyle.GetVerticalPadding() -
+		statusBarH -
+		helpH -
+		2*vSpaceH -
+		2
+
+	if totalH < 12 {
+		totalH = 12
+	}
+
+	totalW := model.width - appStyle.GetHorizontalPadding()
+	if totalW < 40 {
+		totalW = 40
+	}
+
+	chromeCols, chromeRows := titledPanelChrome()
+
+	// Compact commit list: 5 rows. Mode bar render depth depends on its
+	// pill border (3 rows). Filter bar is a single row.
+	const listRows = 5
+	model.releaseChooseFilterBar.SetSize(max(10, totalW-chromeCols-2))
+	model.releaseChooseModeBar.SetSize(max(10, totalW-chromeCols-2))
+	modeBarRows := lipgloss.Height(model.releaseChooseModeBar.View())
+
+	// Top band height = filter(1) + blank(1) + modeBar + blank(1) + list + chrome
+	topInnerH := 1 + 1 + modeBarRows + 1 + listRows
+	topPanelH := topInnerH + chromeRows
+
+	remaining := totalH - topPanelH - gap
+	if remaining < 8 {
+		remaining = 8
+	}
+	// 40 / 60 split: middle msg vp takes 40 %, bottom (file list + diff
+	// vp) takes 60 % so the diff has enough vertical room to be useful.
+	midPanelH := remaining * 40 / 100
+	if midPanelH < 5 {
+		midPanelH = 5
+	}
+	bottomPanelH := remaining - midPanelH - gap
+	if bottomPanelH < 5 {
+		bottomPanelH = 5
+	}
+
+	// Apply releaseFilesList counts to the bar so filtering math from the
+	// list bubble doesn't print stale numbers.
+	model.releaseChooseFilterBar.SetCounts(
+		len(model.releaseCommitList.VisibleItems()),
+		len(model.releaseCommitList.Items()),
+	)
+
+	// ---- top band content ----
+	innerTopW := max(1, totalW-chromeCols-2)
+	listW := innerTopW
+	listH := listRows
+	model.releaseCommitList.SetWidth(listW)
+	model.releaseCommitList.SetHeight(listH)
+
+	filterRow := lipgloss.PlaceHorizontal(
+		innerTopW,
+		lipgloss.Left,
+		model.releaseChooseFilterBar.View(),
+	)
+	modeRow := lipgloss.PlaceHorizontal(innerTopW, lipgloss.Left, model.releaseChooseModeBar.View())
+	listRow := lipgloss.Place(
+		innerTopW,
+		listH,
+		lipgloss.Left,
+		lipgloss.Top,
+		model.releaseCommitList.View(),
+	)
+
+	topBody := lipgloss.JoinVertical(lipgloss.Left,
+		filterRow,
+		"",
+		modeRow,
+		"",
+		listRow,
+	)
+
+	topBorder := model.borderColorForFocus(
+		model.focusedElement == focusReleaseChooseFilter ||
+			model.focusedElement == focusReleaseChooseModeBar ||
+			model.focusedElement == focusReleaseChooseCommitList,
+	)
+	topPanel := renderTitledPanel(titledPanelOpts{
+		icon:        "✦",
+		title:       "Workspace commits",
+		hintRight:   model.releaseChooseTopHint(),
+		content:     topBody,
+		width:       totalW,
+		height:      topPanelH,
+		borderColor: topBorder,
+		titleColor:  model.Theme.FG,
+		hintColor:   model.Theme.Muted,
+	})
+
+	// ---- middle: commit message viewport ----
+	innerMidW := max(1, totalW-chromeCols-2)
+	innerMidH := max(1, midPanelH-chromeRows)
+	model.releaseViewport.SetWidth(innerMidW)
+	model.releaseViewport.SetHeight(innerMidH)
+	if model.commitLivePreview != "" {
+		rendered := model.renderCommitMessage(
+			model.commitMessageOnlyForPreview(),
+			max(10, innerMidW-glamourGutter),
+		)
+		model.releaseViewport.SetContent(rendered)
+	} else {
+		model.releaseViewport.SetContent("")
+	}
+	midBorder := model.borderColorForFocus(model.focusedElement == focusReleaseChooseMsgVp)
+	midPanel := renderTitledPanel(titledPanelOpts{
+		icon:        "✎",
+		title:       "Commit message",
+		hintRight:   "↑/↓ scroll",
+		content:     model.releaseViewport.View(),
+		width:       totalW,
+		height:      midPanelH,
+		borderColor: midBorder,
+		titleColor:  model.Theme.FG,
+		hintColor:   model.Theme.Muted,
+	})
+
+	// ---- bottom: file list + diff vp side by side ----
+	fileW := max(20, totalW*35/100)
+	diffW := max(20, totalW-fileW-gap)
+	innerFileW := max(1, fileW-chromeCols-2)
+	innerFileH := max(1, bottomPanelH-chromeRows)
+	innerDiffW := max(1, diffW-chromeCols-2)
+	innerDiffH := max(1, bottomPanelH-chromeRows)
+
+	model.releaseFilesList.SetSize(innerFileW, innerFileH)
+	model.releaseDiffViewport.SetWidth(innerDiffW)
+	model.releaseDiffViewport.SetHeight(innerDiffH)
+
+	fileBorder := model.borderColorForFocus(model.focusedElement == focusReleaseChooseFileList)
+	diffBorder := model.borderColorForFocus(model.focusedElement == focusReleaseChooseDiffVp)
+
+	filesPanel := renderTitledPanel(titledPanelOpts{
+		icon:        "≡",
+		title:       "Files changed",
+		hintRight:   model.releaseChooseFilesHint(),
+		content:     model.releaseFilesList.View(),
+		width:       fileW,
+		height:      bottomPanelH,
+		borderColor: fileBorder,
+		titleColor:  model.Theme.FG,
+		hintColor:   model.Theme.Muted,
+	})
+	diffPanel := renderTitledPanel(titledPanelOpts{
+		icon:        "Δ",
+		title:       "Diff",
+		hintRight:   model.releaseChooseDiffHint(),
+		content:     model.releaseDiffViewport.View(),
+		width:       diffW,
+		height:      bottomPanelH,
+		borderColor: diffBorder,
+		titleColor:  model.Theme.FG,
+		hintColor:   model.Theme.Muted,
+	})
+	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, filesPanel, " ", diffPanel)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topPanel,
+		"",
+		midPanel,
+		"",
+		bottomRow,
+	)
+}
+
+// borderColorForFocus picks the panel border color based on whether one
+// of its inner zones currently has focus. Centralises the focus/idle
+// switch so the new layout never hardcodes a color.
+func (model *Model) borderColorForFocus(focused bool) color.Color {
+	if focused {
+		return model.Theme.Primary
+	}
+	return model.Theme.Subtle
+}
+
+// commitMessageOnlyForPreview strips the "```\n<diff>```" trailer that
+// NewReleaseCommitList glues onto the Preview field so the middle msg
+// vp shows just the commit message (the diff has its own panel now).
+func (model *Model) commitMessageOnlyForPreview() string {
+	preview := model.commitLivePreview
+	if i := strings.Index(preview, "```\n"); i != -1 {
+		return strings.TrimRight(preview[:i], "\n ")
+	}
+	return preview
+}
+
+// releaseChooseTopHint is the hint shown at the top-right of the
+// workspace-commits panel. Mirrors the existing release main view —
+// "ctrl+f" to cycle the filter mode, "ctrl+a" to add the cursor's
+// commit to the selection.
+func (model *Model) releaseChooseTopHint() string {
+	hs := model.Theme.AppStyles().Help
+	return hs.ShortKey.Render("ctrl+a") + hs.ShortDesc.Render(" select") +
+		hs.ShortSeparator.Render(" · ") +
+		hs.ShortKey.Render("ctrl+f") + hs.ShortDesc.Render(" filter mode")
+}
+
+func (model *Model) releaseChooseFilesHint() string {
+	hs := model.Theme.AppStyles().Help
+	return hs.ShortKey.Render("↑/↓") + hs.ShortDesc.Render(" pick file")
+}
+
+func (model *Model) releaseChooseDiffHint() string {
+	pct := int(model.releaseDiffViewport.ScrollPercent() * 100)
+	hs := model.Theme.AppStyles().Help
+	return hs.ShortKey.Render("pgup/pgdn") + hs.ShortDesc.Render(" scroll") +
+		hs.ShortSeparator.Render(" · ") +
+		hs.ShortDesc.Render(fmt.Sprintf("%d%%", pct))
+}
 
 func (model *Model) buildReleaseView(appStyle lipgloss.Style) string {
 	const glamourGutter = 3

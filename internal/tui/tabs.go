@@ -49,7 +49,8 @@ func tabForState(s appState) TabID {
 	case stateChoosingType,
 		stateChoosingScope,
 		stateWritingMessage,
-		stateConfirming:
+		stateConfirming,
+		stateOutput:
 		return TabCompose
 	case statePipeline:
 		return TabPipeline
@@ -148,6 +149,8 @@ func keysForState(s appState, mode appMode) KeyMap {
 		return textInputKeys()
 	case statePipeline:
 		return pipelineKeys()
+	case stateOutput:
+		return outputViewKeys()
 	}
 	return mainListKeys()
 }

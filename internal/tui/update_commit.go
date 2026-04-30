@@ -315,10 +315,11 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 					return model, tea.Quit
 				}
 				var menuOptions []itemsOptions
-				menu := []string{"Output message", "Reword with this message", "Reword with new AI run"}
+				menu := []string{"Output message", "Open output view", "Reword with this message", "Reword with new AI run"}
 				menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Red, icon: model.Theme.AppSymbols().Console})
-				menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.Theme.Yellow, icon: model.Theme.AppSymbols().ReuseMessage})
-				menuOptions = append(menuOptions, itemsOptions{index: 2, color: model.Theme.Success, icon: model.Theme.AppSymbols().NewDbRecord})
+				menuOptions = append(menuOptions, itemsOptions{index: 1, color: model.Theme.Secondary, icon: model.Theme.AppSymbols().Console})
+				menuOptions = append(menuOptions, itemsOptions{index: 2, color: model.Theme.Yellow, icon: model.Theme.AppSymbols().ReuseMessage})
+				menuOptions = append(menuOptions, itemsOptions{index: 3, color: model.Theme.Success, icon: model.Theme.AppSymbols().NewDbRecord})
 				return model, func() tea.Msg {
 					return openListPopup{items: menu, itemsOptions: menuOptions, width: model.width / 2, height: model.height / 2}
 				}
