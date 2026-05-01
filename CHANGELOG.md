@@ -2,6 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.43.2 — 2026-05-01
+
+- Fixed the "Exit in Compose — draft saved" notice to no longer appear after a successful flow completion by skipping the autodraft step when a final message has already been produced.
+
+## v0.43.1 — 2026-05-01
+
+Fix the "Exit in Compose — draft saved" notice firing after a successful flow.
+
+- The autodraft-on-quit hook now checks `model.FinalMessage` first. When
+  the user exits because they completed the flow (Enter on `stateOutput`,
+  the confirm screen, the release builder, the reword view, etc.) no
+  draft is written and no exit notice is printed. The notice still
+  appears for genuine mid-flow quits from Compose/Pipeline.
+
 ## v0.43.0 — 2026-04-30
 
 Multi-stage AI pipeline for Release Mode, mirroring the commit pipeline.

@@ -62,6 +62,13 @@ func hasAutodraftableContent(model *Model) bool {
 // meaningful unsaved data. Errors are logged and swallowed so a DB
 // failure can never trap the user inside the TUI.
 func autodraftIfNeeded(model *Model) {
+	// User completed the flow (printed a final commit/release message) —
+	// nothing to draft. Without this guard the exit from stateOutput,
+	// stateConfirming, etc. would still match TabCompose and emit a
+	// misleading "Exit in Compose — draft saved" notice.
+	if model.FinalMessage != "" {
+		return
+	}
 	tab := tabForState(model.state)
 	if tab != TabCompose && tab != TabPipeline {
 		return
