@@ -33,33 +33,28 @@ func GetCurrentGitBranch() (string, error) {
 	return branch, nil
 }
 
-// GetGitBranches returns every local branch name. The current-branch marker
-// "* " emitted by `git branch --list` is stripped.
+// GetGitBranches returns every local branch name. Uses `git for-each-ref` to
+// avoid decoration markers from `git branch --list` ("* " current, "+ "
+// worktree, "(HEAD detached…)") and any ANSI color output.
 func GetGitBranches() ([]string, error) {
-	cmd := exec.Command("git", "branch", "--list")
+	cmd := exec.Command("git", "for-each-ref", "--format=%(refname:short)", "refs/heads/")
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		if stderr.Len() > 0 {
 			return nil, fmt.Errorf("%w\nStderr: %s", err, strings.TrimSpace(stderr.String()))
 		}
 		return nil, fmt.Errorf("Error executing git command: %v", err)
 	}
 
-	outputLines := strings.Split(stdout.String(), "\n")
-
 	var branches []string
-	for _, line := range outputLines {
-		trimmedLine := strings.TrimSpace(line)
-		if trimmedLine == "" {
-			continue
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		if name := strings.TrimSpace(line); name != "" {
+			branches = append(branches, name)
 		}
-		trimmedLine = strings.TrimPrefix(trimmedLine, "* ")
-		branches = append(branches, trimmedLine)
 	}
 
 	return branches, nil

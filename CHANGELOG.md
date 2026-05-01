@@ -2,6 +2,13 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.43.4 — 2026-05-01
+- Fixed branch listing in release-mode scope picker to prevent decorations and stray prefixes, ensuring clean branch names are displayed.
+
+## v0.43.3 — 2026-05-01
+
+- Fixed branch listing in release-mode scope picker so worktree-checked-out branches no longer appear with a leading `+ ` (and detached-HEAD / ANSI-colored output no longer leak into names). `GetGitBranches()` now uses `git for-each-ref refs/heads/` with `%(refname:short)` instead of parsing `git branch --list`.
+
 ## v0.43.2 — 2026-05-01
 
 - Fixed the "Exit in Compose — draft saved" notice to no longer appear after a successful flow completion by skipping the autodraft step when a final message has already been produced.
