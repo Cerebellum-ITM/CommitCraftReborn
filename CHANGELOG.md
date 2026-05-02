@@ -2,6 +2,31 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.44.0 — 2026-05-02
+
+Added `commitcraft ai edit` so headless agents can patch a draft's
+generated text in place instead of re-running pipeline stages every
+time they spot a wording issue. The subcommand only writes to the
+draft row; it does not call Groq, does not touch `ai_calls`, and
+recomposes `final_message` from the new title/body, preserving the
+existing changelog mention line when present.
+
+### Usage
+
+`commitcraft ai edit --id <draft-id> [flags]`
+
+- `--title <s>` — replace `IaTitle`. Use `-` to read from stdin.
+- `--body <s>` — replace `IaCommitRaw`. Use `-` to read from stdin.
+- `--changelog <s>` — replace the changelog entry. Use `-` for
+  stdin, or the literal `CLEAR` to drop the entry.
+- `--tag <t>` — override the commit type tag (must be a known tag).
+- `--scope <s>` — override the commit scope.
+
+At least one editable flag is required; passing only `--id` is an
+error. Multiple `-` flags share a single stdin read. The command
+prints the same JSON shape as `ai show`/`ai regenerate` so it slots
+into existing agent loops.
+
 ## v0.43.4 — 2026-05-01
 - Fixed branch listing in release-mode scope picker to prevent decorations and stray prefixes, ensuring clean branch names are displayed.
 

@@ -27,6 +27,7 @@ const usage = `Usage: commitcraft ai <subcommand> [flags]
 Subcommands:
   generate     Generate a commit message from --keypoint/--tag/--scope and persist as draft.
   regenerate   Re-run the pipeline on an existing draft (--id), reusing stored inputs and diff.
+  edit         Patch a draft's title/body/changelog/tag/scope directly without re-running stages.
   show         Print the JSON for a draft/commit by --id.
   list         List drafts/commits in the current workspace.
   promote      Mark a draft as completed (--id). Does not run git commit.
@@ -48,6 +49,8 @@ func Dispatch(args []string) int {
 		return runGenerate(rest)
 	case "regenerate":
 		return runRegenerate(rest)
+	case "edit":
+		return runEdit(rest)
 	case "show":
 		return runShow(rest)
 	case "list":
