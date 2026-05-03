@@ -254,6 +254,7 @@ var commitTypeNerdIcons = map[string]string{
 	"CI":       "", // nf-fa-server
 	"REVERT":   "", // nf-fa-undo
 	"SEC":      "", // nf-fa-shield
+	"MERGE":    "", // nf-cod-git_merge
 }
 
 // commitTypeAsciiIcons is the no-nerd-fonts fallback. ASCII bullets give
@@ -274,6 +275,7 @@ var commitTypeAsciiIcons = map[string]string{
 	"CI":       "$",
 	"REVERT":   "<",
 	"SEC":      "|",
+	"MERGE":    "Y",
 }
 
 // IconForCommitTag returns the per-tag glyph rendered next to the

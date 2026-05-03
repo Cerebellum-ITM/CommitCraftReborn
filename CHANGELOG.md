@@ -2,9 +2,24 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.45.6 — 2026-05-03
+
+Added a dedicated glyph for the `MERGE` commit type, replacing the generic bandage icon with `nf-cod-git_merge` and a `Y` fallback for non-Nerd-Fonts environments.
+Updated the CLI version constant from `v0.45.4` to `v0.45.5` in `cmd/cli/main.go`.
+
 ## v0.45.5 — 2026-05-03
 
-Refreshed the delete-confirmation popup to match the UI vocabulary and styling, replacing the previous multi-sentence description with a compact warning-tinted header and adding a quoted preview of the row's text.
+Add a dedicated glyph for the `MERGE` commit type. Until now the tag
+fell through `IconForCommitTag` to the generic bandage glyph, which
+made merge rows in the Release inspect list visually
+indistinguishable from `FIX`. The new entries map `MERGE` to
+`nf-cod-git_merge` (``) — same Codicons family as the existing
+`GitCommit` icon — and to `Y` as the no-nerd-fonts fallback.
+
+### Usage
+
+- No new keys. `MERGE` rows in the Release inspect commits list now
+  render with the dedicated icon.
 
 ## v0.45.4 — 2026-05-03
 
