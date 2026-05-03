@@ -2,6 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.45.3 — 2026-05-03
+
+Fix the History list snapping back to "completed" after deleting a
+row while in draft mode. `UpdateCommitList` always queried
+`status = "completed"`, silently kicking the user out of the draft
+view. The function now takes a `status` parameter, and the delete
+handler picks `"draft"` or `"completed"` based on `model.draftMode`
+so the list stays in the same mode after a successful delete.
+
+### Usage
+
+- No user-facing change. The draft / completed toggle now survives
+  deletions.
+
 ## v0.45.2 — 2026-05-03
 
 Fix the autodraft hook firing when the user exits from Release mode.

@@ -570,7 +570,15 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		model.popup = nil
-		UpdateCommitList(model.pwd, model.db, model.log, list, msg.Db)
+		// Preserve the user's draft / completed toggle when reloading the
+		// commit list. Without this the list always snaps back to
+		// "completed" after a delete, which silently kicks the user out
+		// of draft mode.
+		status := "completed"
+		if model.draftMode {
+			status = "draft"
+		}
+		UpdateCommitList(model.pwd, model.db, model.log, list, msg.Db, status)
 		cmd := model.WritingStatusBar.ShowMessageForDuration("Record deleted from the db", statusbar.LevelSuccess, 2*time.Second)
 		return model, cmd
 

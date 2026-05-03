@@ -20,18 +20,28 @@ type UpdateFileListFunc func(pwd string, l *list.Model, gitData git.StatusData) 
 
 // UpdateCommitList reloads the commit/release picker from the SQLite
 // store so the UI reflects new entries created in this session.
+//
+// `status` only applies to the commit picker (e.g. "completed" or
+// "draft") — releaseDb ignores it. The parameter exists so callers
+// driving the commit list can preserve the user's draft / completed
+// toggle across reloads (for instance after a delete) instead of
+// silently snapping back to "completed".
 func UpdateCommitList(
 	pwd string,
 	db *storage.DB,
 	log *logger.Logger,
 	l *list.Model,
 	action CommitCraftTables,
+	status string,
 ) error {
 	var items []list.Item
 
 	switch action {
 	case commitDb:
-		workspaceCommits, err := db.GetCommits(pwd, "completed")
+		if status == "" {
+			status = "completed"
+		}
+		workspaceCommits, err := db.GetCommits(pwd, status)
 		if err != nil {
 			log.Error("Error reloading the list of commits", "error", err)
 			return err

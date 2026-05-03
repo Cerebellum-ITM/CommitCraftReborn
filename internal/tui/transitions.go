@@ -129,7 +129,7 @@ func createCommit(model *Model) (tea.Model, tea.Cmd) {
 
 	persistPipelineAICalls(model, model.currentCommit.ID)
 	model.pipeline.clearAllHistory()
-	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList, commitDb)
+	UpdateCommitList(model.pwd, model.db, model.log, &model.mainList, commitDb, "completed")
 	// The CHANGELOG file likely changed (we just prepended an entry) — refresh
 	// the indicator so the pill flips between auto/passive on the next render.
 	model.refreshChangelogState()
@@ -224,7 +224,7 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	}
 	persistReleaseAICalls(model)
 
-	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb)
+	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb, "")
 	model.state = stateReleaseMainMenu
 	model.keys = releaseMainListKeys()
 	loadCmd := enterReleaseHistoryLoading(model)
