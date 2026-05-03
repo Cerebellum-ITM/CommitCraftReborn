@@ -20,7 +20,7 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 )
 
-var version = "v0.44.0"
+var version = "v0.45.0"
 
 func main() {
 	// Headless subcommand path: when the first positional arg is "ai",

@@ -2,6 +2,24 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.45.0 — 2026-05-03
+
+Track each commit row's origin so the History list can tell apart
+records born inside the TUI (a human driving the interface, even when
+the AI pipeline is involved) from records created by the headless
+`commitcraft ai` subcommand (Claude or another agent). Adds a `source`
+column to `commits` (default `'tui'`), sets `'ai'` on `ai generate`,
+and renders a small pill — `TUI` (slate) or `AI` (purple, matching
+the existing AI palette) — between the message and the date in the
+main History row.
+
+### Usage
+
+- No new keys or flags. Existing rows show `TUI` (the column default
+  for legacy data); new rows from `commitcraft ai generate` show `AI`.
+- The pill sits between `scope: title` and the date column in the main
+  History list.
+
 ## v0.44.0 — 2026-05-02
 
 Added `commitcraft ai edit` so headless agents can patch a draft's

@@ -213,6 +213,12 @@ func applySchemaMigrations(db *sql.DB) error {
 			defaultValue: "''",
 		},
 		{
+			tableName:    "commits",
+			columnName:   "source",
+			columnType:   "TEXT",
+			defaultValue: "'tui'",
+		},
+		{
 			tableName:    "ai_calls",
 			columnName:   "tpm_limit_at_call",
 			columnType:   "INTEGER",

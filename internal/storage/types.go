@@ -16,6 +16,7 @@ type Commit struct {
 	IaCommitRaw string
 	IaTitle     string
 	IaChangelog string
+	Source      string
 	CreatedAt   time.Time
 }
 

@@ -66,6 +66,24 @@ func NewHistoryCommitDelegate(globalConfig config.Config, theme *styles.Theme) l
 	}
 }
 
+// sourcePillStyle returns the pill style + label for a commit's origin
+// (TUI = human in the interface, AI = headless CLI ai subcommand). Colors
+// mirror the statusbar pillAI / pillLocalConfig palettes so the pill reads
+// as familiar metadata rather than a new visual concept.
+func sourcePillStyle(source string) (lipgloss.Style, string) {
+	base := lipgloss.NewStyle().Padding(0, 1).Bold(true)
+	switch source {
+	case "ai":
+		return base.
+			Background(lipgloss.Color("#3e3268")).
+			Foreground(lipgloss.Color("#e9e0ff")), "AI"
+	default:
+		return base.
+			Background(lipgloss.Color("#1f3a44")).
+			Foreground(lipgloss.Color("#bcd9e3")), "TUI"
+	}
+}
+
 func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	it, ok := listItem.(HistoryCommitItem)
 	if !ok {
@@ -126,6 +144,9 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		titleStyle = lipgloss.NewStyle().Foreground(d.Theme.Muted)
 	}
 
+	srcStyle, srcLabel := sourcePillStyle(commit.Source)
+	srcPill := srcStyle.Render(srcLabel)
+
 	dateStr := commit.CreatedAt.Format("01-02 15:04")
 	var dateStyle lipgloss.Style
 	if selected {
@@ -153,9 +174,11 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 	leftBlock := lipgloss.JoinHorizontal(lipgloss.Top, idRendered, " ", typeBlock)
 	leftWidth := lipgloss.Width(leftBlock)
 	dateWidth := lipgloss.Width(dateRendered)
+	srcWidth := lipgloss.Width(srcPill)
 	gapBeforeDate := 2
+	gapBeforeSrc := 1
 
-	msgWidth := totalWidth - leftWidth - dateWidth - 1 - gapBeforeDate
+	msgWidth := totalWidth - leftWidth - srcWidth - dateWidth - 1 - gapBeforeSrc - gapBeforeDate
 	if msgWidth < 8 {
 		msgWidth = 8
 	}
@@ -202,9 +225,9 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		msgBlock = titleStyle.Render(TruncateString(titlePart, available))
 	}
 
-	// Pad the middle area so the date is right-aligned.
+	// Pad the middle area so the source pill + date stay right-aligned.
 	currentRowWidth := leftWidth + 1 + lipgloss.Width(msgBlock)
-	pad := totalWidth - currentRowWidth - dateWidth
+	pad := totalWidth - currentRowWidth - srcWidth - gapBeforeSrc - dateWidth
 	if pad < 1 {
 		pad = 1
 	}
@@ -215,6 +238,8 @@ func (d HistoryCommitDelegate) Render(w io.Writer, m list.Model, index int, list
 		" ",
 		msgBlock,
 		strings.Repeat(" ", pad),
+		srcPill,
+		strings.Repeat(" ", gapBeforeSrc),
 		dateRendered,
 	)
 

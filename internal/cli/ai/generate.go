@@ -96,6 +96,7 @@ func runGenerate(args []string) int {
 		IaTitle:     out.Title,
 		IaChangelog: out.ChangelogEntry,
 		MessageEN:   out.FinalMessage,
+		Source:      "ai",
 	}
 	if err := bs.db.SaveDraft(&c); err != nil {
 		printErrorJSON("db_error", err.Error())
