@@ -2,6 +2,25 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.45.5 — 2026-05-03
+
+Refreshed the delete-confirmation popup to match the UI vocabulary and styling, replacing the previous multi-sentence description with a compact warning-tinted header and adding a quoted preview of the row's text.
+
+## v0.45.4 — 2026-05-03
+
+Aesthetic refresh of the delete-confirm popup so it lines up with the
+rest of the UI vocabulary (chips, themed help, warning palette). The
+long sentence is replaced with a compact warning-tinted header
+(`DELETE` chip + `<glyph> commit/release #ID` title), an italic-muted
+quoted preview of the row's text (truncated to fit), a one-line "This
+action cannot be undone." note, and the existing themed help footer.
+The border now follows `theme.Warning` consistently. The glyph picks
+`GitCommit` for commits and `Tag` for releases.
+
+### Usage
+
+- No new keys; `enter` confirms, `esc` cancels as before.
+
 ## v0.45.3 — 2026-05-03
 
 Fix the History list snapping back to "completed" after deleting a

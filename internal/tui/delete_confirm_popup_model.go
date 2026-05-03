@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"fmt"
 	"image/color"
 	"strconv"
+	"strings"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -96,30 +96,76 @@ func (m DeleteConfirmPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m DeleteConfirmPopupModel) View() tea.View {
 	contentWidth := (m.width / 2) - 4
-	contentWidth = max(contentWidth, 20)
-	body := m.theme.AppStyles().Base.Render("Are you sure you want to delete the Item with the Id=")
-	message := m.theme.AppStyles().IndicatorStyle.Render(m.Message)
-	id := m.theme.AppStyles().IndicatorStyle.Render(strconv.Itoa(m.Id))
-	popupMessage := fmt.Sprintf(
-		"%s%s?\n\t(%s).",
-		body,
-		id,
-		message,
-	)
-	popupContent := TruncateMessageLines(popupMessage, contentWidth)
+	contentWidth = max(contentWidth, 28)
+
+	// Pick the noun + glyph from the table being targeted so the popup
+	// reads correctly whether the user is deleting a commit or a
+	// release. Falls back to "record" when the table is unset.
+	noun := "record"
+	glyph := ""
+	switch m.db {
+	case commitDb:
+		noun = "commit"
+		glyph = m.theme.AppSymbols().GitCommit
+	case releaseDb:
+		noun = "release"
+		glyph = m.theme.AppSymbols().Tag
+	}
+
+	// Header pill — warning-tinted DELETE chip + "<glyph> <noun> #<id>"
+	// title. Mirrors the source-pill / statusbar pill aesthetic so the
+	// popup feels native to the rest of the UI rather than a stock
+	// confirmation box.
+	chip := lipgloss.NewStyle().
+		Background(m.theme.Warning).
+		Foreground(m.theme.Surface).
+		Bold(true).
+		Padding(0, 1).
+		Render("DELETE")
+	title := lipgloss.NewStyle().
+		Foreground(m.theme.Warning).
+		Bold(true).
+		Render(strings.TrimSpace(glyph+" ") + noun + " #" + strconv.Itoa(m.Id))
+	header := lipgloss.JoinHorizontal(lipgloss.Top, chip, "  ", title)
+
+	// Message preview — italic + muted, truncated to the popup width so
+	// long key-points don't blow the box. The leading guillemets frame
+	// the preview as a quote rather than a continuation of the prompt.
+	preview := strings.TrimSpace(m.Message)
+	if preview == "" {
+		preview = "(no preview available)"
+	}
+	previewBudget := contentWidth - 4
+	if previewBudget < 8 {
+		previewBudget = 8
+	}
+	preview = TruncateString(preview, previewBudget)
+	previewView := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Italic(true).
+		Render("« " + preview + " »")
+
+	question := lipgloss.NewStyle().
+		Foreground(m.theme.AppStyles().Base.GetForeground()).
+		Render("This action cannot be undone.")
+
 	helpView := m.help.View(m.keys)
-	renderedContent := lipgloss.JoinVertical(lipgloss.Top,
-		popupContent,
-		VerticalSpace,
+
+	renderedContent := lipgloss.JoinVertical(lipgloss.Left,
+		header,
+		"",
+		previewView,
+		"",
+		question,
+		"",
 		helpView,
 	)
 
 	popupBox := lipgloss.NewStyle().
 		Width(contentWidth).
-		Align(lipgloss.Center).
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(m.color).
+		BorderForeground(m.theme.Warning).
 		Render(renderedContent)
 
 	return tea.NewView(popupBox)
