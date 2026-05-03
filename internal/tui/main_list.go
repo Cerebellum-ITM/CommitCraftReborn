@@ -265,8 +265,7 @@ func NewHistoryCommitList(
 	historyList.SetShowTitle(false)
 	historyList.SetShowFilter(false)
 	historyList.SetShowHelp(false)
-	historyList.SetStatusBarItemName("commit", "commits")
-	historyList.Styles.StatusBar = historyList.Styles.StatusBar.Foreground(theme.Accent)
+	historyList.SetShowStatusBar(false)
 	historyList.SetFilteringEnabled(true)
 	historyList.StatusMessageLifetime = 5 * time.Second
 	return historyList

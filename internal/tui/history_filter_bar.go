@@ -153,7 +153,20 @@ func (f HistoryFilterBar) View() string {
 	arrow := lipgloss.NewStyle().Foreground(arrowColor).Render(" > ")
 
 	prefix := modePill + arrow
-	counterText := fmt.Sprintf("%d / %d", f.visible, f.total)
+	// Right-side commits counter: glyph + visible/total + label. Replaces
+	// the bottom statusbar's "X commits" item so the count lives in one
+	// place at the top of the History view.
+	noun := "commits"
+	if f.total == 1 {
+		noun = "commit"
+	}
+	counterText := fmt.Sprintf(
+		"%s %d/%d %s",
+		f.theme.AppSymbols().GitCommit,
+		f.visible,
+		f.total,
+		noun,
+	)
 	counter := lipgloss.NewStyle().Foreground(f.theme.Muted).Render(counterText)
 
 	prefixW := lipgloss.Width(prefix)

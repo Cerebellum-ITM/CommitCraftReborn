@@ -2,6 +2,19 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.45.1 — 2026-05-03
+
+Move the History list's commit counter into the filter bar. The
+bubbles list's bottom statusbar (which rendered `X commits`) is
+hidden, and the count now lives at the right of the filter bar
+prefixed with the `GitCommit` glyph: `[TITLE] > …    5/8 commits`.
+Singular/plural noun is picked from the total.
+
+### Usage
+
+- No new keys. The number to the right of the filter bar reflects
+  visible / total commits in the current workspace.
+
 ## v0.45.0 — 2026-05-03
 
 Track each commit row's origin so the History list can tell apart
