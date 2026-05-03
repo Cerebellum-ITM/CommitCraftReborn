@@ -69,6 +69,14 @@ func autodraftIfNeeded(model *Model) {
 	if model.FinalMessage != "" {
 		return
 	}
+	// Release mode persists through its own flow (the releases table) and
+	// has no draft concept — autodraft is normal-commit-only. Without
+	// this guard, exiting from stateReleaseChoosingCommits /
+	// stateReleaseBuildingText would map to TabCompose and SaveDraft a
+	// half-empty commits row.
+	if model.AppMode == ReleaseMode {
+		return
+	}
 	tab := tabForState(model.state)
 	if tab != TabCompose && tab != TabPipeline {
 		return

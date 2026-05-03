@@ -2,6 +2,21 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.45.2 — 2026-05-03
+
+Fix the autodraft hook firing when the user exits from Release mode.
+The release states (`stateReleaseChoosingCommits`,
+`stateReleaseBuildingText`) map to `TabCompose` for tab-bar purposes,
+so on quit `autodraftIfNeeded` would `SaveDraft` a half-empty row into
+the `commits` table — surfaced as a misleading
+`Exit in Compose — draft saved` notice. Autodraft is a normal-commit
+feature only; release mode persists through its own flow.
+
+### Usage
+
+- No user-facing change. Quitting from Release mode no longer
+  produces a stray draft row in `commits`.
+
 ## v0.45.1 — 2026-05-03
 
 Move the History list's commit counter into the filter bar. The
