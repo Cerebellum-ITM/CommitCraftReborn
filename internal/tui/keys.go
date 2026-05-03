@@ -49,6 +49,7 @@ type KeyMap struct {
 
 	// Templates
 	CreateLocalTomlConfig key.Binding
+	AddCommitTypes        key.Binding
 
 	// Pipeline tab
 	SwitchTab   key.Binding
@@ -188,6 +189,10 @@ func mainListKeys() KeyMap {
 		CreateLocalTomlConfig: key.NewBinding(
 			key.WithKeys("ctrl+c"),
 			key.WithHelp("ctrl+c", "Create local config template file"),
+		),
+		AddCommitTypes: key.NewBinding(
+			key.WithKeys("ctrl+y"),
+			key.WithHelp("ctrl+y", "Add commit tag types"),
 		),
 		AddCommit: key.NewBinding(
 			key.WithKeys("n", "tab"),
@@ -523,6 +528,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.CreateLocalTomlConfig.Enabled() {
 		b = append(b, k.CreateLocalTomlConfig)
+	}
+	if k.AddCommitTypes.Enabled() {
+		b = append(b, k.AddCommitTypes)
 	}
 	if k.SwitchTab.Enabled() {
 		b = append(b, k.SwitchTab)

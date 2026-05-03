@@ -260,6 +260,7 @@ func workspaceKeybindings() []keybindingGroup {
 			entries: []helpEntry{
 				{"^s", "switch app mode"},
 				{"^c", "create local config template"},
+				{"^y", "add commit tag types to local config"},
 				{"^l", "logs"},
 				{"^x", "quit"},
 			},

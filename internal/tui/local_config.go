@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 
+	"commit_craft_reborn/internal/commit"
 	"commit_craft_reborn/internal/config"
 )
 
@@ -36,6 +38,71 @@ func CreateLocalConfigTomlTmpl() error {
 	}
 
 	return nil
+}
+
+// AppendCommitTypesToLocalConfig adds the given tags to the
+// `[[commit_types.types]]` array of the workspace's `.commitcraft.toml`,
+// creating the file from the default template if it doesn't exist yet.
+// Tags already present (matched case-insensitively by `tag`) are
+// skipped so re-running the popup is idempotent. Behavior is forced to
+// `"append"` so the user's defaults remain selectable alongside the
+// newly added entries.
+func AppendCommitTypesToLocalConfig(types []commit.CommitType) (added int, err error) {
+	if len(types) == 0 {
+		return 0, nil
+	}
+	if err := CreateLocalConfigTomlTmpl(); err != nil {
+		return 0, fmt.Errorf("ensuring local config exists: %w", err)
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		return 0, err
+	}
+	configPath := filepath.Join(workDir, ".commitcraft.toml")
+
+	var cfg config.Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return 0, fmt.Errorf("decoding %s: %w", configPath, err)
+	}
+
+	existing := make(map[string]struct{}, len(cfg.CommitTypes.Types))
+	for _, ct := range cfg.CommitTypes.Types {
+		existing[strings.ToUpper(ct.Tag)] = struct{}{}
+	}
+
+	for _, t := range types {
+		key := strings.ToUpper(t.Tag)
+		if _, dup := existing[key]; dup {
+			continue
+		}
+		cfg.CommitTypes.Types = append(cfg.CommitTypes.Types, config.CustomCommitType{
+			Tag:         t.Tag,
+			Description: t.Description,
+			BgBlock:     t.BgBlock,
+			FgBlock:     t.FgBlock,
+			BgMsg:       t.BgMsg,
+			FgMsg:       t.FgMsg,
+		})
+		existing[key] = struct{}{}
+		added++
+	}
+
+	if added == 0 {
+		return 0, nil
+	}
+	if cfg.CommitTypes.Behavior == "" {
+		cfg.CommitTypes.Behavior = "append"
+	}
+
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+		return 0, fmt.Errorf("encoding config: %w", err)
+	}
+	if err := os.WriteFile(configPath, buf.Bytes(), 0o644); err != nil {
+		return 0, fmt.Errorf("writing %s: %w", configPath, err)
+	}
+	return added, nil
 }
 
 // UpdateLocalConfigVersion sets release_config.version inside the repo's

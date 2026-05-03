@@ -2,10 +2,32 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
-## v0.45.6 — 2026-05-03
+## v0.46.1 — 2026-05-03
 
-Added a dedicated glyph for the `MERGE` commit type, replacing the generic bandage icon with `nf-cod-git_merge` and a `Y` fallback for non-Nerd-Fonts environments.
-Updated the CLI version constant from `v0.45.4` to `v0.45.5` in `cmd/cli/main.go`.
+The popup presents a four-color palette of optional tags defined in `.commitcraft.toml`. Users may select multiple tags with the `space` key, toggle all selections with `a`, confirm with `enter`, or cancel with `esc`. This feature allows users to add tags with a four-color palette in code but aren't selectable until they appear in `.commitcraft.toml`.
+
+## v0.46.0 — 2026-05-03
+
+Add a new "Add commit tag types" popup (`Ctrl+Y` from the History
+list) that lets the user surface tags which already have a four-color
+palette in code but aren't selectable until they appear in
+`.commitcraft.toml` — for instance `UI`, `STYLE`, `TEST`, `PERF`,
+`CHORE`, `CI`, `BUILD`, `REVERT`, `SEC`. The popup multi-selects with
+`space`, supports `a` to toggle all, and on `enter` appends every
+chosen tag — with its description and the four hex colors — to the
+local config. If `.commitcraft.toml` doesn't exist yet, it's created
+from the default template first so the append always succeeds. Tags
+already present are silently skipped, and `model.finalCommitTypes` is
+reloaded in-place so the new tags become selectable immediately.
+
+### Usage
+
+- From the History list, press `Ctrl+Y` to open the picker.
+- Move with `↑↓`, toggle with `space`, toggle all with `a`.
+- `Enter` saves; `Esc` cancels without writing.
+- Already-configured tags are filtered out of the list, so re-opening
+  the popup after a save shows only the still-addable extras.
+- Help row in the keybindings popup (`?`) now lists `^y` under "App".
 
 ## v0.45.5 — 2026-05-03
 

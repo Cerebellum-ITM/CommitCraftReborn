@@ -82,6 +82,31 @@ func GetDefaultCommitTypes() []CommitType {
 	}
 }
 
+// GetAddableCommitTypes lists tags that have a four-color palette in
+// the styles package but are not part of the built-in default tag set,
+// so they can be surfaced in the "Add tag types" popup as ready-to-add
+// extras for the local `.commitcraft.toml`. Each entry carries the
+// description and the four hex values the popup writes to the TOML so
+// the user gets a working palette without hand-editing colors.
+//
+// The list mirrors `GetDefaultLocalCommitExamplesTypes` plus `UI`
+// (which historically only existed as an alias to STYLE in the styles
+// palette and was therefore impossible to reach from the picker).
+func GetAddableCommitTypes() []CommitType {
+	extras := GetDefaultLocalCommitExamplesTypes()
+	extras = append(extras, CommitType{
+		Tag:         "UI",
+		Description: "Visual changes to the interface",
+		// UI inherits STYLE's palette via the alias table; the hex
+		// values are duplicated here so the entry rendered in the
+		// picker — and the row written to the TOML — carries colors
+		// even on a fresh install with no STYLE entry yet.
+		BgBlock: "#3e3268", FgBlock: "#e9e0ff",
+		BgMsg: "#1d1830", FgMsg: "#c8bce0",
+	})
+	return extras
+}
+
 func GetDefaultLocalCommitExamplesTypes() []CommitType {
 	return []CommitType{
 		{

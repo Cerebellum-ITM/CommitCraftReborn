@@ -274,6 +274,17 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			CreateLocalConfigTomlTmpl()
 			cmd := model.WritingStatusBar.ShowMessageForDuration("Configuration file created!", statusbar.LevelSuccess, 2*time.Second)
 			return model, cmd
+		case key.Matches(msg, model.keys.AddCommitTypes):
+			w := max(60, model.width*3/5)
+			h := max(16, model.height*3/5)
+			if w > model.width-2 {
+				w = model.width - 2
+			}
+			if h > model.height-2 {
+				h = model.height - 2
+			}
+			model.popup = newTagPickerPopup(w, h, model.Theme, model.finalCommitTypes)
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			selectedItem, ok := model.mainList.SelectedItem().(HistoryCommitItem)
 			if !ok {

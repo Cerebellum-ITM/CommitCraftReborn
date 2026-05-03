@@ -157,6 +157,39 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case closeTagPalettePopupMsg:
 		model.popup = nil
 		return model, nil
+	case closeTagPickerPopupMsg:
+		model.popup = nil
+		return model, nil
+	case tagPickerSaveMsg:
+		model.popup = nil
+		if len(msg.picked) == 0 {
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				"No tags selected",
+				statusbar.LevelWarning,
+				2*time.Second,
+			)
+		}
+		added, err := AppendCommitTypesToLocalConfig(msg.picked)
+		if err != nil {
+			model.log.Error("append tags to local config failed", "error", err)
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("Could not update .commitcraft.toml: %s", err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+		}
+		// Reload finalCommitTypes so the picker / cycle keys see the
+		// freshly added tags without restarting the TUI.
+		model.finalCommitTypes = append(model.finalCommitTypes, msg.picked...)
+		noun := "tags"
+		if added == 1 {
+			noun = "tag"
+		}
+		return model, model.WritingStatusBar.ShowMessageForDuration(
+			fmt.Sprintf("Added %d %s to .commitcraft.toml", added, noun),
+			statusbar.LevelSuccess,
+			2*time.Second,
+		)
 	case commandRunMsg:
 		model.popup = nil
 		switch msg.id {

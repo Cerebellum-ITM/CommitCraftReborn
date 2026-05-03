@@ -316,6 +316,9 @@ func (model *Model) View() tea.View {
 	case tagPalettePopupModel:
 		ok = true
 		popupView = popupModel.View()
+	case tagPickerPopupModel:
+		ok = true
+		popupView = popupModel.View()
 	default:
 		ok = false
 	}
