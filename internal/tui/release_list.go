@@ -28,7 +28,13 @@ var releaseChooseSelectedOnly bool
 // whenever FilterInput.Value() is empty — bypassing our custom Filter
 // entirely — so we hand it a non-empty sentinel that
 // `releaseChooseListFilter` recognises and treats as "no user term".
-const releaseChooseSentinel = "\x00release-choose-selected-only\x00"
+//
+// Must contain only printable ASCII: bubbles' textinput.SetValue
+// silently strips control characters (including NUL), so anything
+// like "\x00…\x00" round-trips back to the bare core and the equality
+// check below misses the sentinel — which is exactly the bug fixed in
+// v0.49.1.
+const releaseChooseSentinel = "__commitcraft_release_choose_selected_only_sentinel__"
 
 type WorkspaceCommitItem struct {
 	Selected bool

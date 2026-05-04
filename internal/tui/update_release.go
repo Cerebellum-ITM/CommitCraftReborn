@@ -606,7 +606,13 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 				item.Selected = true
 				model.selectedCommitList = append(model.selectedCommitList, item)
 			}
-			index := model.releaseCommitList.Index()
+			// `Index()` returns the cursor in the filtered view; `SetItem`
+			// writes to the underlying `m.items` slice. When a filter is
+			// applied, the two index spaces diverge — so we have to find
+			// the underlying index by hash before writing, otherwise we
+			// flip `Selected` on the wrong commit and `releaseChooseSelectedOnly`
+			// then sees a phantom selection set.
+			index := underlyingIndexByHash(&model.releaseCommitList, item.Hash)
 			// SetItem returns a cmd that re-runs the filter in any state
 			// other than Unfiltered, so when "Selected only" is active
 			// the toggled row is added/removed from the visible set
@@ -651,6 +657,23 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 	return model, cmd
 }
 
+// underlyingIndexByHash maps a WorkspaceCommitItem.Hash back to its index
+// in the bubble list's underlying `Items()` slice. The cursor index
+// (`list.Index()`) refers to the *filtered* slice, but `list.SetItem`
+// writes to the *underlying* slice — when "Selected only" is active or
+// the user has typed a filter, those two indices diverge and writing by
+// the visible cursor would mutate the wrong row. Falls back to the live
+// cursor when no match is found, which preserves the pre-fix behaviour
+// for items that vanished mid-toggle.
+func underlyingIndexByHash(l *list.Model, hash string) int {
+	for i, raw := range l.Items() {
+		if w, ok := raw.(WorkspaceCommitItem); ok && w.Hash == hash {
+			return i
+		}
+	}
+	return l.Index()
+}
+
 // applyReleaseChooseModeFilter projects the segmented "All / Selected"
 // toggle onto the workspace commit list by flipping the package-level
 // `releaseChooseSelectedOnly` flag — `releaseChooseListFilter` and
@@ -661,6 +684,32 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 func applyReleaseChooseModeFilter(model *Model) {
 	selectedOnly := model.releaseChooseModeBar.Mode() == ModeStagesResponse
 	releaseChooseSelectedOnly = selectedOnly
+
+	// Source-of-truth sync: `model.selectedCommitList` is updated
+	// synchronously by the space-toggle handler, while the bubble list's
+	// per-item `Selected` flag goes through `SetItem` and value
+	// semantics. When those drift, the Selected-only filter sees an
+	// empty set even though the user has clearly marked commits. Walk
+	// the underlying `Items()` once and re-stamp `Selected` from the
+	// selectedCommitList hashes before the filter runs.
+	if selectedOnly {
+		selectedHashes := make(map[string]struct{}, len(model.selectedCommitList))
+		for _, sc := range model.selectedCommitList {
+			selectedHashes[sc.Hash] = struct{}{}
+		}
+		for i, raw := range model.releaseCommitList.Items() {
+			w, ok := raw.(WorkspaceCommitItem)
+			if !ok {
+				continue
+			}
+			_, want := selectedHashes[w.Hash]
+			if w.Selected == want {
+				continue
+			}
+			w.Selected = want
+			model.releaseCommitList.SetItem(i, w)
+		}
+	}
 
 	val := model.releaseChooseFilterBar.Value()
 	if val == "" && !selectedOnly {
@@ -684,4 +733,19 @@ func applyReleaseChooseModeFilter(model *Model) {
 	// FilterInput and the list would stop responding to navigation.
 	model.releaseCommitList.SetFilterText(filterText)
 	model.releaseCommitList.SetFilterState(list.FilterApplied)
+
+	// Canary: if "Selected only" is active and the user has actual
+	// selections in `selectedCommitList`, the visible set must not be
+	// empty. When it is, something has gone out of sync between
+	// `WorkspaceCommitItem.Selected` (read by FilterValue) and the
+	// project-level `selectedCommitList` slice — surface it instead of
+	// letting the user stare at a blank list.
+	if selectedOnly && len(model.selectedCommitList) > 0 &&
+		len(model.releaseCommitList.VisibleItems()) == 0 && model.log != nil {
+		model.log.Warn(
+			"selected-only filter produced empty visible set",
+			"selected_in_list", len(model.selectedCommitList),
+			"items_total", len(model.releaseCommitList.Items()),
+		)
+	}
 }

@@ -2,6 +2,14 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.49.2 — 2026-05-04
+
+Fixed the "Selected only" mode in the release commit-picker by replacing the sentinel value with a plain-ASCII string, ensuring correct filter operation. Updated the toggle handler to resolve the underlying index of selected items by hash, and re-applied the `Selected` flag on items sourced from `selectedCommitList` prior to filtering, preventing drift between the bubble list's flags and the project-level selection state. A canary log warning is now emitted when the visible set is empty despite live selections.
+
+## v0.49.1 — 2026-05-04
+
+Fixed `ctrl+e` "Selected only" mode in the release commit-picker showing an empty list even when commits were marked. Root cause: the sentinel value handed to the bubble list's `FilterInput` was `"\x00release-choose-selected-only\x00"`, but `textinput.Model.SetValue` silently strips control characters — so `releaseChooseListFilter` received the bare core string and the equality check against the sentinel never matched, dropping the path that returns selected items into a fuzzy match against arbitrary text and producing zero hits. The sentinel is now a plain-ASCII token that survives the round-trip. The toggle handler additionally resolves the underlying items index by hash before calling `SetItem` so the next time anyone leans on the bubble's filter the Selected flag stays glued to the right commit, and `applyReleaseChooseModeFilter` re-stamps `Selected` from `selectedCommitList` (the source of truth) before applying the filter as a defense-in-depth. A canary log warns if the visible set ever ends up empty despite live selections.
+
 ## v0.49.0 — 2026-05-04
 
 Removed the cosmetic `release` ⇄ `merge` toggle from the release commit-picker. The `m` key, the `m:release` pill on the picker title bar, and the `· <mode>` suffix on the pipeline left-panel footer are gone. `ReleaseInput.Mode` was deleted from the AI engine — it only entered the debug log and never branched prompt content, so the pipeline output is unchanged. The persisted release classification (`storage.Release.Type` = `RELEASE` / `MERGE`, picked in the type popup *after* the pipeline) is unaffected.
