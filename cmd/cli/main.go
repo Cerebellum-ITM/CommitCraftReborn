@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,7 +21,7 @@ import (
 	"commit_craft_reborn/internal/tui/styles"
 )
 
-var version = "v0.47.1"
+var version = "v0.47.2"
 
 func main() {
 	// Headless subcommand path: when the first positional arg is "ai",
@@ -130,13 +131,28 @@ func main() {
 		if m.AutodraftedID != 0 {
 			printAutodraftNotice(m.AutodraftedID, m.AutodraftedTab, m.Theme)
 		}
-		if m.RewordHash != "" {
+		// Reword only fires when the user actually produced a message.
+		// If they exit the TUI before the AI pipeline completes (Esc, ^X,
+		// quit, missing scope, etc.) FinalMessage stays empty — running
+		// `git commit --amend -m ""` here would either abort with
+		// "empty commit message" or wipe the commit's message, both of
+		// which are silent footguns when launched from lazygit. Surface
+		// a clear "reword cancelled" notice to stderr instead and exit
+		// 0 so lazygit's status line stays clean.
+		switch {
+		case m.RewordHash != "" && strings.TrimSpace(m.FinalMessage) != "":
 			if err := git.RewordCommit(m.RewordHash, m.FinalMessage); err != nil {
 				fmt.Fprintf(os.Stderr, "Error rewording commit: %v\n", err)
 				os.Exit(1)
 			}
 			fmt.Fprintf(os.Stderr, "Commit %s reworded successfully.\n", m.RewordHash[:7])
-		} else if m.FinalMessage != "" {
+		case m.RewordHash != "":
+			short := m.RewordHash
+			if len(short) > 7 {
+				short = short[:7]
+			}
+			fmt.Fprintf(os.Stderr, "Reword cancelled — commit %s left unchanged.\n", short)
+		case m.FinalMessage != "":
 			fmt.Print(m.FinalMessage)
 		}
 	}
