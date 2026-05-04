@@ -2,6 +2,16 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.49.0 — 2026-05-04
+
+Add a third option to the `commitcraft -w <hash>` startup chooser: **"Rewrite using existing release"** lets the user reword the target commit with the message of an already-saved release entry from the workspace's SQLite DB, skipping the AI pipeline entirely. The chooser items now use dedicated nerd-font codicons (`cod-edit`, `cod-git_merge`, `cod-history`) with ASCII fallbacks for non-nerd-font terminals so each row carries a glyph that matches its action. A second popup is opened when the user picks the new option, listing one row per release as `<id> · <date> [<TYPE>] <branch> · <title>`; on selection the row is composed into `[TYPE] <branch>: <title>\n\n<body>`, copied into `RewordHash`/`FinalMessage`, and the TUI quits so `main.go`'s post-TUI hook calls `git.RewordCommit`.
+
+### Usage
+
+- `commitcraft -w <hash>` → "Rewrite using existing release" → pick one of the listed release entries → the original commit is rewritten with the formatted release message via amend (HEAD) or interactive rebase (historical).
+- If the workspace has no release entries yet the chooser re-opens with a status hint so the user can pick a different option without restarting.
+- Chooser glyphs: pencil for the regular reword, git-merge for "Rewrite as release/merge", history for "Rewrite using existing release". Themes without nerd fonts get `✎`, `Y`, `↺` respectively.
+
 ## v0.48.2 — 2026-05-04
 
 Size the `commitcraft -w <hash>` startup chooser popup to fit every option. The previous height defaulted to `model.height/2` with a floor of `10`, which clipped the last entry once a third option ("Rewrite as release/merge") was added on small terminals. The popup now derives its minimum height from the item count (`len(items)*2 + 8` to cover spacing + title + borders + padding), still grows up to half the terminal when there's room, and clamps to `model.height-2` so it never overflows.

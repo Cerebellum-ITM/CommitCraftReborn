@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -167,4 +169,122 @@ func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 		model.WritingStatusBar.Level = statusbar.LevelInfo
 	}
 	return model, cmd
+}
+
+// setupReleaseFromDbChooser handles the third item of the `-w` startup
+// chooser ("Rewrite using existing release"). It loads the workspace's
+// release rows, caches them on the model so the dispatcher can resolve
+// the picked entry, and opens a second list popup with one row per
+// release (RELDB#<id> sentinel + a human-readable summary). The
+// pendingRewordHash is preserved through the popup interaction; the
+// reword fires from finalizeReleaseFromDbPick once the user confirms a
+// row.
+func setupReleaseFromDbChooser(model *Model) (tea.Model, tea.Cmd) {
+	releases, err := model.db.GetReleases(model.pwd)
+	if err != nil {
+		model.log.Error("could not load releases for reword chooser", "error", err)
+		model.WritingStatusBar.Content = fmt.Sprintf("Could not load releases: %s", err)
+		model.WritingStatusBar.Level = statusbar.LevelError
+		return model, nil
+	}
+	if len(releases) == 0 {
+		model.WritingStatusBar.Content = "No release entries in this workspace · pick a different option"
+		model.WritingStatusBar.Level = statusbar.LevelWarning
+		// Re-open the original chooser so the user can pick a different
+		// strategy without restarting the TUI. pendingRewordHash is
+		// still set, so the chooser knows which commit it is reworking.
+		return model, openRewordChooserCmd(model)
+	}
+
+	model.pendingDbReleases = releases
+	items := make([]string, 0, len(releases))
+	options := make([]itemsOptions, 0, len(releases))
+	syms := model.Theme.AppSymbols()
+	for i, r := range releases {
+		date := r.CreatedAt.Format("2006-01-02")
+		title := strings.TrimSpace(r.Title)
+		if title == "" {
+			title = "(no title)"
+		}
+		entry := fmt.Sprintf(
+			"%s%d · %s [%s] %s · %s",
+			dbReleasePickPrefix, r.ID, date, r.Type, r.Branch, title,
+		)
+		items = append(items, entry)
+		options = append(options, itemsOptions{
+			index: i,
+			color: model.Theme.Secondary,
+			icon:  syms.RewordChooserDb,
+		})
+	}
+
+	w := model.width * 3 / 4
+	if w < 60 {
+		w = 70
+	}
+	h := model.height * 3 / 4
+	if h < 12 {
+		h = 14
+	}
+	short := model.pendingRewordHash
+	if len(short) > 7 {
+		short = short[:7]
+	}
+	return model, func() tea.Msg {
+		return openListPopup{
+			title:        fmt.Sprintf("Reword %s · pick a release", short),
+			color:        model.Theme.Primary,
+			items:        items,
+			itemsOptions: options,
+			width:        w,
+			height:       h,
+		}
+	}
+}
+
+// finalizeReleaseFromDbPick is the dispatcher hook for selections coming
+// out of the second popup of the "Rewrite using existing release" flow.
+// It parses the RELDB#<id> sentinel, resolves the row from the cached
+// snapshot, composes the same `[TYPE] <branch>: <title>\n\n<body>` shape
+// the live release pipeline produces, copies the original hash into
+// RewordHash, sets FinalMessage, and quits so main.go's post-TUI hook
+// runs git.RewordCommit.
+func finalizeReleaseFromDbPick(model *Model, action string) (tea.Model, tea.Cmd) {
+	idStr := strings.SplitN(strings.TrimPrefix(action, dbReleasePickPrefix), " ", 2)[0]
+	idStr = strings.TrimSuffix(idStr, "·")
+	idStr = strings.TrimSpace(idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		model.log.Error("could not parse release id from pick", "raw", action, "error", err)
+		model.WritingStatusBar.Content = "Could not resolve the picked release"
+		model.WritingStatusBar.Level = statusbar.LevelError
+		return model, nil
+	}
+	var picked *storage.Release
+	for i := range model.pendingDbReleases {
+		if model.pendingDbReleases[i].ID == id {
+			picked = &model.pendingDbReleases[i]
+			break
+		}
+	}
+	if picked == nil {
+		model.log.Error("picked release id not found in cache", "id", id)
+		model.WritingStatusBar.Content = "Picked release vanished from cache"
+		model.WritingStatusBar.Level = statusbar.LevelError
+		return model, nil
+	}
+
+	formattedType := fmt.Sprintf(model.globalConfig.CommitFormat.TypeFormat, picked.Type)
+	final := fmt.Sprintf("%s %s: %s", formattedType, picked.Branch, strings.TrimSpace(picked.Title))
+	body := strings.TrimSpace(picked.Body)
+	if body != "" {
+		final = final + "\n\n" + body
+	}
+
+	model.RewordHash = model.pendingRewordHash
+	model.pendingRewordHash = ""
+	model.pendingDbReleases = nil
+	model.syncRewordIndicator()
+	model.FinalMessage = final
+	return quitWithAutodraft(model)
 }

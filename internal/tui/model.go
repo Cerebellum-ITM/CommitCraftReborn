@@ -318,6 +318,12 @@ type Model struct {
 	// finalises the flow — that way the post-TUI reword in main.go does
 	// not fire prematurely if the user cancels mid-pick.
 	releaseRewordHash string
+	// pendingDbReleases is the snapshot of the workspace's release rows
+	// rendered in the second popup of the "Rewrite using existing
+	// release" flow. The dispatcher uses it to map the selected
+	// RELDB#<id> sentinel back to a storage.Release without a second
+	// DB roundtrip. Cleared once the reword fires (or the popup closes).
+	pendingDbReleases []storage.Release
 	// topTab is the persistent top-level tab the user is on. Different from
 	// model.activeTab (which is the inner editor/pipeline tab inside the
 	// writing-message view).
@@ -653,7 +659,11 @@ func openRewordChooserCmd(model *Model) tea.Cmd {
 	if len(short) > 7 {
 		short = short[:7]
 	}
-	items := []string{rewordChooseAsCommit, rewordChooseAsRelease}
+	items := []string{
+		rewordChooseAsCommit,
+		rewordChooseAsRelease,
+		rewordChooseAsReleaseFromDb,
+	}
 	w := model.width / 2
 	if w < 40 {
 		w = 60
@@ -671,6 +681,7 @@ func openRewordChooserCmd(model *Model) tea.Cmd {
 		h = maxH
 	}
 	return func() tea.Msg {
+		syms := model.Theme.AppSymbols()
 		return openListPopup{
 			title:  fmt.Sprintf("Reword %s", short),
 			color:  model.Theme.Primary,
@@ -678,16 +689,23 @@ func openRewordChooserCmd(model *Model) tea.Cmd {
 			width:  w,
 			height: h,
 			itemsOptions: []itemsOptions{
-				{index: 0, color: model.Theme.Primary, icon: model.Theme.AppSymbols().CommitCraft},
-				{index: 1, color: model.Theme.Secondary, icon: model.Theme.AppSymbols().Rewrite},
+				{index: 0, color: model.Theme.Primary, icon: syms.RewordChooserCommit},
+				{index: 1, color: model.Theme.Secondary, icon: syms.RewordChooserMerge},
+				{index: 2, color: model.Theme.Yellow, icon: syms.RewordChooserDb},
 			},
 		}
 	}
 }
 
 const (
-	rewordChooseAsCommit  = "Reword this commit"
-	rewordChooseAsRelease = "Rewrite as release/merge"
+	rewordChooseAsCommit        = "Reword this commit"
+	rewordChooseAsRelease       = "Rewrite as release/merge"
+	rewordChooseAsReleaseFromDb = "Rewrite using existing release"
+	// dbReleasePickPrefix tags the dynamic items rendered in the second
+	// popup that lists the workspace's existing release entries. The
+	// release ID embedded after the prefix lets the releaseAction handler
+	// look the row up in model.pendingDbReleases on selection.
+	dbReleasePickPrefix = "RELDB#"
 )
 
 // waitForLogLineCmd reads the next line from the logs subscription channel and

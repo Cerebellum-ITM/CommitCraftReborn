@@ -24,6 +24,12 @@ func NerdFontSymbols() *Symbols {
 		LocalConfig:      "",          // nf-seti-config (U+E615)
 		ReuseMessage:     "\U000F0459", // nf-md-replay
 		NewDbRecord:      "\U000F01BA", // nf-md-database_plus
+		// Codicons (VS Code) for the -w startup chooser items: pencil,
+		// git_merge, history. Each is a single-cell glyph so the popup
+		// rows stay aligned with their labels.
+		RewordChooserCommit: "", // nf-cod-edit
+		RewordChooserMerge:  "", // nf-cod-git_merge
+		RewordChooserDb:     "", // nf-cod-history
 	}
 }
 
@@ -46,6 +52,11 @@ func DefaultSymbols() *Symbols {
 		LocalConfig:      "cfg",
 		ReuseMessage:     "↻",
 		NewDbRecord:      "db+",
+		// ASCII fallbacks for the -w chooser items so the popup still
+		// renders readably without a nerd-font terminal.
+		RewordChooserCommit: "✎",
+		RewordChooserMerge:  "Y",
+		RewordChooserDb:     "↺",
 	}
 }
 

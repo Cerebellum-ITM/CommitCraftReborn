@@ -115,6 +115,18 @@ type Symbols struct {
 	// DB before applying the reword. Falls back to "db+" without nerd
 	// fonts.
 	NewDbRecord string
+	// RewordChooserCommit, RewordChooserMerge and RewordChooserDb are
+	// the per-item glyphs for the startup chooser popup that fires when
+	// the user launches the TUI with `-w <hash>`: pencil (cod-edit) for
+	// "Reword this commit", git-merge (cod-git_merge) for "Rewrite as
+	// release/merge" — i.e. run the release AI pipeline and amend the
+	// commit with the result —, and history (cod-history) for "Rewrite
+	// using existing release", which lets the user pick an already-saved
+	// release entry from the SQLite DB. Each falls back to a short ASCII
+	// token so non-nerd-font terminals stay readable.
+	RewordChooserCommit string
+	RewordChooserMerge  string
+	RewordChooserDb     string
 }
 
 type Styles struct {

@@ -465,6 +465,8 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return setupCommitReword(model)
 		case rewordChooseAsRelease:
 			return setupReleaseReword(model)
+		case rewordChooseAsReleaseFromDb:
+			return setupReleaseFromDbChooser(model)
 		case "Create":
 			_, cmd := createRelease(model)
 			return model, cmd
@@ -586,6 +588,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.popup = openVersionEditor(model)
 			return model, nil
 		default:
+			// "Rewrite using existing release" routes through here once
+			// the second popup fires: each item carries the
+			// `dbReleasePickPrefix` + release ID, so the dispatcher can
+			// resolve the row from the snapshot cached on the model
+			// without a second DB roundtrip.
+			if strings.HasPrefix(msg.action, dbReleasePickPrefix) {
+				return finalizeReleaseFromDbPick(model, msg.action)
+			}
 			// NOTE: Any selected branch leads to this action
 			model.releaseBranch = msg.action
 			return model, func() tea.Msg { return releaseAction{action: "Create"} }
