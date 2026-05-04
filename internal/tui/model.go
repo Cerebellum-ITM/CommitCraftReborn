@@ -312,6 +312,12 @@ type Model struct {
 	// pendingRewordHash holds the resolved hash passed via -w until the user
 	// picks a mode in the startup chooser popup. Cleared after the choice.
 	pendingRewordHash string
+	// releaseRewordHash carries the original commit hash through the
+	// release flow when the user picked "Rewrite as release/merge" in the
+	// -w startup chooser. RewordHash itself stays empty until createRelease
+	// finalises the flow — that way the post-TUI reword in main.go does
+	// not fire prematurely if the user cancels mid-pick.
+	releaseRewordHash string
 	// topTab is the persistent top-level tab the user is on. Different from
 	// model.activeTab (which is the inner editor/pipeline tab inside the
 	// writing-message view).

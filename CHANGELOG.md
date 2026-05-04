@@ -2,9 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
-## v0.47.3 — 2026-05-04
+## v0.48.1 — 2026-05-04
 
-Guarded the reword path to prevent empty commit messages. The reword command now only runs when a non-whitespace message is provided, and cancelled flows print a clear cancellation notice to stderr and exit 0, leaving the commit intact.
+Added support for the "Rewrite as release/merge" option in the initial chooser of `commitcraft -w <hash>`. A new `releaseRewordHash` field in the TUI model stores the original commit hash throughout the release flow. When creating a release, presence of this field causes `createRelease` to build a release/merge message and reword the original commit.
+
+## v0.48.0 — 2026-05-04
+
+Wire up the "Rewrite as release/merge" branch of the `commitcraft -w <hash>` startup chooser so it actually rewords the original commit. Previously `setupReleaseReword` discarded the hash and dropped the user into the regular release flow, where finishing a release inserted a row in the SQLite `releases` table but never touched git history — clicking "Merge Commit" or "Release Commit" did nothing to the selected commit. The hash now travels through the flow on a new `releaseRewordHash` field and `createRelease` finalizes it as a reword: it composes `[TYPE] <branch>: <title>\n\n<body>`, copies the hash back into `RewordHash`, sets `FinalMessage`, and quits so `main.go`'s post-TUI hook calls `git.RewordCommit`. Cancelling the picker (Esc) clears the preserved hash so unrelated subsequent release creations don't silently reword.
+
+### Usage
+
+- `commitcraft -w <hash>` → pick "Rewrite as release/merge" → choose commits → run AI pipeline → press Enter → "Create item in CommitCraft" → "Merge Commit" / "Release Commit" → pick branch (for MERGE). The original commit is rewritten with the formatted release message via amend (HEAD) or interactive rebase (historical).
+- "Create release in Github" while in this flow short-circuits through the same reword path; the GitHub upload chain is skipped because the user opted into reword, not publish.
+- The status bar shows "Reword <short> as release/merge · pick commits to compose the message" while you're in the picker so you remember which mode you're in.
+- Press Esc out of the picker to abandon the flow without touching the commit.
 
 ## v0.47.2 — 2026-05-04
 

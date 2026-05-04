@@ -138,10 +138,14 @@ func setupCommitReword(model *Model) (tea.Model, tea.Cmd) {
 }
 
 // setupReleaseReword routes the user from the -w startup popup into the
-// regular release creation flow (-r). The pending hash is discarded because
-// release creation is multi-commit: the user picks the commits to include in
-// the release notes from stateReleaseMainMenu / stateReleaseChoosingCommits.
+// regular release creation flow (-r) while preserving the original commit
+// hash so the eventual createRelease call can rewrite that commit's
+// message with the release-formatted output. RewordHash itself stays
+// empty until createRelease moves the hash back into it next to the
+// composed FinalMessage — otherwise an early quit (Esc, ^X) would fire
+// the post-TUI reword hook against an empty message.
 func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
+	model.releaseRewordHash = model.pendingRewordHash
 	model.pendingRewordHash = ""
 	model.RewordHash = ""
 	model.syncRewordIndicator()
@@ -151,5 +155,16 @@ func setupReleaseReword(model *Model) (tea.Model, tea.Cmd) {
 	model.topTab = TabCompose
 	model.keys = releaseKeys()
 	cmd := model.initFreshReleaseCompose()
+	if model.releaseRewordHash != "" {
+		short := model.releaseRewordHash
+		if len(short) > 7 {
+			short = short[:7]
+		}
+		model.WritingStatusBar.Content = fmt.Sprintf(
+			"Reword %s as release/merge · pick commits to compose the message",
+			short,
+		)
+		model.WritingStatusBar.Level = statusbar.LevelInfo
+	}
 	return model, cmd
 }

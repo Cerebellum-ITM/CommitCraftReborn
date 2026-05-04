@@ -638,6 +638,14 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 				model.refreshReleaseDiffForSelectedFile()
 			}
 		case key.Matches(msg, model.keys.Esc):
+			// Cancelling out of the picker abandons the
+			// "Rewrite as release/merge" flow — drop the preserved hash
+			// so a later, unrelated release creation does not silently
+			// reword the original commit.
+			if model.releaseRewordHash != "" {
+				model.releaseRewordHash = ""
+				model.syncRewordIndicator()
+			}
 			switch model.AppMode {
 			case CommitMode:
 				model.state = stateChoosingCommit
