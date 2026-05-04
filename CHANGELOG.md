@@ -2,9 +2,18 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.47.3 — 2026-05-04
+
+Guarded the reword path to prevent empty commit messages. The reword command now only runs when a non-whitespace message is provided, and cancelled flows print a clear cancellation notice to stderr and exit 0, leaving the commit intact.
+
 ## v0.47.2 — 2026-05-04
 
-- Fixed tab bar isolation by associating `stateReleaseBuildingText` with `TabPipeline` instead of `TabCompose`, preventing unexpected mode switches after a release run and eliminating spurious `createCommit` calls with empty commit fields.
+Guard the reword path so it only runs when the user actually produced a message. Previously, launching `commitcraft -w <hash>` (the lazygit `R` binding) and then exiting the TUI without completing the AI pipeline still called `git.RewordCommit` with an empty `FinalMessage`, which either aborted the amend with "empty commit message" or wiped the original commit's message — both bad outcomes when triggered from a custom shortcut. Now reword fires only when both `RewordHash` is set and `FinalMessage` has non-whitespace content; cancelled flows print a clear "Reword cancelled — commit <short> left unchanged." notice to stderr and exit 0, leaving the commit intact and lazygit's status line clean.
+
+### Usage
+
+- `commitcraft -w <hash>`: complete the AI pipeline and press Enter on the compose view to reword. Cancelling at any earlier step (Esc, Ctrl+X, quit, missing scope/keypoints) is now safe — the commit is left untouched and you get a notice on stderr.
+- No new keys; behavior change only.
 
 ## v0.47.1 — 2026-05-04
 
