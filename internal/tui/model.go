@@ -653,19 +653,28 @@ func openRewordChooserCmd(model *Model) tea.Cmd {
 	if len(short) > 7 {
 		short = short[:7]
 	}
+	items := []string{rewordChooseAsCommit, rewordChooseAsRelease}
 	w := model.width / 2
 	if w < 40 {
 		w = 60
 	}
-	h := model.height / 2
-	if h < 8 {
-		h = 10
+	// Size height to fit every item (each line consumes 2 rows in the list
+	// bubble; +8 covers title, top/bottom borders and padding) so the last
+	// option is never clipped on small terminals. Then grow up to half the
+	// terminal when there's room, and clamp to the terminal height as a
+	// final safety net.
+	h := len(items)*2 + 8
+	if half := model.height / 2; half > h {
+		h = half
+	}
+	if maxH := model.height - 2; maxH > 0 && h > maxH {
+		h = maxH
 	}
 	return func() tea.Msg {
 		return openListPopup{
 			title:  fmt.Sprintf("Reword %s", short),
 			color:  model.Theme.Primary,
-			items:  []string{rewordChooseAsCommit, rewordChooseAsRelease},
+			items:  items,
 			width:  w,
 			height: h,
 			itemsOptions: []itemsOptions{

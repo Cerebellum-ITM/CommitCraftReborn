@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.48.2 — 2026-05-04
+
+Size the `commitcraft -w <hash>` startup chooser popup to fit every option. The previous height defaulted to `model.height/2` with a floor of `10`, which clipped the last entry once a third option ("Rewrite as release/merge") was added on small terminals. The popup now derives its minimum height from the item count (`len(items)*2 + 8` to cover spacing + title + borders + padding), still grows up to half the terminal when there's room, and clamps to `model.height-2` so it never overflows.
+
 ## v0.48.1 — 2026-05-04
 
 Preserve merge topology when rewording historical merge commits. The previous `RewordCommit` path always used `git rebase -i <hash>^` with a `pick → reword` sed, but `rebase -i` skips merge commits in the TODO by default — the sed matched nothing and the rebase silently linearised the merge, dropping its second parent. Now `RewordCommit` detects merges via `git rev-list --parents` and switches to `git rebase -i --rebase-merges <hash>^` with a `merge -C <hash> → merge -c <hash>` sed, so the editor is invoked to inject the new message while both parents survive. Non-merge commits and HEAD continue to use the existing amend / pick-reword paths.
