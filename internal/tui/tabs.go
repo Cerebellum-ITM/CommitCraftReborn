@@ -44,6 +44,11 @@ func tabLabel(t TabID) string {
 // tabForState maps an appState to the tab it logically belongs to. Used
 // to keep model.topTab in sync with state transitions that happen via the
 // usual flow (Esc, Enter, etc.) instead of the tab bar.
+//
+// stateReleaseBuildingText renders viewPipeline (release preset) so it
+// belongs under TabPipeline, not TabCompose — otherwise Ctrl+3 from the
+// release pipeline view drops the user into the commit-mode statePipeline
+// and Enter there triggers createCommit against empty commit-mode fields.
 func tabForState(s appState) TabID {
 	switch s {
 	case stateChoosingType,
@@ -51,10 +56,9 @@ func tabForState(s appState) TabID {
 		stateWritingMessage,
 		stateConfirming,
 		stateOutput,
-		stateReleaseChoosingCommits,
-		stateReleaseBuildingText:
+		stateReleaseChoosingCommits:
 		return TabCompose
-	case statePipeline:
+	case statePipeline, stateReleaseBuildingText:
 		return TabPipeline
 	default:
 		// Everything else (history, release main menu, reword pickers,
@@ -74,6 +78,9 @@ func (model *Model) defaultStateForTab(t TabID) appState {
 		}
 		return stateWritingMessage
 	case TabPipeline:
+		if model.AppMode == ReleaseMode {
+			return stateReleaseBuildingText
+		}
 		return statePipeline
 	case TabHistory:
 		fallthrough
