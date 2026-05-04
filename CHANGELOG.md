@@ -2,9 +2,19 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
-## v0.47.1 — 2026-05-03
+## v0.47.2 — 2026-05-04
 
-Adds `ai list-addable-tags` and `ai add-tag` subcommands to enable discovering and registering builtin commit-type tags without invoking the TUI. Updates `ai list-tags` to return only tags eligible for the `generate` command, excluding builtin tags. Moves `AppendCommitTypesToLocalConfig` from `internal/tui` to `internal/config` to decouple CLI logic from the TUI package. Strengthens validation in `add-tag` with case-insensitive deduplication and reports both added and skipped tags.
+- Fixed tab bar isolation by associating `stateReleaseBuildingText` with `TabPipeline` instead of `TabCompose`, preventing unexpected mode switches after a release run and eliminating spurious `createCommit` calls with empty commit fields.
+
+## v0.47.1 — 2026-05-04
+
+Isolate the persistent tab bar per app mode so the release flow no longer crosses into commit-mode handlers. `stateReleaseBuildingText` now maps to `TabPipeline` (its rendered view IS the pipeline) instead of `TabCompose`, and `defaultStateForTab(TabPipeline)` lands on `stateReleaseBuildingText` when `AppMode == ReleaseMode`. Before this fix, pressing Ctrl+3 after a release pipeline run dropped the user into the commit-mode `statePipeline`; pressing Enter there fired `createCommit` against the empty commit-mode fields (release output lives in `releaseBodyOutput/Title/Final`), producing an empty `stateOutput` report.
+
+### Usage
+
+- After running the release AI pipeline, Ctrl+2 / Ctrl+3 now shuttle between the release picker (`stateReleaseChoosingCommits`) and the release pipeline view (`stateReleaseBuildingText`) without leaving release mode.
+- The tab bar correctly highlights "Pipeline" while the release pipeline view is open instead of falsely showing "Compose".
+- No new keys; behavior change only.
 
 ## v0.47.0 — 2026-05-03
 
