@@ -169,7 +169,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				2*time.Second,
 			)
 		}
-		added, err := AppendCommitTypesToLocalConfig(msg.picked)
+		added, err := config.AppendCommitTypesToLocalConfig(msg.picked)
 		if err != nil {
 			model.log.Error("append tags to local config failed", "error", err)
 			return model, model.WritingStatusBar.ShowMessageForDuration(
@@ -203,7 +203,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					3*time.Second,
 				)
 			}
-			if err := CreateLocalConfigTomlTmpl(); err != nil {
+			if err := config.CreateLocalConfigTomlTmpl(); err != nil {
 				model.log.Error("create local config failed", "error", err)
 				return model, model.WritingStatusBar.ShowMessageForDuration(
 					fmt.Sprintf("Could not create local config: %s", err),

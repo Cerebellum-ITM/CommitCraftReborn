@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
+	"commit_craft_reborn/internal/config"
 	"commit_craft_reborn/internal/git"
 	"commit_craft_reborn/internal/storage"
 	"commit_craft_reborn/internal/tui/statusbar"
@@ -271,7 +272,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, model.keys.Delete):
 			return model, func() tea.Msg { return openPopupMsg{Type: Confirmation, Db: commitDb} }
 		case key.Matches(msg, model.keys.CreateLocalTomlConfig):
-			CreateLocalConfigTomlTmpl()
+			config.CreateLocalConfigTomlTmpl()
 			cmd := model.WritingStatusBar.ShowMessageForDuration("Configuration file created!", statusbar.LevelSuccess, 2*time.Second)
 			return model, cmd
 		case key.Matches(msg, model.keys.AddCommitTypes):

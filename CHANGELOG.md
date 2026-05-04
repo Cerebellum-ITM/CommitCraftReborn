@@ -2,6 +2,22 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.47.1 — 2026-05-03
+
+Adds `ai list-addable-tags` and `ai add-tag` subcommands to enable discovering and registering builtin commit-type tags without invoking the TUI. Updates `ai list-tags` to return only tags eligible for the `generate` command, excluding builtin tags. Moves `AppendCommitTypesToLocalConfig` from `internal/tui` to `internal/config` to decouple CLI logic from the TUI package. Strengthens validation in `add-tag` with case-insensitive deduplication and reports both added and skipped tags.
+
+## v0.47.0 — 2026-05-03
+
+Surface builtin commit-type tags through the headless CLI so an external agent can discover and add them without opening the TUI. The discovery is split across two endpoints so each answers a single question, and the agent never has to filter response fields client-side. The append helper that the TUI tag picker uses was relocated to `internal/config` so the CLI no longer pulls in the TUI package.
+
+### Usage
+
+- `commitcraft ai list-tags` — returns only the tags `generate --tag` will accept (default + global + local, honoring `behavior=replace`). Each entry: `{ tag, description, source }` where `source ∈ {default, global, local}`.
+- `commitcraft ai list-addable-tags` — returns the builtin tags the code knows about (from `commit.GetAddableCommitTypes`) that aren't yet in the local config. Output is independent of `commit_types.behavior`, so the list is consistent even when global/local use `replace`. Each entry: `{ tag, description }`.
+- `commitcraft ai add-tag --tag TEST --tag UI` — appends the named builtin tags to the workspace `.commitcraft.toml` (creating it from the default template if needed). Repeatable; `-t` is a shorthand. Unknown tags exit `2` with `invalid_input`. Returns `{ added, skipped, config_path }`.
+
+Workflow for an agent: pick a tag from `list-tags`; if nothing fits, check `list-addable-tags`, run `add-tag` on the chosen one, then call `generate`.
+
 ## v0.46.1 — 2026-05-03
 
 The popup presents a four-color palette of optional tags defined in `.commitcraft.toml`. Users may select multiple tags with the `space` key, toggle all selections with `a`, confirm with `enter`, or cancel with `esc`. This feature allows users to add tags with a four-color palette in code but aren't selectable until they appear in `.commitcraft.toml`.

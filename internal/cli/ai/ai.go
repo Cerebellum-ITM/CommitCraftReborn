@@ -31,7 +31,9 @@ Subcommands:
   show         Print the JSON for a draft/commit by --id.
   list         List drafts/commits in the current workspace.
   promote      Mark a draft as completed (--id). Does not run git commit.
-  list-tags    List the resolved commit-type tags (default + global + local) as JSON.
+  list-tags          List the commit-type tags accepted by 'generate' (default + global + local) as JSON.
+  list-addable-tags  List builtin tags known to the code but not yet in the local config.
+  add-tag            Append one or more builtin tags to the local .commitcraft.toml.
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -59,6 +61,10 @@ func Dispatch(args []string) int {
 		return runPromote(rest)
 	case "list-tags":
 		return runListTags(rest)
+	case "list-addable-tags":
+		return runListAddableTags(rest)
+	case "add-tag":
+		return runAddTag(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
