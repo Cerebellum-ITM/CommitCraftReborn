@@ -69,14 +69,10 @@ func (model *Model) renderReleaseCommitsPanel(width, height int) string {
 	cw, _ := titledPanelChrome()
 	innerW := max(1, width-cw-2)
 
-	mode := model.releaseMode
-	if mode == "" {
-		mode = "release"
-	}
 	count := len(model.selectedCommitList)
 	footer := lipgloss.NewStyle().
 		Foreground(theme.Muted).
-		Render(fmt.Sprintf("%d commit(s) · %s", count, mode))
+		Render(fmt.Sprintf("%d commit(s)", count))
 
 	rows := make([]string, 0, count)
 	subjStyle := lipgloss.NewStyle().Foreground(theme.FG)

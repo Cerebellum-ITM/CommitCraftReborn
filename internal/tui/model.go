@@ -192,9 +192,6 @@ type Model struct {
 	releaseBodyOutput  string
 	releaseTitleOutput string
 	releaseFinalOutput string
-	// releaseMode is the UI-only release/merge toggle; it tags the run
-	// in logs but does not branch the prompts. Defaults to "release".
-	releaseMode        string
 	releaseType        string
 	releaseBranch      string
 	releaseMainList    list.Model
@@ -590,7 +587,6 @@ func NewModel(
 		pipelineViewport3:        pvp3,
 		pipelineViewport4:        pvp4,
 		pipeline:                 newPipelineModel(),
-		releaseMode:              "release",
 		usePreloadedDiff:         false,
 		OutputDirect:             outputDirect,
 		Version:                  version,

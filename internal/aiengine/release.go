@@ -33,11 +33,8 @@ type ReleaseCommit struct {
 }
 
 // ReleaseInput is the per-run user-supplied data for the release pipeline.
-// Mode is informational (release vs. merge) and only enters the log; the
-// prompt content does not branch on it.
 type ReleaseInput struct {
 	Commits []ReleaseCommit
-	Mode    string
 }
 
 // ReleaseOutput bundles the artifacts each stage produces plus per-stage
@@ -101,7 +98,7 @@ func RunRelease(deps Deps, in ReleaseInput) (ReleaseOutput, error) {
 	out.Final = strings.TrimSpace(finalText)
 
 	if deps.Log != nil {
-		deps.Log.Debug("Final release note", "mode", in.Mode, "release", out.Final)
+		deps.Log.Debug("Final release note", "release", out.Final)
 	}
 	return out, nil
 }

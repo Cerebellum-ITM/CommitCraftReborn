@@ -220,11 +220,7 @@ func iaReleaseBuilder(model *Model) error {
 			Body:    item.Body,
 		})
 	}
-	mode := model.releaseMode
-	if mode == "" {
-		mode = "release"
-	}
-	in := aiengine.ReleaseInput{Commits: commits, Mode: mode}
+	in := aiengine.ReleaseInput{Commits: commits}
 
 	out, err := aiengine.RunRelease(engineDeps(model), in)
 

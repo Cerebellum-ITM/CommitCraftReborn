@@ -522,17 +522,6 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			applyReleaseChooseModeFilter(model)
 			return model, nil
 		}
-		// `m` toggles the release/merge label pill on the picker
-		// border. Cosmetic — the prompt set is the same; the value
-		// flows into ReleaseInput.Mode for logging only.
-		if msg.String() == "m" && model.focusedElement != focusReleaseChooseFilter {
-			if model.releaseMode == "merge" {
-				model.releaseMode = "release"
-			} else {
-				model.releaseMode = "merge"
-			}
-			return model, nil
-		}
 		// ctrl+e is context-aware:
 		//   - on the files list: swap between filename+dim-dir and the
 		//     full relative path render mode.

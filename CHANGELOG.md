@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.49.0 — 2026-05-04
+
+Removed the cosmetic `release` ⇄ `merge` toggle from the release commit-picker. The `m` key, the `m:release` pill on the picker title bar, and the `· <mode>` suffix on the pipeline left-panel footer are gone. `ReleaseInput.Mode` was deleted from the AI engine — it only entered the debug log and never branched prompt content, so the pipeline output is unchanged. The persisted release classification (`storage.Release.Type` = `RELEASE` / `MERGE`, picked in the type popup *after* the pipeline) is unaffected.
+
 ## v0.48.1 — 2026-05-04
 
 Added support for the "Rewrite as release/merge" option in the initial chooser of `commitcraft -w <hash>`. A new `releaseRewordHash` field in the TUI model stores the original commit hash throughout the release flow. When creating a release, presence of this field causes `createRelease` to build a release/merge message and reword the original commit.
