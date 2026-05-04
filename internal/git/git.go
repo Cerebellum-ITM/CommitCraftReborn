@@ -386,10 +386,24 @@ func StageFile(path string) error {
 	return nil
 }
 
+// isMergeCommit reports whether hash refers to a merge commit (a commit with
+// two or more parents). Used by RewordCommit to pick a topology-preserving
+// rebase strategy when rewording historical merges.
+func isMergeCommit(hash string) (bool, error) {
+	out, err := exec.Command("git", "rev-list", "--parents", "-n", "1", hash).Output()
+	if err != nil {
+		return false, fmt.Errorf("git rev-list --parents %s: %w", hash, err)
+	}
+	parts := strings.Fields(strings.TrimSpace(string(out)))
+	return len(parts) >= 3, nil
+}
+
 // RewordCommit changes the commit message of the given hash to newMessage.
 // For HEAD it uses git commit --amend; for other commits it uses a
 // non-interactive rebase driven by temp scripts that replace the pick line
-// and the commit message editor.
+// and the commit message editor. Historical merge commits are rewritten with
+// `git rebase -i --rebase-merges` and a `merge -C` -> `merge -c` rewrite so
+// the second parent is preserved instead of getting linearised away.
 func RewordCommit(hash, newMessage string) error {
 	headOut, err := exec.Command("git", "rev-parse", "HEAD").Output()
 	if err != nil {
@@ -406,16 +420,33 @@ func RewordCommit(hash, newMessage string) error {
 		shortHash = hash[:7]
 	}
 
+	merge, err := isMergeCommit(hash)
+	if err != nil {
+		return err
+	}
+
 	seqEditor, err := os.CreateTemp("", "cc_seq_*.sh")
 	if err != nil {
 		return fmt.Errorf("creating temp sequence editor: %w", err)
 	}
-	fmt.Fprintf(
-		seqEditor,
-		"#!/bin/sh\nsed -i.bak 's/^pick %s/reword %s/' \"$1\"\n",
-		shortHash,
-		shortHash,
-	)
+	if merge {
+		// `--rebase-merges` emits `merge -C <hash> <branch> # ...` lines for
+		// merge commits; lowercase `-c` re-uses the parents but opens the
+		// editor so our GIT_EDITOR can inject the new message.
+		fmt.Fprintf(
+			seqEditor,
+			"#!/bin/sh\nsed -i.bak 's/^merge -C %s/merge -c %s/' \"$1\"\n",
+			shortHash,
+			shortHash,
+		)
+	} else {
+		fmt.Fprintf(
+			seqEditor,
+			"#!/bin/sh\nsed -i.bak 's/^pick %s/reword %s/' \"$1\"\n",
+			shortHash,
+			shortHash,
+		)
+	}
 	seqEditor.Close()
 	os.Chmod(seqEditor.Name(), 0o755)
 	defer os.Remove(seqEditor.Name())
@@ -438,7 +469,12 @@ func RewordCommit(hash, newMessage string) error {
 	os.Chmod(msgEditor.Name(), 0o755)
 	defer os.Remove(msgEditor.Name())
 
-	cmd := exec.Command("git", "rebase", "-i", hash+"^")
+	args := []string{"rebase", "-i"}
+	if merge {
+		args = append(args, "--rebase-merges")
+	}
+	args = append(args, hash+"^")
+	cmd := exec.Command("git", args...)
 	cmd.Env = append(os.Environ(),
 		"GIT_SEQUENCE_EDITOR="+seqEditor.Name(),
 		"GIT_EDITOR="+msgEditor.Name(),

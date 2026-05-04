@@ -4,7 +4,7 @@ All notable changes to CommitCraft are documented here. Newest version on top.
 
 ## v0.48.1 — 2026-05-04
 
-Added support for the "Rewrite as release/merge" option in the initial chooser of `commitcraft -w <hash>`. A new `releaseRewordHash` field in the TUI model stores the original commit hash throughout the release flow. When creating a release, presence of this field causes `createRelease` to build a release/merge message and reword the original commit.
+Preserve merge topology when rewording historical merge commits. The previous `RewordCommit` path always used `git rebase -i <hash>^` with a `pick → reword` sed, but `rebase -i` skips merge commits in the TODO by default — the sed matched nothing and the rebase silently linearised the merge, dropping its second parent. Now `RewordCommit` detects merges via `git rev-list --parents` and switches to `git rebase -i --rebase-merges <hash>^` with a `merge -C <hash> → merge -c <hash>` sed, so the editor is invoked to inject the new message while both parents survive. Non-merge commits and HEAD continue to use the existing amend / pick-reword paths.
 
 ## v0.48.0 — 2026-05-04
 
