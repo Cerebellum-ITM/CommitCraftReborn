@@ -566,6 +566,15 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return quitWithAutodraft(model)
 			}
 			model.releaseBranch = branch
+			// In the "Rewrite as release/merge" path the user expects
+			// the original commit to be reworded — they did not ask for
+			// a GitHub release upload. Funnel through createRelease so
+			// it runs the reword finalizer and quits, skipping the
+			// version editor + upload chain.
+			if model.releaseRewordHash != "" {
+				_, cmd := createRelease(model)
+				return model, cmd
+			}
 			createRelease(model)
 			release, err := model.db.GetLatestRelease(model.pwd)
 			if err != nil {

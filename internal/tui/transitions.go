@@ -199,6 +199,10 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 	var commitList []string
 
 	parts := strings.SplitN(model.releaseText, "\n", 2)
+	body := ""
+	if len(parts) == 2 {
+		body = strings.TrimSpace(parts[1])
+	}
 
 	for _, item := range model.selectedCommitList {
 		commitList = append(commitList, item.Hash)
@@ -208,7 +212,7 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 		ID:         0,
 		Type:       model.releaseType,
 		Title:      strings.TrimSpace(parts[0]),
-		Body:       strings.TrimSpace(parts[1]),
+		Body:       body,
 		Branch:     model.releaseBranch,
 		Version:    model.globalConfig.ReleaseConfig.Version,
 		CommitList: strings.Join(commitList, ","),
@@ -223,6 +227,28 @@ func createRelease(model *Model) (tea.Model, tea.Cmd) {
 		return quitWithAutodraft(model)
 	}
 	persistReleaseAICalls(model)
+
+	// "Rewrite as release/merge" path from the `commitcraft -w <hash>`
+	// startup chooser: the user wanted the original commit reworded with
+	// the release/merge message, not a passive entry in the release
+	// history. Compose `[TYPE] branch: title\n\nbody`, move the hash
+	// back into RewordHash, and quit so main.go's post-TUI hook calls
+	// git.RewordCommit with this message.
+	if model.releaseRewordHash != "" {
+		formattedType := fmt.Sprintf(
+			model.globalConfig.CommitFormat.TypeFormat,
+			newRelease.Type,
+		)
+		model.RewordHash = model.releaseRewordHash
+		model.releaseRewordHash = ""
+		model.syncRewordIndicator()
+		final := fmt.Sprintf("%s %s: %s", formattedType, newRelease.Branch, newRelease.Title)
+		if body != "" {
+			final = final + "\n\n" + body
+		}
+		model.FinalMessage = final
+		return quitWithAutodraft(model)
+	}
 
 	UpdateCommitList(model.pwd, model.db, model.log, &model.releaseMainList, releaseDb, "")
 	model.state = stateReleaseMainMenu
