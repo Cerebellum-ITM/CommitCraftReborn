@@ -154,7 +154,7 @@ func releaseBuildingTextKeybindings() []keybindingGroup {
 		{
 			title: "Pipeline",
 			entries: []helpEntry{
-				{"↵", "open create-release menu"},
+				{"↵", "open create-release menu (after stage 3 finishes)"},
 			},
 		},
 		{

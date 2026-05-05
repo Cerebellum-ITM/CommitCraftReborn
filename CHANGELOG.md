@@ -4,7 +4,7 @@ All notable changes to CommitCraft are documented here. Newest version on top.
 
 ## v0.50.1 — 2026-05-04
 
-Reworked focus navigation in the release pipeline view so that `Tab` and `Shift+Tab` iterate through stage cards instead of returning to the commit picker. `Esc` now returns to the picker and also cancels an active pipeline. Added support for reverse navigation with `cycleFocusBackward`. Enabled the final-output card for release presets, displaying the `releaseFinalOutput` field with a “create release” hint. Updated the status bar and help popup to reflect the new key bindings.
+Guard `Enter` in the release pipeline view (`stateReleaseBuildingText`) so it can't open the create-release menu while a stage is still running, was cancelled, or failed. Pressing `Enter` before `pipeline.allDone()` returns true now leaves the popup closed and surfaces a `LevelWarning` status-bar message ("pipeline still running · wait for stage 3 to finish before creating"). Without the guard, the user could reach the type=MERGE/RELEASE picker before the polished output existed and persist a release with whatever partial body the cards happened to hold. The `?` popup row for `↵` reflects the gate.
 
 ## v0.50.0 — 2026-05-04
 

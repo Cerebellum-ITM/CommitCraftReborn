@@ -372,6 +372,16 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			model.state = stateReleaseChoosingCommits
 			return model, nil
 		case key.Matches(msg, model.keys.Enter):
+			// Gate the create-release popup behind allDone(): a
+			// running, cancelled, or failed pipeline must not be
+			// allowed to advance to the type picker — otherwise the
+			// release ends up persisted with whatever partial body
+			// the cards happened to hold when the user pressed Enter.
+			if !model.pipeline.allDone() {
+				model.WritingStatusBar.Content = "pipeline still running · wait for stage 3 to finish before creating"
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				return model, nil
+			}
 			var menuOptions []itemsOptions
 			menu := []string{"Create item in CommitCraft", "Create release in Github"}
 			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().CommitCraft})
