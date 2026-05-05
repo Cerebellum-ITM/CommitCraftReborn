@@ -27,8 +27,14 @@ type IaCommitBuilderResultMsg struct {
 	Err error
 }
 
+// IaReleaseBuilderResultMsg carries the outcome of a release pipeline
+// run. From identifies which stage the run started from (stageSummary
+// for a full body→title→refine, stageBody for a title→refine retry,
+// stageTitle for a refine-only retry) so the result handler only
+// pushes history for stages that actually ran.
 type IaReleaseBuilderResultMsg struct {
-	Err error
+	Err  error
+	From stageID
 }
 
 type (
@@ -811,11 +817,23 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "AI release message ready!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		touchedR := []stageID{stageSummary, stageBody, stageTitle}
+		// Stages actually re-run depend on which stage the cascade
+		// started from. stageSummary→all 3, stageBody→2 downstream,
+		// stageTitle→just refine.
+		touchedR := []stageID{}
+		for s := msg.From; s <= stageTitle; s++ {
+			touchedR = append(touchedR, s)
+		}
 		if msg.Err == nil {
-			model.pipeline.pushStageHistory(stageSummary, model.releaseBodyOutput)
-			model.pipeline.pushStageHistory(stageBody, model.releaseTitleOutput)
-			model.pipeline.pushStageHistory(stageTitle, model.releaseFinalOutput)
+			if msg.From <= stageSummary {
+				model.pipeline.pushStageHistory(stageSummary, model.releaseBodyOutput)
+			}
+			if msg.From <= stageBody {
+				model.pipeline.pushStageHistory(stageBody, model.releaseTitleOutput)
+			}
+			if msg.From <= stageTitle {
+				model.pipeline.pushStageHistory(stageTitle, model.releaseFinalOutput)
+			}
 		}
 		cmds = append(cmds, model.applyPipelineResult(touchedR, msg.Err))
 		return model, tea.Batch(cmds...)

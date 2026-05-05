@@ -355,6 +355,59 @@ func (model *Model) pipelineRetryStage(from stageID) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+// pipelineReleaseRetryStage is the release-pipeline analogue of
+// pipelineRetryStage. Resets `from` and the downstream stages, then
+// dispatches the partial cascade via callIaReleaseCascadeCmd. The
+// release pipeline only has 3 stages (body / title / refine); the
+// stageID values are reused so the same per-stage UI / telemetry
+// pipeline keeps working unchanged.
+//
+// `from` semantics:
+//
+//	stageSummary → re-run body, title, refine
+//	stageBody    → re-run title, refine (cached body stays)
+//	stageTitle   → re-run refine only (cached body+title stay)
+func (model *Model) pipelineReleaseRetryStage(from stageID) tea.Cmd {
+	if from > stageTitle {
+		// Release pipeline has no stage 4. Treat as a no-op rather than
+		// erroring — the binding is wired for parity but the user
+		// hitting `4` here just gets nothing.
+		return nil
+	}
+	if len(model.selectedCommitList) == 0 {
+		model.WritingStatusBar.Level = statusbar.LevelError
+		model.WritingStatusBar.Content = "No commits selected for the release."
+		return nil
+	}
+
+	model.pipeline.resetFrom(from, time.Now())
+
+	switch from {
+	case stageSummary:
+		model.releaseBodyOutput = ""
+		model.releaseTitleOutput = ""
+		model.releaseFinalOutput = ""
+	case stageBody:
+		model.releaseTitleOutput = ""
+		model.releaseFinalOutput = ""
+	case stageTitle:
+		model.releaseFinalOutput = ""
+	}
+
+	model.WritingStatusBar.Content = fmt.Sprintf(
+		"release pipeline retry · stage %d",
+		int(from)+1,
+	)
+	model.WritingStatusBar.Level = statusbar.LevelAI
+
+	return tea.Batch(
+		model.WritingStatusBar.StartSpinner(),
+		model.pipeline.spinner.Tick,
+		tickPulse(),
+		callIaReleaseCascadeCmd(model, from),
+	)
+}
+
 // pipelineCancel marks running stages as Cancelled and drains their
 // progress bars to 0% over ~250ms (built-in easing).
 func (model *Model) pipelineCancel() tea.Cmd {

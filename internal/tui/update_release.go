@@ -359,6 +359,40 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Stage retry / inspect shortcuts that mirror the commit
+		// pipeline view (`updatePipeline`). Per-stage retries dispatch
+		// to pipelineReleaseRetryStage which only resets the affected
+		// stages and feeds the cascade through the partial-cascade
+		// runner; full retry (`r`) is just stage-1 retry.
+		//
+		// Match by raw `msg.String()` rather than `key.Matches`: the
+		// active keymap in this state is `releaseKeys()`, which leaves
+		// Toggle / RerunStageN / PgUp / PgDown unbound. Reading the
+		// raw string keeps the bindings working without forcing every
+		// caller of `model.keys` to grow extra fields it doesn't use
+		// elsewhere.
+		switch msg.String() {
+		case "H":
+			return model, openStageHistoryPopup(model, model.pipeline.focusedStage)
+		case "r":
+			return model, model.pipelineReleaseRetryStage(stageSummary)
+		case "1":
+			return model, model.pipelineReleaseRetryStage(stageSummary)
+		case "2":
+			return model, model.pipelineReleaseRetryStage(stageBody)
+		case "3":
+			return model, model.pipelineReleaseRetryStage(stageTitle)
+		case "pgup":
+			if vp := model.stageViewportModel(model.pipeline.focusedStage); vp != nil {
+				vp.HalfPageUp()
+			}
+			return model, nil
+		case "pgdown":
+			if vp := model.stageViewportModel(model.pipeline.focusedStage); vp != nil {
+				vp.HalfPageDown()
+			}
+			return model, nil
+		}
 		switch {
 		case key.Matches(msg, model.keys.Esc):
 			// Esc cancels a running pipeline (mirrors updatePipeline);

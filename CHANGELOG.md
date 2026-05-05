@@ -2,6 +2,22 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.51.1 — 2026-05-04
+
+Added granular release pipeline primitives and TUI support for partial retries, reducing redundant computation. The release pipeline view now supports per-stage controls for retrying and scrolling through stage output. Internally, the release pipeline logic was refactored into separate primitives for each stage.
+
+## v0.51.0 — 2026-05-04
+
+Added per-stage controls to the release pipeline view (`stateReleaseBuildingText`) so it has parity with the commit pipeline tab: `r` retries the whole pipeline, `1` / `2` / `3` retry from body / title / refine respectively (cascading downstream), `pgup` / `pgdn` scroll the focused stage's output viewport, and `H` opens the focused stage's history popup. Internally `aiengine/release.go` was split so each stage is callable on its own (`RunReleaseBody`, `RunReleaseTitle`, `RunReleaseRefine`); `RunRelease` now composes those primitives. The TUI dispatches partial cascades via `pipelineReleaseRetryStage(from)`, mirroring `pipelineRetryStage` for commits, and `IaReleaseBuilderResultMsg` carries the originating stage so the result handler only pushes history for stages that actually re-ran.
+
+### Usage
+
+- In the release pipeline view, after the initial run finishes you can:
+  - Press `r` to re-run all 3 stages from scratch.
+  - Press `1`, `2`, or `3` to re-run from a specific stage; downstream stages cascade. `3` only re-runs the refine stage and is the cheapest.
+  - Press `pgup` / `pgdn` to scroll the focused stage's output (cycle the focus with `Tab` / `Shift+Tab`).
+  - Press `H` to open the focused stage's history popup (older outputs from prior retries).
+
 ## v0.50.1 — 2026-05-04
 
 Guard `Enter` in the release pipeline view (`stateReleaseBuildingText`) so it can't open the create-release menu while a stage is still running, was cancelled, or failed. Pressing `Enter` before `pipeline.allDone()` returns true now leaves the popup closed and surfaces a `LevelWarning` status-bar message ("pipeline still running · wait for stage 3 to finish before creating"). Without the guard, the user could reach the type=MERGE/RELEASE picker before the polished output existed and persist a release with whatever partial body the cards happened to hold. The `?` popup row for `↵` reflects the gate.

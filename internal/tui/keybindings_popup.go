@@ -148,6 +148,7 @@ func releaseBuildingTextKeybindings() []keybindingGroup {
 			title: "Navigate",
 			entries: []helpEntry{
 				{"tab / shift+tab", "cycle stage cards (body → title → refine → final)"},
+				{"pgup / pgdn", "scroll the focused stage's output"},
 				{"esc", "back to commit picker (or cancel a running pipeline)"},
 			},
 		},
@@ -155,6 +156,12 @@ func releaseBuildingTextKeybindings() []keybindingGroup {
 			title: "Pipeline",
 			entries: []helpEntry{
 				{"↵", "open create-release menu (after stage 3 finishes)"},
+				{"r", "retry the full pipeline (body → title → refine)"},
+				{
+					"1 / 2 / 3",
+					"retry from stage 1 (body) / 2 (title) / 3 (refine); cascades downstream",
+				},
+				{"H", "open the focused stage's history"},
 			},
 		},
 		{

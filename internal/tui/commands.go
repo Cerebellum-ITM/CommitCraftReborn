@@ -67,7 +67,17 @@ func callIaChangelogOnlyCmd(model *Model) tea.Cmd {
 func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
 	return func() tea.Msg {
 		err := iaReleaseBuilder(model)
-		return IaReleaseBuilderResultMsg{Err: err}
+		return IaReleaseBuilderResultMsg{Err: err, From: stageSummary}
+	}
+}
+
+// callIaReleaseCascadeCmd kicks off a partial release pipeline run from
+// `from` (stageSummary / stageBody / stageTitle). Used by the
+// per-stage retry shortcuts in updateReleaseBuildingText.
+func callIaReleaseCascadeCmd(model *Model, from stageID) tea.Cmd {
+	return func() tea.Msg {
+		err := iaReleaseCascade(model, from)
+		return IaReleaseBuilderResultMsg{Err: err, From: from}
 	}
 }
 

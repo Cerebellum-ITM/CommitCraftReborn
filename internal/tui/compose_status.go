@@ -346,6 +346,9 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 	case stateReleaseBuildingText:
 		return []helpEntry{
 			{"tab/⇧tab", "cycle stage"},
+			{"r", "retry all"},
+			{"1/2/3", "retry stage"},
+			{"pgup/pgdn", "scroll stage"},
 			{"↵", "create"},
 			{"esc", "back to picker"},
 			{"^x", "quit"},
