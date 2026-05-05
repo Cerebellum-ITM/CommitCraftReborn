@@ -1,0 +1,32 @@
+# Build Plan
+
+Decomposition of the next batch of work into ordered, scoped, verifiable units. Each unit becomes its own spec file in this folder (`NN-name.md`).
+
+This plan is **brownfield** — the project already ships v0.49.0. The current focus is the **release flow audit (Pantallas 1-3)** done on 2026-05-04. Bugs and refactors below were captured screen-by-screen with the user.
+
+## Ordering Rules
+
+1. **Refactors that simplify state come before bug fixes** that would otherwise have to support legacy code paths.
+2. **Dependencies first** — if B requires A's focus tokens or transitions, build A first.
+3. **Isolated fixes early when blocking workflow** — bugs that prevent the user from completing a release run get priority over polish.
+4. **Edge cases last** — failure modes that only trigger in specific repo states (empty `bin/`, etc.) ship at the end.
+
+## Units
+
+| #  | Name                              | What it builds                                                                                                  | Depends on |
+|----|-----------------------------------|-----------------------------------------------------------------------------------------------------------------|------------|
+| 01 | `remove-merge-toggle`             | Eliminate the cosmetic `release/merge` toggle. Remove `m` key handler, `model.releaseMode`, `ReleaseInput.Mode` field, and any associated visual chrome. Update `architecture.md` to drop the sub-toggle section and the `RMode` node from the Mermaid diagram. | none |
+| 02 | `fix-selected-only-empty`         | Fix `ctrl+e` "Selected only" mode showing an empty list even when commits are selected. Audit `applyReleaseChooseModeFilter`, `releaseChooseListFilter`, `WorkspaceCommitItem.FilterValue`, and the `releaseChooseSelectedOnly` flag wiring. Result: with N commits selected, the filtered view shows exactly those N. | none |
+| 03 | `pipeline-tab-cycles-stages`      | Rework focus in `stateReleaseBuildingText` so `Tab` / `Shift+Tab` cycles between the four pipeline elements (stage 1 body, stage 2 title, stage 3 refine, final viewport) for inspection and per-stage re-run. Move "back to picker" to a different key (`Esc` or `Backspace`). Introduce new focus tokens for each stage card. Keep the defensive coercion only where genuinely needed. | 01 |
+| 04 | `block-enter-while-pipeline-running` | Guard `Enter` in `stateReleaseBuildingText` so it cannot open the next-step popup while `pipeline.allDone() == false`. Show a status-bar warning instead. Today the user can advance to the type=MERGE/RELEASE popup before stage 3 finishes. | 03 |
+| 05 | `wire-final-output-to-viewport`   | Bind `model.releaseFinalOutput` (and/or `model.releaseText`) to the viewport rendered by `view_release.go` so the final release note actually displays after the pipeline completes. Today only the picker path sets `commitLivePreview = releaseText` (`update_release.go:564`); the `Enter`-from-picker path skips that wiring and the viewport stays empty. | none |
+| 06 | `converge-report-screen`          | Make the `-r` direct-launch path go through the same final summary/preview view that the `-w` rewrite-as-release path already passes through. Currently the two entry paths diverge at the end of the release flow. | 05 |
+| 07 | `release-upload-empty-bin-guard`  | Two-part fix for `fork/exec /bin/sh: argument list too long` when triggering "Create release in repository" with an empty `bin/`: (a) pre-flight guard — if no expected binaries are present, abort with a clear status-bar message instead of shelling out; (b) pass release notes via stdin or temp file to `gh release create`, not as an inline `-n <body>` arg, so large notes never push argv past `ARG_MAX`. Surfaces from both Pantalla 1 and Pantalla 3 entry points. | none |
+| 08 | `release-pipeline-stage-controls` | Wire the per-stage controls available in `updatePipeline` (commit pipeline) into `updateReleaseBuildingText` so the release pipeline gets parity: `r` (full retry), `1` / `2` / `3` (per-stage retry via `pipelineRetryStage`), `H` (focused stage history popup), `pgup` / `pgdn` (scroll the focused stage's viewport), and the up/down/file-list keys where they make sense for release (no per-file diff in release, so omit `j` / `k` / file navigation). After this unit, the release pipeline keybindings popup and status bar can re-advertise these — they were stripped out at the end of Unit 03 to avoid lying about non-functional keys. | 03 |
+
+## Notes
+
+- Units 01-08 are all release-flow scoped. After they ship, the next planning cycle should look at headless CLI improvements (`--plain` mode question), broader test coverage, and any commit-mode bugs that surface during the release work.
+- Unit 08 was added 2026-05-04 after Unit 03 surfaced that the release pipeline view never had per-stage retry / history / scroll bindings — the commit pipeline's `r` / `1`-`3` / `H` / `pgup`-`pgdn` handlers live exclusively in `updatePipeline` and were never mirrored in `updateReleaseBuildingText`.
+- Each unit must end with a `CHANGELOG.md` entry and a version bump in `cmd/cli/main.go` per the project's standing rules. The unit's spec will list the verification checklist.
+- After each unit ships, run `/spec-driven-dev update progress` to move it from In Progress → Completed and set the next In Progress.
