@@ -336,12 +336,19 @@ func helpEntriesForState(s appState, mode appMode) []helpEntry {
 			{"/", "filter"},
 			{"esc", "back"},
 		}
-	case stateReleaseChoosingCommits, stateReleaseBuildingText:
+	case stateReleaseChoosingCommits:
 		return []helpEntry{
 			{"↑↓", "navigate"},
 			{"↵", "select"},
 			{"tab", "switch panel"},
 			{"esc", "back"},
+		}
+	case stateReleaseBuildingText:
+		return []helpEntry{
+			{"tab/⇧tab", "cycle stage"},
+			{"↵", "create"},
+			{"esc", "back to picker"},
+			{"^x", "quit"},
 		}
 	case stateRewordSelectCommit:
 		return []helpEntry{

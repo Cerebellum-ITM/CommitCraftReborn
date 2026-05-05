@@ -132,8 +132,40 @@ func keybindingsForState(s appState) ([]keybindingGroup, bool) {
 		return releaseKeybindings(), true
 	case stateReleaseChoosingCommits:
 		return releaseChooseCommitsKeybindings(), true
+	case stateReleaseBuildingText:
+		return releaseBuildingTextKeybindings(), true
 	}
 	return nil, false
+}
+
+// releaseBuildingTextKeybindings is the popup for the release pipeline
+// view. Tab cycles between stage cards (and the final card once the
+// refine stage finishes); Esc walks back to the picker without
+// re-running the pipeline.
+func releaseBuildingTextKeybindings() []keybindingGroup {
+	return []keybindingGroup{
+		{
+			title: "Navigate",
+			entries: []helpEntry{
+				{"tab / shift+tab", "cycle stage cards (body → title → refine → final)"},
+				{"esc", "back to commit picker (or cancel a running pipeline)"},
+			},
+		},
+		{
+			title: "Pipeline",
+			entries: []helpEntry{
+				{"↵", "open create-release menu"},
+			},
+		},
+		{
+			title: "Global",
+			entries: []helpEntry{
+				{"^1 / ^2 / ^3", "switch tab (history / compose / pipeline)"},
+				{"^x", "quit"},
+				{"?", "this help"},
+			},
+		},
+	}
 }
 
 // releaseChooseCommitsKeybindings is the popup for the workspace commit

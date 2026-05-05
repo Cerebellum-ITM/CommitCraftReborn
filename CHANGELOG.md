@@ -2,9 +2,19 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
-## v0.49.2 — 2026-05-04
+## v0.50.1 — 2026-05-04
 
-Fixed the "Selected only" mode in the release commit-picker by replacing the sentinel value with a plain-ASCII string, ensuring correct filter operation. Updated the toggle handler to resolve the underlying index of selected items by hash, and re-applied the `Selected` flag on items sourced from `selectedCommitList` prior to filtering, preventing drift between the bubble list's flags and the project-level selection state. A canary log warning is now emitted when the visible set is empty despite live selections.
+Reworked focus navigation in the release pipeline view so that `Tab` and `Shift+Tab` iterate through stage cards instead of returning to the commit picker. `Esc` now returns to the picker and also cancels an active pipeline. Added support for reverse navigation with `cycleFocusBackward`. Enabled the final-output card for release presets, displaying the `releaseFinalOutput` field with a “create release” hint. Updated the status bar and help popup to reflect the new key bindings.
+
+## v0.50.0 — 2026-05-04
+
+Reworked focus inside the release pipeline view (`stateReleaseBuildingText`). `Tab` and `Shift+Tab` now cycle through the stage cards (body → title → refine → final, when populated) instead of bouncing the user back to the commit picker. "Back to picker" moved to `Esc`, which still cancels a running pipeline when one is in flight. The final-output card now lights up for both commit and release presets — content for release flows through the existing `releaseFinalOutput` field, with a "create release" hint instead of "accept & commit". Status bar and `?` popup advertise the new bindings.
+
+### Usage
+
+- `Tab` / `Shift+Tab` while looking at the release pipeline cycles between stage 1 (body), stage 2 (title), stage 3 (refine), and the final card (after stage 3 finishes).
+- `Esc` walks back to the commit picker, preserving the prior selection set and cached pipeline output. While the pipeline is still running, `Esc` cancels it (no behavioural regression vs. the commit pipeline tab).
+- `Enter` opens the create-release menu as before.
 
 ## v0.49.1 — 2026-05-04
 

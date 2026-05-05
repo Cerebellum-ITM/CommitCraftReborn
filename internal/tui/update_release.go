@@ -360,6 +360,17 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, model.keys.Esc):
+			// Esc cancels a running pipeline (mirrors updatePipeline);
+			// when the pipeline is settled, Esc walks back to the
+			// commit picker, preserving the prior selection set and
+			// the cached pipeline output.
+			if model.pipeline.anyRunning() {
+				return model, model.pipelineCancel()
+			}
+			model.focusedElement = focusReleaseChooseCommitList
+			model.state = stateReleaseChoosingCommits
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
 			var menuOptions []itemsOptions
 			menu := []string{"Create item in CommitCraft", "Create release in Github"}
@@ -369,18 +380,14 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return openListPopup{items: menu, width: model.width / 2, height: model.height / 2, itemsOptions: menuOptions}
 			}
 		case key.Matches(msg, model.keys.NextField):
-			// Tab from the build-text view goes back to the picker. Reset
-			// to a focus value that the picker dispatch recognises —
-			// otherwise focusedElement stays at focusListElement /
-			// focusViewportElement (legacy enum from switchFocusElement)
-			// and updateReleaseChoosingCommits' focus switch matches no
-			// case, leaving the commit list permanently unresponsive.
-			model.focusedElement = focusReleaseChooseCommitList
-			model.state = stateReleaseChoosingCommits
+			// Tab cycles focus across the pipeline's stage cards (and
+			// the final card, when populated). Single source of truth
+			// with the renderer via pipelineShowsFinalCard so the
+			// cursor never lands on a card that's been hidden.
+			model.pipeline.cycleFocus(pipelineShowsFinalCard(model))
 			return model, nil
 		case key.Matches(msg, model.keys.PrevField):
-			model.focusedElement = focusReleaseChooseCommitList
-			model.state = stateReleaseChoosingCommits
+			model.pipeline.cycleFocusBackward(pipelineShowsFinalCard(model))
 			return model, nil
 		}
 	}
