@@ -2,6 +2,14 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.51.2 — 2026-05-07
+
+Fixed crash in `UploadReleaseToGithub` when uploading a release from a repository with no binary assets. The root cause was a `filepath.Walk` over the entire working directory when `binary_assets_path` was empty, producing a command string that exceeded the OS `ARG_MAX` limit (`argument list too long`). The fix guards the walk behind a non-empty path check and an `os.Stat` existence check, so releases without assets upload cleanly. The command is now built via `exec.Command("gh", args...)` instead of `sh -c`, so the shell `ARG_MAX` limit can never be hit regardless of asset count.
+
+### Usage
+
+No configuration change needed. Repositories without `binary_assets_path` set (or where the configured directory does not exist) now create the GitHub release without attaching any files.
+
 ## v0.51.1 — 2026-05-04
 
 Added granular release pipeline primitives and TUI support for partial retries, reducing redundant computation. The release pipeline view now supports per-stage controls for retrying and scrolling through stage output. Internally, the release pipeline logic was refactored into separate primitives for each stage.

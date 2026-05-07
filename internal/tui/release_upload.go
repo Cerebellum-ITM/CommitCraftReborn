@@ -29,21 +29,25 @@ func UploadReleaseToGithub(
 	}
 
 	var files []string
-	assetPath := fmt.Sprintf("%s/%s", pwd, config.ReleaseConfig.BinaryAssetsPath)
-	err := filepath.Walk(assetPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	assetsPath := config.ReleaseConfig.BinaryAssetsPath
+	if assetsPath != "" {
+		assetPath := filepath.Join(pwd, assetsPath)
+		if info, statErr := os.Stat(assetPath); statErr == nil && info.IsDir() {
+			err := filepath.Walk(assetPath, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if !info.IsDir() {
+					files = append(files, path)
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
 		}
-		if !info.IsDir() {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
 	}
 
-	filesStr := strings.Join(files, " ")
 	tmpFile, err := os.CreateTemp("", "release-notes-*.md")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file for release notes: %w", err)
@@ -53,7 +57,6 @@ func UploadReleaseToGithub(
 		os.Remove(tmpFile.Name())
 	}()
 
-	logger.Debug(filesStr)
 	token := config.ReleaseConfig.GhToken
 	tag := config.ReleaseConfig.Version
 	repository := config.ReleaseConfig.Repository
@@ -66,23 +69,24 @@ func UploadReleaseToGithub(
 	tmpFile.Sync()
 	notesFilePath := tmpFile.Name()
 
-	createCommand := fmt.Sprintf(
-		"export GH_TOKEN=\"%s\" && gh release create \"%s\" --repo \"%s\" --title \"%s\" --notes-file \"%s\" %s",
-		token,
-		tag,
-		repository,
-		title,
-		notesFilePath,
-		filesStr,
-	)
-	cmd := exec.Command("sh", "-c", createCommand)
+	args := []string{
+		"release", "create", tag,
+		"--repo", repository,
+		"--title", title,
+		"--notes-file", notesFilePath,
+	}
+	args = append(args, files...)
+
+	logger.Debug(fmt.Sprintf("gh %s", strings.Join(args, " ")))
+
+	cmd := exec.Command("gh", args...)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("GH_TOKEN=%s", token))
 	var outb, errb bytes.Buffer
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 
 	err = cmd.Run()
 	if err != nil {
-		logger.Debug(createCommand)
 		logger.Debug(err.Error())
 		logger.Debug(errb.String())
 		return fmt.Errorf(
