@@ -389,6 +389,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.popup = nil
 		if model.pendingReleaseUpload != nil {
 			model.pendingReleaseUpload = nil
+			model.releaseUploading = false
 			cancelCmd := model.WritingStatusBar.ShowMessageForDuration(
 				"GitHub release cancelled",
 				statusbar.LevelWarning,
@@ -412,6 +413,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// straight into the GitHub release with the freshly-saved tag.
 		if pending := model.pendingReleaseUpload; pending != nil {
 			model.releaseViewState.releaseCreated = true
+			model.releaseUploading = true
 			rc := model.globalConfig.ReleaseConfig
 			if rc.AutoBuild {
 				model.WritingStatusBar.Level = statusbar.LevelWarning
@@ -591,7 +593,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				_, cmd := createRelease(model)
 				return model, cmd
 			}
-			createRelease(model)
+			// Preserve the loadCmd returned by createRelease so the
+			// release-history sync actually runs. Without this, the
+			// model is left with releaseLoading=true and no goroutine
+			// to ever flip it back — which used to strand the loading
+			// panel on screen for the entire upload phase.
+			_, loadCmd := createRelease(model)
 			release, err := model.db.GetLatestRelease(model.pwd)
 			if err != nil {
 				model.err = err
@@ -600,7 +607,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			item := HistoryReleaseItem{release: release}
 			model.pendingReleaseUpload = &item
 			model.popup = openVersionEditor(model)
-			return model, nil
+			return model, loadCmd
 		default:
 			// NOTE: Any selected branch leads to this action
 			model.releaseBranch = msg.action
@@ -868,6 +875,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// hints where to look.
 			model.log.Warn("release build failed", "output", msg.Output, "err", msg.Err)
 			model.pendingReleaseUpload = nil
+			model.releaseUploading = false
 			cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 			model.WritingStatusBar.Content = "Build failed · check logs"
 			model.WritingStatusBar.Level = statusbar.LevelError
@@ -889,6 +897,10 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmds...)
 	case releaseUpdloadResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		// Always clear the upload flag — success and failure both end the
+		// upload phase, and leaving it true would strand the loading
+		// panel on screen (the original Unit 09 bug).
+		model.releaseUploading = false
 		if msg.Err != nil {
 			model.err = msg.Err
 			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())

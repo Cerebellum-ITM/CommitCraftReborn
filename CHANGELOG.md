@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.51.4 — 2026-05-13
+
+Fixed the loading panel ("Loading releases / resolving commit subjects…") staying on screen after a successful GitHub release upload, with copy that described the history-sync flow instead of the upload that was actually running. Root cause: `update.go`'s `Create release in Github` path discarded the `tea.Cmd` returned by `createRelease`, so the release-history sync that clears `releaseLoading` never ran. Fix is three-part: (1) preserve the `loadCmd` so the sync runs; (2) add a separate `releaseUploading` flag that the build/upload pipeline toggles, cleared on success, error, and version-popup cancel; (3) `renderReleaseLoading` swaps the panel title/subtitle to "Uploading release to GitHub / building & pushing assets…" while `releaseUploading` is true.
+
 ## v0.51.3 — 2026-05-13
 
 Fixed the release pipeline's final card occasionally rendering blank after a successful run. The cascade goroutine was mutating `releaseBodyOutput`, `releaseTitleOutput`, `releaseFinalOutput`, `releaseText`, and `commitLivePreview` directly from inside the `tea.Cmd` closure, which raced against the `View()` pass triggered when `applyPipelineResult` flipped the stages to `done`. The cascade now returns those strings via `IaReleaseBuilderResultMsg.Body / Title / Final`, and the `Update` handler writes them on the Bubble Tea main goroutine — so the final card paints its content in the same turn it becomes visible.

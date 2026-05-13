@@ -200,7 +200,16 @@ type Model struct {
 	// in flight. The view renders a centered loading panel for
 	// stateReleaseMainMenu while it's true so the user sees a clean
 	// "Loading…" frame instead of half-painted chrome on entry.
-	releaseLoading          bool
+	releaseLoading bool
+	// releaseUploading is set while the GitHub build/upload pipeline is
+	// in flight (between versionUpdatedMsg dispatching execReleaseBuild
+	// / execUploadRelease and the matching result message arriving).
+	// renderReleaseLoading reads it to swap the panel copy onto the
+	// upload phase; view.go gates the panel on
+	// releaseLoading || releaseUploading so a stale releaseLoading flag
+	// (e.g. when the upload path doesn't get to run the history sync)
+	// can't strand the user on "Loading releases…" after upload finishes.
+	releaseUploading        bool
 	selectedCommitList      []WorkspaceCommitItem
 	commitLivePreview       string
 	commitTypeList          list.Model

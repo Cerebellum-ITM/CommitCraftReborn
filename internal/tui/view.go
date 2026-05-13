@@ -189,11 +189,14 @@ func (model *Model) View() tea.View {
 	case stateReleaseMainMenu:
 		histW := model.width
 		histH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
-		// While the async release-history sync is in flight, render a
-		// centered loading panel instead of the half-painted chrome.
-		// Without this, the user sees the master list flash in before
-		// the dual panel hydrates — visually noisy on slow git lookups.
-		if model.releaseLoading {
+		// While either the async release-history sync or the GitHub
+		// build/upload pipeline is in flight, render a centered loading
+		// panel instead of the half-painted chrome. Without this, the
+		// user sees the master list flash in before the dual panel
+		// hydrates — visually noisy on slow git lookups — and after the
+		// upload kicks off they'd otherwise see stale chrome behind the
+		// confirmation popup.
+		if model.releaseLoading || model.releaseUploading {
 			mainContent = model.renderReleaseLoading(histW, histH)
 			break
 		}
