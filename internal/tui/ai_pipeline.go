@@ -207,7 +207,7 @@ func stageStatsToCallStats(s aiengine.StageStats) *api.CallStats {
 // iaReleaseBuilder runs the full 3-stage release pipeline. Thin
 // wrapper around iaReleaseCascade(model, stageSummary) preserved so
 // the existing initial-launch dispatch path stays unchanged.
-func iaReleaseBuilder(model *Model) error {
+func iaReleaseBuilder(model *Model) (body, title, final string, err error) {
 	return iaReleaseCascade(model, stageSummary)
 }
 
@@ -219,7 +219,12 @@ func iaReleaseBuilder(model *Model) error {
 // Per-stage telemetry projects into the same pipelineModel.stages
 // array used by the commit pipeline so the cards render the run
 // uniformly regardless of which stage drove it.
-func iaReleaseCascade(model *Model, from stageID) error {
+//
+// The output strings (body / title / final) are returned to the caller
+// so the result can be applied to the model on the Bubble Tea main
+// goroutine — avoiding a race where View() reads the model field
+// before the cmd goroutine's mutation is published.
+func iaReleaseCascade(model *Model, from stageID) (body, title, final string, err error) {
 	deps := engineDeps(model)
 	commits := make([]aiengine.ReleaseCommit, 0, len(model.selectedCommitList))
 	for _, item := range model.selectedCommitList {
@@ -232,49 +237,38 @@ func iaReleaseCascade(model *Model, from stageID) error {
 	}
 	in := aiengine.ReleaseInput{Commits: commits}
 
-	body := model.releaseBodyOutput
-	title := model.releaseTitleOutput
+	body = model.releaseBodyOutput
+	title = model.releaseTitleOutput
 
 	if from <= stageSummary {
-		text, stats, err := aiengine.RunReleaseBody(deps, in)
-		if err != nil {
-			return wrapReleaseErr(model, err)
+		text, stats, runErr := aiengine.RunReleaseBody(deps, in)
+		if runErr != nil {
+			return "", "", "", wrapReleaseErr(model, runErr)
 		}
 		body = text
-		model.releaseBodyOutput = body
-		recordStageStats(
-			model,
-			stageSummary,
-			stats,
-		)
+		recordStageStats(model, stageSummary, stats)
 	}
 
 	if from <= stageBody {
-		text, stats, err := aiengine.RunReleaseTitle(deps, body, in)
-		if err != nil {
-			return wrapReleaseErr(model, err)
+		text, stats, runErr := aiengine.RunReleaseTitle(deps, body, in)
+		if runErr != nil {
+			return "", "", "", wrapReleaseErr(model, runErr)
 		}
 		title = text
-		model.releaseTitleOutput = title
-		recordStageStats(
-			model,
-			stageBody,
-			stats,
-		)
+		recordStageStats(model, stageBody, stats)
 	}
 
 	// Refine always runs — it's the cheapest stage and the user-visible
-	// output of the cascade lives in releaseFinalOutput.
-	final, stats, err := aiengine.RunReleaseRefine(deps, body, title)
-	if err != nil {
-		return wrapReleaseErr(model, err)
+	// output of the cascade lives in the returned `final` string, which
+	// the Update handler writes into model.releaseFinalOutput.
+	refined, stats, runErr := aiengine.RunReleaseRefine(deps, body, title)
+	if runErr != nil {
+		return "", "", "", wrapReleaseErr(model, runErr)
 	}
-	model.releaseFinalOutput = final
+	final = refined
 	recordStageStats(model, stageTitle, stats)
 
-	model.commitLivePreview = final
-	model.releaseText = final
-	return nil
+	return body, title, final, nil
 }
 
 // wrapReleaseErr funnels per-stage errors into the same log + status

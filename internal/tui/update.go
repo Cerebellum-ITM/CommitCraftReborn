@@ -32,9 +32,19 @@ type IaCommitBuilderResultMsg struct {
 // for a full body→title→refine, stageBody for a title→refine retry,
 // stageTitle for a refine-only retry) so the result handler only
 // pushes history for stages that actually ran.
+//
+// Body / Title / Final carry the cascade's output strings back to the
+// Update handler so the model is mutated on the main goroutine instead
+// of from inside the tea.Cmd closure. This guarantees the writes are
+// visible to View() in the same turn that applyPipelineResult flips
+// the stages to statusDone — otherwise the final card could render
+// before the goroutine's writes were published, leaving it blank.
 type IaReleaseBuilderResultMsg struct {
-	Err  error
-	From stageID
+	Err   error
+	From  stageID
+	Body  string
+	Title string
+	Final string
 }
 
 type (
@@ -825,6 +835,19 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			touchedR = append(touchedR, s)
 		}
 		if msg.Err == nil {
+			// Apply the cascade outputs on the main goroutine before the
+			// stage flip + history push, so View() sees consistent state
+			// the moment pipelineShowsFinalCard turns true.
+			if msg.From <= stageSummary {
+				model.releaseBodyOutput = msg.Body
+			}
+			if msg.From <= stageBody {
+				model.releaseTitleOutput = msg.Title
+			}
+			model.releaseFinalOutput = msg.Final
+			model.releaseText = msg.Final
+			model.commitLivePreview = msg.Final
+
 			if msg.From <= stageSummary {
 				model.pipeline.pushStageHistory(stageSummary, model.releaseBodyOutput)
 			}

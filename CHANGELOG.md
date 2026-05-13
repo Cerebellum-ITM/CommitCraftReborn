@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.51.3 — 2026-05-13
+
+Fixed the release pipeline's final card occasionally rendering blank after a successful run. The cascade goroutine was mutating `releaseBodyOutput`, `releaseTitleOutput`, `releaseFinalOutput`, `releaseText`, and `commitLivePreview` directly from inside the `tea.Cmd` closure, which raced against the `View()` pass triggered when `applyPipelineResult` flipped the stages to `done`. The cascade now returns those strings via `IaReleaseBuilderResultMsg.Body / Title / Final`, and the `Update` handler writes them on the Bubble Tea main goroutine — so the final card paints its content in the same turn it becomes visible.
+
 ## v0.51.2 — 2026-05-07
 
 Fixed crash in `UploadReleaseToGithub` when uploading a release from a repository with no binary assets. The root cause was a `filepath.Walk` over the entire working directory when `binary_assets_path` was empty, producing a command string that exceeded the OS `ARG_MAX` limit (`argument list too long`). The fix guards the walk behind a non-empty path check and an `os.Stat` existence check, so releases without assets upload cleanly. The command is now built via `exec.Command("gh", args...)` instead of `sh -c`, so the shell `ARG_MAX` limit can never be hit regardless of asset count.

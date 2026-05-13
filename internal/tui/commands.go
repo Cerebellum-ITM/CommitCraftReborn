@@ -66,8 +66,14 @@ func callIaChangelogOnlyCmd(model *Model) tea.Cmd {
 
 func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
 	return func() tea.Msg {
-		err := iaReleaseBuilder(model)
-		return IaReleaseBuilderResultMsg{Err: err, From: stageSummary}
+		body, title, final, err := iaReleaseBuilder(model)
+		return IaReleaseBuilderResultMsg{
+			Err:   err,
+			From:  stageSummary,
+			Body:  body,
+			Title: title,
+			Final: final,
+		}
 	}
 }
 
@@ -76,8 +82,14 @@ func callIaReleaseBuilderCmd(model *Model) tea.Cmd {
 // per-stage retry shortcuts in updateReleaseBuildingText.
 func callIaReleaseCascadeCmd(model *Model, from stageID) tea.Cmd {
 	return func() tea.Msg {
-		err := iaReleaseCascade(model, from)
-		return IaReleaseBuilderResultMsg{Err: err, From: from}
+		body, title, final, err := iaReleaseCascade(model, from)
+		return IaReleaseBuilderResultMsg{
+			Err:   err,
+			From:  from,
+			Body:  body,
+			Title: title,
+			Final: final,
+		}
 	}
 }
 
