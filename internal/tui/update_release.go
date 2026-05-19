@@ -359,8 +359,63 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Stage retry / inspect shortcuts that mirror the commit
+		// pipeline view (`updatePipeline`). Per-stage retries dispatch
+		// to pipelineReleaseRetryStage which only resets the affected
+		// stages and feeds the cascade through the partial-cascade
+		// runner; full retry (`r`) is just stage-1 retry.
+		//
+		// Match by raw `msg.String()` rather than `key.Matches`: the
+		// active keymap in this state is `releaseKeys()`, which leaves
+		// Toggle / RerunStageN / PgUp / PgDown unbound. Reading the
+		// raw string keeps the bindings working without forcing every
+		// caller of `model.keys` to grow extra fields it doesn't use
+		// elsewhere.
+		switch msg.String() {
+		case "H":
+			return model, openStageHistoryPopup(model, model.pipeline.focusedStage)
+		case "r":
+			return model, model.pipelineReleaseRetryStage(stageSummary)
+		case "1":
+			return model, model.pipelineReleaseRetryStage(stageSummary)
+		case "2":
+			return model, model.pipelineReleaseRetryStage(stageBody)
+		case "3":
+			return model, model.pipelineReleaseRetryStage(stageTitle)
+		case "pgup":
+			if vp := model.stageViewportModel(model.pipeline.focusedStage); vp != nil {
+				vp.HalfPageUp()
+			}
+			return model, nil
+		case "pgdown":
+			if vp := model.stageViewportModel(model.pipeline.focusedStage); vp != nil {
+				vp.HalfPageDown()
+			}
+			return model, nil
+		}
 		switch {
+		case key.Matches(msg, model.keys.Esc):
+			// Esc cancels a running pipeline (mirrors updatePipeline);
+			// when the pipeline is settled, Esc walks back to the
+			// commit picker, preserving the prior selection set and
+			// the cached pipeline output.
+			if model.pipeline.anyRunning() {
+				return model, model.pipelineCancel()
+			}
+			model.focusedElement = focusReleaseChooseCommitList
+			model.state = stateReleaseChoosingCommits
+			return model, nil
 		case key.Matches(msg, model.keys.Enter):
+			// Gate the create-release popup behind allDone(): a
+			// running, cancelled, or failed pipeline must not be
+			// allowed to advance to the type picker — otherwise the
+			// release ends up persisted with whatever partial body
+			// the cards happened to hold when the user pressed Enter.
+			if !model.pipeline.allDone() {
+				model.WritingStatusBar.Content = "pipeline still running · wait for stage 3 to finish before creating"
+				model.WritingStatusBar.Level = statusbar.LevelWarning
+				return model, nil
+			}
 			var menuOptions []itemsOptions
 			menu := []string{"Create item in CommitCraft", "Create release in Github"}
 			menuOptions = append(menuOptions, itemsOptions{index: 0, color: model.Theme.Success, icon: model.Theme.AppSymbols().CommitCraft})
@@ -369,18 +424,14 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 				return openListPopup{items: menu, width: model.width / 2, height: model.height / 2, itemsOptions: menuOptions}
 			}
 		case key.Matches(msg, model.keys.NextField):
-			// Tab from the build-text view goes back to the picker. Reset
-			// to a focus value that the picker dispatch recognises —
-			// otherwise focusedElement stays at focusListElement /
-			// focusViewportElement (legacy enum from switchFocusElement)
-			// and updateReleaseChoosingCommits' focus switch matches no
-			// case, leaving the commit list permanently unresponsive.
-			model.focusedElement = focusReleaseChooseCommitList
-			model.state = stateReleaseChoosingCommits
+			// Tab cycles focus across the pipeline's stage cards (and
+			// the final card, when populated). Single source of truth
+			// with the renderer via pipelineShowsFinalCard so the
+			// cursor never lands on a card that's been hidden.
+			model.pipeline.cycleFocus(pipelineShowsFinalCard(model))
 			return model, nil
 		case key.Matches(msg, model.keys.PrevField):
-			model.focusedElement = focusReleaseChooseCommitList
-			model.state = stateReleaseChoosingCommits
+			model.pipeline.cycleFocusBackward(pipelineShowsFinalCard(model))
 			return model, nil
 		}
 	}
@@ -522,17 +573,6 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 			applyReleaseChooseModeFilter(model)
 			return model, nil
 		}
-		// `m` toggles the release/merge label pill on the picker
-		// border. Cosmetic — the prompt set is the same; the value
-		// flows into ReleaseInput.Mode for logging only.
-		if msg.String() == "m" && model.focusedElement != focusReleaseChooseFilter {
-			if model.releaseMode == "merge" {
-				model.releaseMode = "release"
-			} else {
-				model.releaseMode = "merge"
-			}
-			return model, nil
-		}
 		// ctrl+e is context-aware:
 		//   - on the files list: swap between filename+dim-dir and the
 		//     full relative path render mode.
@@ -617,7 +657,13 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 				item.Selected = true
 				model.selectedCommitList = append(model.selectedCommitList, item)
 			}
-			index := model.releaseCommitList.Index()
+			// `Index()` returns the cursor in the filtered view; `SetItem`
+			// writes to the underlying `m.items` slice. When a filter is
+			// applied, the two index spaces diverge — so we have to find
+			// the underlying index by hash before writing, otherwise we
+			// flip `Selected` on the wrong commit and `releaseChooseSelectedOnly`
+			// then sees a phantom selection set.
+			index := underlyingIndexByHash(&model.releaseCommitList, item.Hash)
 			// SetItem returns a cmd that re-runs the filter in any state
 			// other than Unfiltered, so when "Selected only" is active
 			// the toggled row is added/removed from the visible set
@@ -662,6 +708,23 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 	return model, cmd
 }
 
+// underlyingIndexByHash maps a WorkspaceCommitItem.Hash back to its index
+// in the bubble list's underlying `Items()` slice. The cursor index
+// (`list.Index()`) refers to the *filtered* slice, but `list.SetItem`
+// writes to the *underlying* slice — when "Selected only" is active or
+// the user has typed a filter, those two indices diverge and writing by
+// the visible cursor would mutate the wrong row. Falls back to the live
+// cursor when no match is found, which preserves the pre-fix behaviour
+// for items that vanished mid-toggle.
+func underlyingIndexByHash(l *list.Model, hash string) int {
+	for i, raw := range l.Items() {
+		if w, ok := raw.(WorkspaceCommitItem); ok && w.Hash == hash {
+			return i
+		}
+	}
+	return l.Index()
+}
+
 // applyReleaseChooseModeFilter projects the segmented "All / Selected"
 // toggle onto the workspace commit list by flipping the package-level
 // `releaseChooseSelectedOnly` flag — `releaseChooseListFilter` and
@@ -672,6 +735,32 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 func applyReleaseChooseModeFilter(model *Model) {
 	selectedOnly := model.releaseChooseModeBar.Mode() == ModeStagesResponse
 	releaseChooseSelectedOnly = selectedOnly
+
+	// Source-of-truth sync: `model.selectedCommitList` is updated
+	// synchronously by the space-toggle handler, while the bubble list's
+	// per-item `Selected` flag goes through `SetItem` and value
+	// semantics. When those drift, the Selected-only filter sees an
+	// empty set even though the user has clearly marked commits. Walk
+	// the underlying `Items()` once and re-stamp `Selected` from the
+	// selectedCommitList hashes before the filter runs.
+	if selectedOnly {
+		selectedHashes := make(map[string]struct{}, len(model.selectedCommitList))
+		for _, sc := range model.selectedCommitList {
+			selectedHashes[sc.Hash] = struct{}{}
+		}
+		for i, raw := range model.releaseCommitList.Items() {
+			w, ok := raw.(WorkspaceCommitItem)
+			if !ok {
+				continue
+			}
+			_, want := selectedHashes[w.Hash]
+			if w.Selected == want {
+				continue
+			}
+			w.Selected = want
+			model.releaseCommitList.SetItem(i, w)
+		}
+	}
 
 	val := model.releaseChooseFilterBar.Value()
 	if val == "" && !selectedOnly {
@@ -695,4 +784,19 @@ func applyReleaseChooseModeFilter(model *Model) {
 	// FilterInput and the list would stop responding to navigation.
 	model.releaseCommitList.SetFilterText(filterText)
 	model.releaseCommitList.SetFilterState(list.FilterApplied)
+
+	// Canary: if "Selected only" is active and the user has actual
+	// selections in `selectedCommitList`, the visible set must not be
+	// empty. When it is, something has gone out of sync between
+	// `WorkspaceCommitItem.Selected` (read by FilterValue) and the
+	// project-level `selectedCommitList` slice — surface it instead of
+	// letting the user stare at a blank list.
+	if selectedOnly && len(model.selectedCommitList) > 0 &&
+		len(model.releaseCommitList.VisibleItems()) == 0 && model.log != nil {
+		model.log.Warn(
+			"selected-only filter produced empty visible set",
+			"selected_in_list", len(model.selectedCommitList),
+			"items_total", len(model.releaseCommitList.Items()),
+		)
+	}
 }

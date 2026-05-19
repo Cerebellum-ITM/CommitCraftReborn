@@ -60,3 +60,24 @@ Module cache: `~/go/pkg/mod/`
 - Format: `## vX.Y.Z — YYYY-MM-DD` heading, then a short summary paragraph of what changed, then a `### Usage` subsection explaining how to use any newly added or modified feature (keys, flags, config knobs). Skip the usage subsection only for pure internal refactors with no user-visible surface.
 - Keep entries terse: bullet points for facts, no marketing prose.
 - Newest version goes at the top.
+
+---
+
+## Spec-Driven Workflow (`spec-driven-dev`)
+
+This project uses the Six-File Context Methodology. Context lives in `context/`:
+
+1. `context/project-overview.md` — product definition, goals, features, scope
+2. `context/architecture.md` — stack, boundaries, storage, invariants
+3. `context/ui-context.md` — TUI theme, colors, layout patterns
+4. `context/code-standards.md` — Go + Bubble Tea conventions
+5. `context/ai-workflow-rules.md` — development workflow rules
+6. `context/progress-tracker.md` — current phase, completed, next up, open questions
+
+**Per-session rules:**
+
+1. At session start, run `/spec-driven-dev status` to re-enter context.
+2. Before implementing a new feature, run `/spec-driven-dev spec NN nombre` and write the spec in `context/specs/`. Do not write feature code without a spec.
+3. After completing a unit, run `/spec-driven-dev update progress`.
+4. If architecture, scope, or standards change, run `/spec-driven-dev update <archivo>` before continuing.
+5. When implementing an existing spec, read `context/specs/NN-name.md` and stick to it — no scope creep.

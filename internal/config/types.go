@@ -47,10 +47,22 @@ type PipelineLayoutConfig struct {
 }
 
 type ReleaseConfig struct {
-	Version          string `toml:"version"`
-	GhToken          string `toml:"GH_TOKEN"`
-	Repository       string `toml:"repository"`
+	Version    string `toml:"version"`
+	Branch     string `toml:"branch,omitempty"`
+	Repository string `toml:"repository"`
+	// GhToken is no longer persisted in the TOML — it lives in
+	// ~/.config/CommitCraft/.env next to GROQ_API_KEY. The struct field
+	// is populated at runtime by LoadConfigs after godotenv parses the
+	// file. Legacy `GH_TOKEN = "..."` lines in existing TOMLs are
+	// migrated to .env on first read and then stripped from disk; see
+	// migrateLegacyGhToken in loader.go.
+	GhToken          string `toml:"-"`
 	BinaryAssetsPath string `toml:"binary_assets_path"`
+
+	// IsGhTokenSet is true when GH_TOKEN was found via env (or migrated
+	// from a legacy TOML). Used by the release config popup to render
+	// "configured" vs "missing" without ever echoing the token itself.
+	IsGhTokenSet bool `toml:"-"`
 
 	AutoBuild   bool   `toml:"auto_build"`
 	BuildTool   string `toml:"build_tool"`
@@ -207,7 +219,6 @@ func NewDefautlLocalConfig() Config {
 		},
 		ReleaseConfig: ReleaseConfig{
 			Version:          "v0.2.5",
-			GhToken:          "ghp_123456789dummytoken",
 			Repository:       "user/repo_path",
 			BinaryAssetsPath: "bin/",
 			AutoBuild:        false,

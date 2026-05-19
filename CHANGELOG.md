@@ -20,6 +20,84 @@ Size the `commitcraft -w <hash>` startup chooser popup to fit every option. The 
 
 Preserve merge topology when rewording historical merge commits. The previous `RewordCommit` path always used `git rebase -i <hash>^` with a `pick → reword` sed, but `rebase -i` skips merge commits in the TODO by default — the sed matched nothing and the rebase silently linearised the merge, dropping its second parent. Now `RewordCommit` detects merges via `git rev-list --parents` and switches to `git rebase -i --rebase-merges <hash>^` with a `merge -C <hash> → merge -c <hash>` sed, so the editor is invoked to inject the new message while both parents survive. Non-merge commits and HEAD continue to use the existing amend / pick-reword paths.
 
+> Note — the v0.49.x / v0.50.x / v0.51.x entries below come from the `feat/release-flow-cleanup` branch where the release-flow cleanup landed iteratively. Those internal version bumps were never published as standalone tags; the cumulative work shipped to users in v0.53.0.
+
+## v0.53.0 — 2026-05-19
+
+Closed out the release-flow cleanup with two changes that together let a user configure and ship a GitHub release entirely from the TUI, without ever editing `.commitcraft.toml` by hand.
+
+**Unit 07 (slim) — release-upload status feedback.** `UploadReleaseToGithub` now returns whether the release went out with zero asset files attached, and the status bar surfaces a `LevelInfo` line "Release uploaded to GitHub · no asset files attached" in that case. The original `ARG_MAX` crash and the empty-`bin/` walk were already fixed by `v0.51.2`; this commit just tells the user when the upload was deliberately notes-only.
+
+**Unit 10 — release configuration onboarding.** A new in-TUI popup replaces the manual `release_config = { ... }` TOML block:
+
+- `GH_TOKEN` moved out of `.commitcraft.toml` into `~/.config/CommitCraft/.env` (joining `GROQ_API_KEY`). On first start CommitCraft scans the global and local TOMLs for any legacy `GH_TOKEN = "..."` line, writes the value into `.env` (mode `0o600`), and strips it from the TOML so it can never be checked into a public repo by mistake.
+- `internal/tui/release_config_detect.go` auto-detects sensible defaults: `owner/repo` from `git remote get-url origin`, current branch from `git symbolic-ref`, a patch-bumped version from `git describe --tags --abbrev=0`, and a binary-assets path picked from the first of `bin/`, `build/`, `dist/` that exists.
+- A new multi-field popup (`release_config_popup.go`) renders the five fields with Tab / Shift+Tab focus cycling, `ctrl+a` / `ctrl+x` to bump version segments, Enter to save the final field. The token field uses `EchoPassword` and never echoes the saved value back. Save writes the TOML fields via `UpdateLocalConfigRelease` and the token via `SaveGhTokenToEnv`.
+- "Create release in repository" and "Create release in Github" now pre-flight the upload: if `Repository` or `GH_TOKEN` is missing the popup auto-opens first; on save the upload chain resumes into the version editor.
+- A new command-palette entry "Configure release" opens the popup on demand at any time.
+- The legacy `stateSettingAPIKey` view was rebuilt to match the new popup style (left-aligned title, labeled input, italic hint, single rounded border) so the two configuration surfaces are visually consistent.
+
+### Usage
+
+- **First start after upgrade**: any `GH_TOKEN` line in your existing `.commitcraft.toml` is automatically migrated to `~/.config/CommitCraft/.env` and removed from the TOML. No action required.
+- **Configure a release for the first time**: from any state, open the command palette and pick "Configure release". The popup pre-fills sensible defaults (auto-detected from your repo). Edit any field, then press Enter on the last field (or `Ctrl+S` anywhere) to save.
+- **Upload a release**: from `stateReleaseMainMenu`, pick "Create release in repository" (or "Create release in Github" after the pipeline finishes). If the repo URL or token is missing, the configuration popup opens first; once saved, the upload resumes through the version editor and `gh release create`.
+- **Notes-only release**: leave the "Binary assets path" field blank, or point it at an empty directory. The upload completes with notes only and the status bar reports "Release uploaded to GitHub · no asset files attached".
+
+## v0.51.4 — 2026-05-13
+
+Fixed the loading panel ("Loading releases / resolving commit subjects…") staying on screen after a successful GitHub release upload, with copy that described the history-sync flow instead of the upload that was actually running. Root cause: `update.go`'s `Create release in Github` path discarded the `tea.Cmd` returned by `createRelease`, so the release-history sync that clears `releaseLoading` never ran. Fix is three-part: (1) preserve the `loadCmd` so the sync runs; (2) add a separate `releaseUploading` flag that the build/upload pipeline toggles, cleared on success, error, and version-popup cancel; (3) `renderReleaseLoading` swaps the panel title/subtitle to "Uploading release to GitHub / building & pushing assets…" while `releaseUploading` is true.
+
+## v0.51.3 — 2026-05-13
+
+Fixed the release pipeline's final card occasionally rendering blank after a successful run. The cascade goroutine was mutating `releaseBodyOutput`, `releaseTitleOutput`, `releaseFinalOutput`, `releaseText`, and `commitLivePreview` directly from inside the `tea.Cmd` closure, which raced against the `View()` pass triggered when `applyPipelineResult` flipped the stages to `done`. The cascade now returns those strings via `IaReleaseBuilderResultMsg.Body / Title / Final`, and the `Update` handler writes them on the Bubble Tea main goroutine — so the final card paints its content in the same turn it becomes visible.
+
+## v0.51.2 — 2026-05-07
+
+Fixed crash in `UploadReleaseToGithub` when uploading a release from a repository with no binary assets. The root cause was a `filepath.Walk` over the entire working directory when `binary_assets_path` was empty, producing a command string that exceeded the OS `ARG_MAX` limit (`argument list too long`). The fix guards the walk behind a non-empty path check and an `os.Stat` existence check, so releases without assets upload cleanly. The command is now built via `exec.Command("gh", args...)` instead of `sh -c`, so the shell `ARG_MAX` limit can never be hit regardless of asset count.
+
+### Usage
+
+No configuration change needed. Repositories without `binary_assets_path` set (or where the configured directory does not exist) now create the GitHub release without attaching any files.
+
+## v0.51.1 — 2026-05-04
+
+Added granular release pipeline primitives and TUI support for partial retries, reducing redundant computation. The release pipeline view now supports per-stage controls for retrying and scrolling through stage output. Internally, the release pipeline logic was refactored into separate primitives for each stage.
+
+## v0.51.0 — 2026-05-04
+
+Added per-stage controls to the release pipeline view (`stateReleaseBuildingText`) so it has parity with the commit pipeline tab: `r` retries the whole pipeline, `1` / `2` / `3` retry from body / title / refine respectively (cascading downstream), `pgup` / `pgdn` scroll the focused stage's output viewport, and `H` opens the focused stage's history popup. Internally `aiengine/release.go` was split so each stage is callable on its own (`RunReleaseBody`, `RunReleaseTitle`, `RunReleaseRefine`); `RunRelease` now composes those primitives. The TUI dispatches partial cascades via `pipelineReleaseRetryStage(from)`, mirroring `pipelineRetryStage` for commits, and `IaReleaseBuilderResultMsg` carries the originating stage so the result handler only pushes history for stages that actually re-ran.
+
+### Usage
+
+- In the release pipeline view, after the initial run finishes you can:
+  - Press `r` to re-run all 3 stages from scratch.
+  - Press `1`, `2`, or `3` to re-run from a specific stage; downstream stages cascade. `3` only re-runs the refine stage and is the cheapest.
+  - Press `pgup` / `pgdn` to scroll the focused stage's output (cycle the focus with `Tab` / `Shift+Tab`).
+  - Press `H` to open the focused stage's history popup (older outputs from prior retries).
+
+## v0.50.1 — 2026-05-04
+
+Guard `Enter` in the release pipeline view (`stateReleaseBuildingText`) so it can't open the create-release menu while a stage is still running, was cancelled, or failed. Pressing `Enter` before `pipeline.allDone()` returns true now leaves the popup closed and surfaces a `LevelWarning` status-bar message ("pipeline still running · wait for stage 3 to finish before creating"). Without the guard, the user could reach the type=MERGE/RELEASE picker before the polished output existed and persist a release with whatever partial body the cards happened to hold. The `?` popup row for `↵` reflects the gate.
+
+## v0.50.0 — 2026-05-04
+
+Reworked focus inside the release pipeline view (`stateReleaseBuildingText`). `Tab` and `Shift+Tab` now cycle through the stage cards (body → title → refine → final, when populated) instead of bouncing the user back to the commit picker. "Back to picker" moved to `Esc`, which still cancels a running pipeline when one is in flight. The final-output card now lights up for both commit and release presets — content for release flows through the existing `releaseFinalOutput` field, with a "create release" hint instead of "accept & commit". Status bar and `?` popup advertise the new bindings.
+
+### Usage
+
+- `Tab` / `Shift+Tab` while looking at the release pipeline cycles between stage 1 (body), stage 2 (title), stage 3 (refine), and the final card (after stage 3 finishes).
+- `Esc` walks back to the commit picker, preserving the prior selection set and cached pipeline output. While the pipeline is still running, `Esc` cancels it (no behavioural regression vs. the commit pipeline tab).
+- `Enter` opens the create-release menu as before.
+
+## v0.49.1 — 2026-05-04
+
+Fixed `ctrl+e` "Selected only" mode in the release commit-picker showing an empty list even when commits were marked. Root cause: the sentinel value handed to the bubble list's `FilterInput` was `"\x00release-choose-selected-only\x00"`, but `textinput.Model.SetValue` silently strips control characters — so `releaseChooseListFilter` received the bare core string and the equality check against the sentinel never matched, dropping the path that returns selected items into a fuzzy match against arbitrary text and producing zero hits. The sentinel is now a plain-ASCII token that survives the round-trip. The toggle handler additionally resolves the underlying items index by hash before calling `SetItem` so the next time anyone leans on the bubble's filter the Selected flag stays glued to the right commit, and `applyReleaseChooseModeFilter` re-stamps `Selected` from `selectedCommitList` (the source of truth) before applying the filter as a defense-in-depth. A canary log warns if the visible set ever ends up empty despite live selections.
+
+## v0.49.0-rfc — 2026-05-04 (feat-branch milestone)
+
+Removed the cosmetic `release` ⇄ `merge` toggle from the release commit-picker. The `m` key, the `m:release` pill on the picker title bar, and the `· <mode>` suffix on the pipeline left-panel footer are gone. `ReleaseInput.Mode` was deleted from the AI engine — it only entered the debug log and never branched prompt content, so the pipeline output is unchanged. The persisted release classification (`storage.Release.Type` = `RELEASE` / `MERGE`, picked in the type popup *after* the pipeline) is unaffected. Numbered `v0.49.0` on the feat branch; the real published v0.49.0 (above) shipped from `main` on the same day with the unrelated reword-chooser change. This branch line is preserved here for historical traceability — the work itself reached users via v0.53.0.
+
 ## v0.48.0 — 2026-05-04
 
 Wire up the "Rewrite as release/merge" branch of the `commitcraft -w <hash>` startup chooser so it actually rewords the original commit. Previously `setupReleaseReword` discarded the hash and dropped the user into the regular release flow, where finishing a release inserted a row in the SQLite `releases` table but never touched git history — clicking "Merge Commit" or "Release Commit" did nothing to the selected commit. The hash now travels through the flow on a new `releaseRewordHash` field and `createRelease` finalizes it as a reword: it composes `[TYPE] <branch>: <title>\n\n<body>`, copies the hash back into `RewordHash`, sets `FinalMessage`, and quits so `main.go`'s post-TUI hook calls `git.RewordCommit`. Cancelling the picker (Esc) clears the preserved hash so unrelated subsequent release creations don't silently reword.

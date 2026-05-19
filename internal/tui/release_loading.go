@@ -32,8 +32,17 @@ func (model *Model) renderReleaseLoading(width, height int) string {
 	subtitleStyle := lipgloss.NewStyle().Foreground(theme.Muted).Italic(true)
 	hintStyle := lipgloss.NewStyle().Foreground(theme.Muted)
 
-	title := titleStyle.Render("Loading releases")
-	subtitle := subtitleStyle.Render("resolving commit subjects…")
+	titleText := "Loading releases"
+	subtitleText := "resolving commit subjects…"
+	// Upload phase wins when both flags are set: the history sync is a
+	// non-blocking background lookup, while the upload is what the user
+	// just confirmed, so its copy is the one they expect to see.
+	if model.releaseUploading {
+		titleText = "Uploading release to GitHub"
+		subtitleText = "building & pushing assets…"
+	}
+	title := titleStyle.Render(titleText)
+	subtitle := subtitleStyle.Render(subtitleText)
 	hint := hintStyle.Render(fmt.Sprintf("workspace: %s", TruncatePath(model.pwd, 2)))
 
 	// Two-column body: spinner glyph on the left, stacked text on the

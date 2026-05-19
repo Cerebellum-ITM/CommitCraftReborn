@@ -33,11 +33,8 @@ type ReleaseCommit struct {
 }
 
 // ReleaseInput is the per-run user-supplied data for the release pipeline.
-// Mode is informational (release vs. merge) and only enters the log; the
-// prompt content does not branch on it.
 type ReleaseInput struct {
 	Commits []ReleaseCommit
-	Mode    string
 }
 
 // ReleaseOutput bundles the artifacts each stage produces plus per-stage
@@ -50,58 +47,95 @@ type ReleaseOutput struct {
 	Stages [3]StageStats
 }
 
-// RunRelease executes the body → title → refine sequence. Errors abort
-// the run and propagate to the caller; partial telemetry already
-// recorded survives in out.Stages.
-func RunRelease(deps Deps, in ReleaseInput) (ReleaseOutput, error) {
-	out := ReleaseOutput{}
-	for i := range out.Stages {
-		out.Stages[i].ID = StageID(i)
-	}
-
+// RunReleaseBody executes stage 1 alone: selected commits → release
+// body. Independent so retry-from-stage callers can re-run just the
+// body and feed its output into the downstream cascade.
+func RunReleaseBody(deps Deps, in ReleaseInput) (string, *api.CallStats, error) {
 	pc := deps.Cfg.Prompts
 	commitsBlob := formatReleaseCommits(in.Commits)
-
-	bodyText, bodyStats, err := SendIaMessage(
+	text, stats, err := SendIaMessage(
 		deps,
 		pc.ReleaseBodyPrompt,
 		commitsBlob,
 		pc.ReleaseBodyPromptModel,
 	)
 	if err != nil {
-		return out, fmt.Errorf("stage 1 (release body): %w", err)
+		return "", stats, fmt.Errorf("stage 1 (release body): %w", err)
 	}
-	recordReleaseStage(&out, ReleaseStageBody, pc.ReleaseBodyPromptModel, bodyStats)
-	out.Body = strings.TrimSpace(bodyText)
+	return strings.TrimSpace(text), stats, nil
+}
 
-	titleInput := fmt.Sprintf("BODY:\n%s\n\nCOMMITS:\n%s", out.Body, commitsBlob)
-	titleText, titleStats, err := SendIaMessage(
+// RunReleaseTitle executes stage 2 alone: existing body + commits →
+// release title. Caller passes the body produced by stage 1 (or the
+// cached body from a prior run when retrying from stage 2 only).
+func RunReleaseTitle(deps Deps, body string, in ReleaseInput) (string, *api.CallStats, error) {
+	pc := deps.Cfg.Prompts
+	commitsBlob := formatReleaseCommits(in.Commits)
+	titleInput := fmt.Sprintf("BODY:\n%s\n\nCOMMITS:\n%s", body, commitsBlob)
+	text, stats, err := SendIaMessage(
 		deps,
 		pc.ReleaseTitlePrompt,
 		titleInput,
 		pc.ReleaseTitlePromptModel,
 	)
 	if err != nil {
-		return out, fmt.Errorf("stage 2 (release title): %w", err)
+		return "", stats, fmt.Errorf("stage 2 (release title): %w", err)
 	}
-	recordReleaseStage(&out, ReleaseStageTitle, pc.ReleaseTitlePromptModel, titleStats)
-	out.Title = strings.TrimSpace(titleText)
+	return strings.TrimSpace(text), stats, nil
+}
 
-	refineInput := fmt.Sprintf("TITLE:\n%s\n\nBODY:\n%s", out.Title, out.Body)
-	finalText, finalStats, err := SendIaMessage(
+// RunReleaseRefine executes stage 3 alone: existing body + title →
+// final polished release note. Caller passes the upstream outputs;
+// retry-from-stage-3 reuses both verbatim.
+func RunReleaseRefine(deps Deps, body, title string) (string, *api.CallStats, error) {
+	pc := deps.Cfg.Prompts
+	refineInput := fmt.Sprintf("TITLE:\n%s\n\nBODY:\n%s", title, body)
+	text, stats, err := SendIaMessage(
 		deps,
 		pc.ReleaseRefinePrompt,
 		refineInput,
 		pc.ReleaseRefinePromptModel,
 	)
 	if err != nil {
-		return out, fmt.Errorf("stage 3 (release refine): %w", err)
+		return "", stats, fmt.Errorf("stage 3 (release refine): %w", err)
+	}
+	return strings.TrimSpace(text), stats, nil
+}
+
+// RunRelease executes the body → title → refine sequence end-to-end
+// using the per-stage primitives above. Errors abort the run and
+// propagate to the caller; partial telemetry already recorded survives
+// in out.Stages.
+func RunRelease(deps Deps, in ReleaseInput) (ReleaseOutput, error) {
+	pc := deps.Cfg.Prompts
+	out := ReleaseOutput{}
+	for i := range out.Stages {
+		out.Stages[i].ID = StageID(i)
+	}
+
+	body, bodyStats, err := RunReleaseBody(deps, in)
+	if err != nil {
+		return out, err
+	}
+	recordReleaseStage(&out, ReleaseStageBody, pc.ReleaseBodyPromptModel, bodyStats)
+	out.Body = body
+
+	title, titleStats, err := RunReleaseTitle(deps, body, in)
+	if err != nil {
+		return out, err
+	}
+	recordReleaseStage(&out, ReleaseStageTitle, pc.ReleaseTitlePromptModel, titleStats)
+	out.Title = title
+
+	final, finalStats, err := RunReleaseRefine(deps, body, title)
+	if err != nil {
+		return out, err
 	}
 	recordReleaseStage(&out, ReleaseStageRefine, pc.ReleaseRefinePromptModel, finalStats)
-	out.Final = strings.TrimSpace(finalText)
+	out.Final = final
 
 	if deps.Log != nil {
-		deps.Log.Debug("Final release note", "mode", in.Mode, "release", out.Final)
+		deps.Log.Debug("Final release note", "release", out.Final)
 	}
 	return out, nil
 }

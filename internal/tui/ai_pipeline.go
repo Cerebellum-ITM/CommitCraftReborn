@@ -204,13 +204,28 @@ func stageStatsToCallStats(s aiengine.StageStats) *api.CallStats {
 	}
 }
 
-// iaReleaseBuilder runs the 3-stage release pipeline (body → title →
-// refine) by delegating to aiengine.RunRelease. Per-stage telemetry is
-// projected into the same pipelineModel.stages array used by the commit
-// pipeline so the Pipeline tab cards render the run uniformly. Output
-// fields land on the model so the existing release view paths keep
-// working unchanged.
-func iaReleaseBuilder(model *Model) error {
+// iaReleaseBuilder runs the full 3-stage release pipeline. Thin
+// wrapper around iaReleaseCascade(model, stageSummary) preserved so
+// the existing initial-launch dispatch path stays unchanged.
+func iaReleaseBuilder(model *Model) (body, title, final string, err error) {
+	return iaReleaseCascade(model, stageSummary)
+}
+
+// iaReleaseCascade runs the release pipeline starting at `from` and
+// cascading downstream. stageSummary → body→title→refine,
+// stageBody → reuses cached body and runs title→refine,
+// stageTitle → reuses cached body+title and runs refine only.
+//
+// Per-stage telemetry projects into the same pipelineModel.stages
+// array used by the commit pipeline so the cards render the run
+// uniformly regardless of which stage drove it.
+//
+// The output strings (body / title / final) are returned to the caller
+// so the result can be applied to the model on the Bubble Tea main
+// goroutine — avoiding a race where View() reads the model field
+// before the cmd goroutine's mutation is published.
+func iaReleaseCascade(model *Model, from stageID) (body, title, final string, err error) {
+	deps := engineDeps(model)
 	commits := make([]aiengine.ReleaseCommit, 0, len(model.selectedCommitList))
 	for _, item := range model.selectedCommitList {
 		commits = append(commits, aiengine.ReleaseCommit{
@@ -220,37 +235,51 @@ func iaReleaseBuilder(model *Model) error {
 			Body:    item.Body,
 		})
 	}
-	mode := model.releaseMode
-	if mode == "" {
-		mode = "release"
-	}
-	in := aiengine.ReleaseInput{Commits: commits, Mode: mode}
+	in := aiengine.ReleaseInput{Commits: commits}
 
-	out, err := aiengine.RunRelease(engineDeps(model), in)
+	body = model.releaseBodyOutput
+	title = model.releaseTitleOutput
 
-	model.releaseBodyOutput = out.Body
-	model.releaseTitleOutput = out.Title
-	model.releaseFinalOutput = out.Final
-	if out.Body != "" {
-		recordStageStats(model, stageSummary, stageStatsToCallStats(out.Stages[0]))
-	}
-	if out.Title != "" {
-		recordStageStats(model, stageBody, stageStatsToCallStats(out.Stages[1]))
-	}
-	if out.Final != "" {
-		recordStageStats(model, stageTitle, stageStatsToCallStats(out.Stages[2]))
+	if from <= stageSummary {
+		text, stats, runErr := aiengine.RunReleaseBody(deps, in)
+		if runErr != nil {
+			return "", "", "", wrapReleaseErr(model, runErr)
+		}
+		body = text
+		recordStageStats(model, stageSummary, stats)
 	}
 
-	if err != nil {
-		model.log.Error(
-			fmt.Sprintf("An error occurred while trying to generate the release output.\n%s", err),
-		)
-		return fmt.Errorf(
-			"An error occurred while trying to generate the release output.\n%s",
-			ExtractJSONError(err.Error()),
-		)
+	if from <= stageBody {
+		text, stats, runErr := aiengine.RunReleaseTitle(deps, body, in)
+		if runErr != nil {
+			return "", "", "", wrapReleaseErr(model, runErr)
+		}
+		title = text
+		recordStageStats(model, stageBody, stats)
 	}
-	model.commitLivePreview = out.Final
-	model.releaseText = out.Final
-	return nil
+
+	// Refine always runs — it's the cheapest stage and the user-visible
+	// output of the cascade lives in the returned `final` string, which
+	// the Update handler writes into model.releaseFinalOutput.
+	refined, stats, runErr := aiengine.RunReleaseRefine(deps, body, title)
+	if runErr != nil {
+		return "", "", "", wrapReleaseErr(model, runErr)
+	}
+	final = refined
+	recordStageStats(model, stageTitle, stats)
+
+	return body, title, final, nil
+}
+
+// wrapReleaseErr funnels per-stage errors into the same log + status
+// shape iaReleaseBuilder used to produce, so callers and the Update
+// handler don't need to special-case partial-cascade failures.
+func wrapReleaseErr(model *Model, err error) error {
+	model.log.Error(
+		fmt.Sprintf("An error occurred while trying to generate the release output.\n%s", err),
+	)
+	return fmt.Errorf(
+		"An error occurred while trying to generate the release output.\n%s",
+		ExtractJSONError(err.Error()),
+	)
 }
