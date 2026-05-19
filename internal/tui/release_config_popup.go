@@ -16,11 +16,14 @@ import (
 // can be resumed automatically; on failure the status bar surfaces
 // the wrapped error.
 type releaseConfigSavedMsg struct {
-	repository string
-	branch     string
-	version    string
-	assetsPath string
-	err        error
+	repository  string
+	branch      string
+	version     string
+	assetsPath  string
+	autoBuild   bool
+	buildTool   string
+	buildTarget string
+	err         error
 	// FromAutoOpen reports whether the popup was opened because the
 	// upload path detected missing config. When true, the handler in
 	// update.go resumes the upload by chaining into the version
@@ -36,6 +39,9 @@ const (
 	releaseFieldBranch
 	releaseFieldVersion
 	releaseFieldAssets
+	releaseFieldAutoBuild
+	releaseFieldBuildTool
+	releaseFieldBuildTarget
 	releaseFieldToken
 	releaseFieldCount
 )
@@ -80,23 +86,36 @@ func newReleaseConfigPopup(
 	m.labels[releaseFieldBranch] = "Branch"
 	m.labels[releaseFieldVersion] = "Version"
 	m.labels[releaseFieldAssets] = "Binary assets path"
+	m.labels[releaseFieldAutoBuild] = "Auto build (true/false)"
+	m.labels[releaseFieldBuildTool] = "Build tool"
+	m.labels[releaseFieldBuildTarget] = "Build target"
 	m.labels[releaseFieldToken] = "GH_TOKEN"
 
 	m.hints[releaseFieldRepository] = formatHint("Detected", detected.Repository)
 	m.hints[releaseFieldBranch] = formatHint("Current branch", detected.Branch)
 	m.hints[releaseFieldVersion] = formatVersionHint(detected.LastTag, detected.SuggestedVersion)
 	m.hints[releaseFieldAssets] = formatHint("Detected", detected.AssetsPath)
+	m.hints[releaseFieldAutoBuild] = "space to toggle · runs the configured build target before upload"
+	m.hints[releaseFieldBuildTool] = formatHint("Detected", detected.BuildTool)
+	m.hints[releaseFieldBuildTarget] = formatHint("Detected", detected.BuildTarget)
 	if detected.GhTokenSet {
 		m.hints[releaseFieldToken] = "stored in ~/.config/CommitCraft/.env — leave blank to keep current"
 	} else {
 		m.hints[releaseFieldToken] = "not configured — required to upload to GitHub"
 	}
 
+	autoBuildPre := "false"
+	if current.AutoBuild {
+		autoBuildPre = "true"
+	}
 	pre := [releaseFieldCount]string{
 		firstNonEmpty(current.Repository, detected.Repository),
 		firstNonEmpty(current.Branch, detected.Branch),
 		firstNonEmpty(current.Version, detected.SuggestedVersion),
 		firstNonEmpty(current.AssetsPath, detected.AssetsPath),
+		autoBuildPre,
+		firstNonEmpty(current.BuildTool, detected.BuildTool),
+		firstNonEmpty(current.BuildTarget, detected.BuildTarget),
 		"", // token always empty: never echo it back
 	}
 
@@ -107,6 +126,10 @@ func newReleaseConfigPopup(
 		ti.SetCursor(len(pre[i]))
 		if i == releaseFieldToken {
 			ti.EchoMode = textinput.EchoPassword
+			// Default is already '*' but set it explicitly so a future
+			// bubbles upgrade that drops the default never regresses
+			// to plain text.
+			ti.EchoCharacter = '*'
 			ti.Placeholder = "ghp_..."
 		}
 		m.inputs[i] = ti
@@ -120,10 +143,13 @@ func newReleaseConfigPopup(
 // the live `config.ReleaseConfig`. Kept here so the popup file never
 // imports the `config` package and the tests can pass a literal.
 type ReleaseConfigSnapshot struct {
-	Repository string
-	Branch     string
-	Version    string
-	AssetsPath string
+	Repository  string
+	Branch      string
+	Version     string
+	AssetsPath  string
+	AutoBuild   bool
+	BuildTool   string
+	BuildTarget string
 }
 
 // hasReleaseEssentials reports whether the live ReleaseConfig has the
@@ -159,13 +185,23 @@ func (m releaseConfigPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+a":
 			if m.focus == releaseFieldVersion {
 				cur := m.inputs[m.focus].Value()
-				m.inputs[m.focus].SetValue(bumpDigitAtCursor(cur, m.inputs[m.focus].Position(), +1))
+				m.inputs[m.focus].SetValue(
+					bumpDigitAtCursor(cur, m.inputs[m.focus].Position(), +1),
+				)
 				return m, nil
 			}
-		case "ctrl+x":
-			if m.focus == releaseFieldVersion {
-				cur := m.inputs[m.focus].Value()
-				m.inputs[m.focus].SetValue(bumpDigitAtCursor(cur, m.inputs[m.focus].Position(), -1))
+		case " ", "space":
+			// Space toggles the Auto build field. For every other
+			// field we want the space character to land in the
+			// textinput normally, so fall through.
+			if m.focus == releaseFieldAutoBuild {
+				cur := strings.ToLower(strings.TrimSpace(m.inputs[m.focus].Value()))
+				next := "true"
+				if cur == "true" {
+					next = "false"
+				}
+				m.inputs[m.focus].SetValue(next)
+				m.inputs[m.focus].SetCursor(len(next))
 				return m, nil
 			}
 		}
@@ -187,11 +223,19 @@ func (m releaseConfigPopupModel) save() tea.Cmd {
 	branch := strings.TrimSpace(m.inputs[releaseFieldBranch].Value())
 	version := strings.TrimSpace(m.inputs[releaseFieldVersion].Value())
 	assets := strings.TrimSpace(m.inputs[releaseFieldAssets].Value())
+	autoBuildRaw := strings.ToLower(
+		strings.TrimSpace(m.inputs[releaseFieldAutoBuild].Value()),
+	)
+	autoBuild := autoBuildRaw == "true" || autoBuildRaw == "yes" || autoBuildRaw == "1"
+	buildTool := strings.TrimSpace(m.inputs[releaseFieldBuildTool].Value())
+	buildTarget := strings.TrimSpace(m.inputs[releaseFieldBuildTarget].Value())
 	token := m.inputs[releaseFieldToken].Value()
 	autoOpen := m.autoOpen
 
 	return func() tea.Msg {
-		if err := UpdateLocalConfigRelease(repo, branch, version, assets); err != nil {
+		if err := UpdateLocalConfigRelease(
+			repo, branch, version, assets, autoBuild, buildTool, buildTarget,
+		); err != nil {
 			return releaseConfigSavedMsg{err: err, fromAutoOpen: autoOpen}
 		}
 		if strings.TrimSpace(token) != "" {
@@ -204,9 +248,43 @@ func (m releaseConfigPopupModel) save() tea.Cmd {
 			branch:       branch,
 			version:      version,
 			assetsPath:   assets,
+			autoBuild:    autoBuild,
+			buildTool:    buildTool,
+			buildTarget:  buildTarget,
 			fromAutoOpen: autoOpen,
 		}
 	}
+}
+
+// renderHelpFooter renders the popup's bottom hint line through the
+// project-wide help styles (ShortKey / ShortDesc / ShortSeparator) so
+// the popup matches the look of every other on-screen help row. Space
+// is only advertised on the Auto build field where it actually toggles.
+func (m releaseConfigPopupModel) renderHelpFooter() string {
+	help := m.theme.AppStyles().Help
+	sep := help.ShortSeparator.Render(" · ")
+	type entry struct{ k, d string }
+	rows := []entry{
+		{"tab/↓", "next"},
+		{"shift+tab/↑", "prev"},
+	}
+	if m.focus == releaseFieldAutoBuild {
+		rows = append(rows, entry{"space", "toggle"})
+	}
+	rows = append(rows,
+		entry{"enter", "save (last field)"},
+		entry{"ctrl+s", "save"},
+		entry{"esc", "cancel"},
+		entry{"ctrl+x", "quit"},
+	)
+	var parts []string
+	for i, e := range rows {
+		if i > 0 {
+			parts = append(parts, sep)
+		}
+		parts = append(parts, help.ShortKey.Render(e.k), " ", help.ShortDesc.Render(e.d))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
 }
 
 func (m releaseConfigPopupModel) View() tea.View {
@@ -230,10 +308,7 @@ func (m releaseConfigPopupModel) View() tea.View {
 		rows = append(rows, head, m.inputs[i].View(), hint, "")
 	}
 
-	footer := muted.Render(
-		"tab/↓ next · shift+tab/↑ prev · enter save (last field) · ctrl+s save · esc cancel",
-	)
-	rows = append(rows, footer)
+	rows = append(rows, m.renderHelpFooter())
 	if m.saveError != "" {
 		errLine := base.Foreground(m.theme.Error).Render("error: " + m.saveError)
 		rows = append(rows, "", errLine)

@@ -42,14 +42,15 @@ func UpdateLocalConfigVersion(version string) error {
 	return nil
 }
 
-// UpdateLocalConfigRelease writes the four user-facing release fields
-// (repository, branch, version, binary assets path) into the repo's
-// `.commitcraft.toml`. GH_TOKEN is never serialized here — it lives in
-// ~/.config/CommitCraft/.env via SaveGhTokenToEnv. The file is created
-// from the default template on first call so the user doesn't have to
-// bootstrap it manually.
+// UpdateLocalConfigRelease writes the user-facing release fields into
+// the repo's `.commitcraft.toml`. GH_TOKEN is never serialized here —
+// it lives in ~/.config/CommitCraft/.env via SaveGhTokenToEnv. The
+// file is created from the default template on first call so the user
+// doesn't have to bootstrap it manually.
 func UpdateLocalConfigRelease(
 	repository, branch, version, assetsPath string,
+	autoBuild bool,
+	buildTool, buildTarget string,
 ) error {
 	if err := config.CreateLocalConfigTomlTmpl(); err != nil {
 		return fmt.Errorf("ensuring local config exists: %w", err)
@@ -69,6 +70,45 @@ func UpdateLocalConfigRelease(
 	cfg.ReleaseConfig.Branch = branch
 	cfg.ReleaseConfig.Version = version
 	cfg.ReleaseConfig.BinaryAssetsPath = assetsPath
+	cfg.ReleaseConfig.AutoBuild = autoBuild
+	cfg.ReleaseConfig.BuildTool = buildTool
+	cfg.ReleaseConfig.BuildTarget = buildTarget
+
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+		return fmt.Errorf("encoding config: %w", err)
+	}
+	if err := os.WriteFile(configPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", configPath, err)
+	}
+	return nil
+}
+
+// UpdateLocalConfigChangelog writes the user-facing ChangelogConfig
+// fields into the repo's `.commitcraft.toml`. The runtime-only Prompt
+// field stays untouched (`toml:"-"`). Mirrors UpdateLocalConfigRelease.
+func UpdateLocalConfigChangelog(
+	enabled bool, path, bumpStrategy, promptFile, promptModel string,
+) error {
+	if err := config.CreateLocalConfigTomlTmpl(); err != nil {
+		return fmt.Errorf("ensuring local config exists: %w", err)
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	configPath := filepath.Join(workDir, ".commitcraft.toml")
+
+	var cfg config.Config
+	if _, err := toml.DecodeFile(configPath, &cfg); err != nil {
+		return fmt.Errorf("decoding %s: %w", configPath, err)
+	}
+	cfg.Changelog.Enabled = enabled
+	cfg.Changelog.Path = path
+	cfg.Changelog.BumpStrategy = bumpStrategy
+	cfg.Changelog.PromptFile = promptFile
+	cfg.Changelog.PromptModel = promptModel
 
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {

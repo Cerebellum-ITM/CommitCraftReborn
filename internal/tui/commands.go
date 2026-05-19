@@ -120,6 +120,33 @@ func openReleaseConfigPopup(model *Model, autoOpen bool) releaseConfigPopupModel
 	return newReleaseConfigPopup(w, h, model.Theme, current, detected, autoOpen)
 }
 
+// openChangelogConfigPopup mirrors openReleaseConfigPopup for the
+// ChangelogConfig. The popup pre-fills the inputs with whatever is
+// already in the live config and runs DetectChangelog for the
+// auto-detected defaults panel.
+func openChangelogConfigPopup(model *Model) changelogConfigPopupModel {
+	w := model.width / 2
+	if w < 60 {
+		w = 60
+	}
+	if w > 90 {
+		w = 90
+	}
+	h := model.height * 3 / 4
+	if h < 22 {
+		h = 22
+	}
+	current := ChangelogConfigSnapshot{
+		Enabled:      model.globalConfig.Changelog.Enabled,
+		Path:         model.globalConfig.Changelog.Path,
+		BumpStrategy: model.globalConfig.Changelog.BumpStrategy,
+		PromptFile:   model.globalConfig.Changelog.PromptFile,
+		PromptModel:  model.globalConfig.Changelog.PromptModel,
+	}
+	detected := DetectChangelog(model.pwd)
+	return newChangelogConfigPopup(w, h, model.Theme, current, detected)
+}
+
 func openVersionEditor(model *Model) versionPopupModel {
 	tag, err := git.GetLastGitTag()
 	if err != nil {

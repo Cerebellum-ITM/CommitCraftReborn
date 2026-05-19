@@ -30,11 +30,11 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- Unit 07 (slim) + Unit 10 — landing together on `feat/release-flow-cleanup` to close out the release feat.
+- Units 11 (`configure-release-popup-polish`) + 12 (`configure-changelog-popup`) — code complete on `feat/release-config-polish` as v0.54.0. Awaiting user review before merge.
 
 ## Next Up
 
-- After 07 + 10 land: merge `feat/release-flow-cleanup` → `main` (manual MERGE commit; the branch carries too much delta to thread through the commitcraft skill), then create a documented GitHub release.
+- After 11 + 12 land: merge `feat/release-config-polish` → `main` with proper `[MERGE]` title; tag + GitHub release.
 - Post-release: headless CLI `--plain` mode question, broader test coverage, any commit-mode bugs surfaced during release work.
 
 ## Open Questions

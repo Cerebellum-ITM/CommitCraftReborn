@@ -33,6 +33,7 @@ const (
 	cmdGenerateLocalConfig = "config.local.create"
 	cmdShowTagPalette      = "tags.show"
 	cmdConfigureRelease    = "release.configure"
+	cmdConfigureChangelog  = "changelog.configure"
 )
 
 // builtinCommands is the seed registry. Add entries here as new actions
@@ -64,6 +65,12 @@ func builtinCommands(useNerdFonts bool) []paletteCommand {
 			Title:       "Configure release",
 			Description: "Set repository, branch, version, assets path and GH_TOKEN",
 			Icon:        rel,
+		},
+		{
+			ID:          cmdConfigureChangelog,
+			Title:       "Configure changelog",
+			Description: "Toggle and tune the post-pipeline CHANGELOG entry",
+			Icon:        cfg,
 		},
 	}
 }

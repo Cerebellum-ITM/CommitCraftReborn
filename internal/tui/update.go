@@ -254,6 +254,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// and the handler just stores the values.
 			model.popup = openReleaseConfigPopup(model, false)
 			return model, nil
+		case cmdConfigureChangelog:
+			model.popup = openChangelogConfigPopup(model)
+			return model, nil
 		}
 		return model, nil
 	case releaseHistorySyncMsg:
@@ -488,6 +491,9 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.globalConfig.ReleaseConfig.Branch = msg.branch
 		model.globalConfig.ReleaseConfig.Version = msg.version
 		model.globalConfig.ReleaseConfig.BinaryAssetsPath = msg.assetsPath
+		model.globalConfig.ReleaseConfig.AutoBuild = msg.autoBuild
+		model.globalConfig.ReleaseConfig.BuildTool = msg.buildTool
+		model.globalConfig.ReleaseConfig.BuildTarget = msg.buildTarget
 		if token := os.Getenv("GH_TOKEN"); token != "" {
 			model.globalConfig.ReleaseConfig.GhToken = token
 			model.globalConfig.ReleaseConfig.IsGhTokenSet = true
@@ -501,6 +507,29 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return model, model.WritingStatusBar.ShowMessageForDuration(
 			"Release configuration saved",
+			statusbar.LevelSuccess,
+			2*time.Second,
+		)
+	case closeChangelogConfigPopupMsg:
+		model.popup = nil
+		return model, nil
+	case changelogConfigSavedMsg:
+		if msg.err != nil {
+			model.log.Error("Error saving changelog config", "error", msg.err)
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("Could not save changelog config: %s", msg.err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+		}
+		model.popup = nil
+		model.globalConfig.Changelog.Enabled = msg.enabled
+		model.globalConfig.Changelog.Path = msg.path
+		model.globalConfig.Changelog.BumpStrategy = msg.bumpStrategy
+		model.globalConfig.Changelog.PromptFile = msg.promptFile
+		model.globalConfig.Changelog.PromptModel = msg.promptModel
+		return model, model.WritingStatusBar.ShowMessageForDuration(
+			"Changelog configuration saved",
 			statusbar.LevelSuccess,
 			2*time.Second,
 		)
@@ -1018,14 +1047,11 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// focused. Without this guard the popup-routing block below
 		// would swallow the key whenever a popup was active.
 		if msg.String() == "ctrl+x" {
-			// The version popup uses ctrl+x to decrement the version
-			// component under the cursor; so does the release config
-			// popup (its Version field reuses bumpDigitAtCursor). Let
-			// both popups consume the key instead of quitting the TUI.
-			switch model.popup.(type) {
-			case versionPopupModel, releaseConfigPopupModel:
-				// fall through to popup routing below
-			default:
+			// The version popup uses ctrl+x as its dedicated
+			// version-decrement shortcut, so the popup consumes the
+			// key. Every other popup falls through to global hard
+			// quit — the user expects ctrl+x to always exit.
+			if _, ok := model.popup.(versionPopupModel); !ok {
 				return quitWithAutodraft(model)
 			}
 		}

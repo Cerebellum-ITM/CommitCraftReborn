@@ -2,6 +2,29 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.54.0 — 2026-05-19
+
+Post-v0.53.0 polish on the release configuration popup plus a new in-TUI popup for the changelog feature. Ships as one tag.
+
+**Unit 11 — release config popup polish.**
+
+- Three new fields after Binary assets path: `Auto build` (space-toggled true/false), `Build tool`, `Build target`. The Build tool / target defaults are auto-detected by scanning the workspace `Makefile` for a `build_release` / `release` / `build` target (preference order).
+- Explicit `EchoCharacter = '*'` on the GH_TOKEN field so the mask survives any future bubbles default change. Token entry stays write-only — saved values are never echoed back.
+- Footer hint now renders through `theme.AppStyles().Help` (`ShortKey` / `ShortDesc` / `ShortSeparator`) instead of a flat muted line, matching every other on-screen help row. The hint only advertises `space toggle` when the Auto build field is focused.
+- Dropped the `Ctrl+X` carve-out on the release config popup. Hard-quit now works from any field inside the popup, restoring the global muscle-memory shortcut. The version-decrement shortcut on the version popup (a different state) is unaffected.
+
+**Unit 12 — configure changelog popup.**
+
+- New `internal/tui/changelog_config_popup.go` mirroring the polished release popup pattern. Five fields: `Enabled` (space-toggled), `Path`, `Bump strategy` (validated against `patch`/`minor`/`major`), `Prompt file`, `Prompt model`.
+- `DetectChangelog` auto-detects the CHANGELOG path (`CHANGELOG.md` / `CHANGELOG` / `HISTORY.md` / `RELEASE_NOTES.md`), the last `## vX.Y.Z` heading, and the file style (`keep-a-changelog` vs free-form headings).
+- New command-palette entry "Configure changelog" opens the popup on demand. No auto-open — the changelog AI stage is opt-in, so it stays out of every other flow.
+- `UpdateLocalConfigChangelog` writes the `[changelog]` block into `.commitcraft.toml` while keeping the runtime-only `Prompt` field out of disk.
+
+### Usage
+
+- **Release config popup**: open via command palette → "Configure release". Tab cycles fields. On the `Auto build` field press `space` to flip `true` / `false`; if you turn it on, `make $build_target` runs before each upload. `Ctrl+X` quits the TUI from anywhere. Save with `Enter` on the last field or `Ctrl+S` from any field.
+- **Changelog config popup**: open via command palette → "Configure changelog". `Enabled = true` turns on the optional 4th AI stage that drafts a CHANGELOG entry styled to match your existing file. `Bump strategy` must be `patch`, `minor`, or `major`; anything else is rejected with an inline error and the disk write is skipped. `Prompt file` / `Prompt model` are optional overrides; leave both blank to inherit the built-in prompt and the active pipeline model.
+
 ## v0.49.0 — 2026-05-04
 
 Add a third option to the `commitcraft -w <hash>` startup chooser: **"Rewrite using existing release"** lets the user reword the target commit with the message of an already-saved release entry from the workspace's SQLite DB, skipping the AI pipeline entirely. The chooser items now use dedicated nerd-font codicons (`cod-edit`, `cod-git_merge`, `cod-history`) with ASCII fallbacks for non-nerd-font terminals so each row carries a glyph that matches its action. A second popup is opened when the user picks the new option, listing one row per release as `<id> · <date> [<TYPE>] <branch> · <title>`; on selection the row is composed into `[TYPE] <branch>: <title>\n\n<body>`, copied into `RewordHash`/`FinalMessage`, and the TUI quits so `main.go`'s post-TUI hook calls `git.RewordCommit`.
