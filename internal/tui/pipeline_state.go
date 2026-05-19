@@ -235,6 +235,33 @@ func (pm *pipelineModel) cycleFocus(showFinal bool) {
 	}
 }
 
+// cycleFocusBackward is the reverse of cycleFocus: stage 1 wraps to the
+// final card (when shown) or to the last active stage. Mirrors
+// cycleFocus's slot model so the two stay in sync.
+func (pm *pipelineModel) cycleFocusBackward(showFinal bool) {
+	active := pm.activeStages
+	if active < 1 {
+		active = 1
+	}
+	total := active
+	if showFinal {
+		total++
+	}
+
+	current := int(pm.focusedStage)
+	if pm.focusedFinal {
+		current = active
+	}
+
+	prev := (current - 1 + total) % total
+	if prev >= active {
+		pm.focusedFinal = true
+	} else {
+		pm.focusedFinal = false
+		pm.focusedStage = stageID(prev)
+	}
+}
+
 // resetAll marks every stage as Running with progress 0 and clears
 // per-stage flashes/errors. Used by the full re-run shortcut (`r`).
 func (pm *pipelineModel) resetAll(now time.Time) {

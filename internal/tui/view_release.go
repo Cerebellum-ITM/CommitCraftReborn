@@ -265,14 +265,7 @@ func (model *Model) releaseChooseModeIndicator() string {
 		hs.ShortSeparator.Render("  ·  ") +
 		render(right, mode == ModeStagesResponse)
 
-	releaseMode := model.releaseMode
-	if releaseMode == "" {
-		releaseMode = "release"
-	}
-	modeLabel := hs.ShortDesc.Render(releaseMode)
-	modeKey := hs.ShortKey.Render("m")
-	modePill := modeKey + hs.ShortDesc.Render(":") + modeLabel
-	return pill + hs.ShortSeparator.Render("  ·  ") + modePill
+	return pill
 }
 
 func (model *Model) releaseChooseFilesHint() string {

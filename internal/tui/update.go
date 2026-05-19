@@ -21,14 +21,35 @@ import (
 
 type releaseUpdloadResultMsg struct {
 	Err error
+	// NoAssets reports that the upload completed without attaching any
+	// files. Surfaced to the user as a "notes-only" status-bar info so
+	// they know the release shipped on purpose rather than wondering
+	// whether their BinaryAssetsPath was misconfigured.
+	NoAssets bool
 }
 
 type IaCommitBuilderResultMsg struct {
 	Err error
 }
 
+// IaReleaseBuilderResultMsg carries the outcome of a release pipeline
+// run. From identifies which stage the run started from (stageSummary
+// for a full body→title→refine, stageBody for a title→refine retry,
+// stageTitle for a refine-only retry) so the result handler only
+// pushes history for stages that actually ran.
+//
+// Body / Title / Final carry the cascade's output strings back to the
+// Update handler so the model is mutated on the main goroutine instead
+// of from inside the tea.Cmd closure. This guarantees the writes are
+// visible to View() in the same turn that applyPipelineResult flips
+// the stages to statusDone — otherwise the final card could render
+// before the goroutine's writes were published, leaving it blank.
 type IaReleaseBuilderResultMsg struct {
-	Err error
+	Err   error
+	From  stageID
+	Body  string
+	Title string
+	Final string
 }
 
 type (
@@ -227,6 +248,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			model.popup = newTagPalettePopup(w, h, model.Theme, model.finalCommitTypes)
 			return model, nil
+		case cmdConfigureRelease:
+			// Manual invocation from the command palette — no upload
+			// in flight, so the saved msg's fromAutoOpen stays false
+			// and the handler just stores the values.
+			model.popup = openReleaseConfigPopup(model, false)
+			return model, nil
 		}
 		return model, nil
 	case releaseHistorySyncMsg:
@@ -373,6 +400,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.popup = nil
 		if model.pendingReleaseUpload != nil {
 			model.pendingReleaseUpload = nil
+			model.releaseUploading = false
 			cancelCmd := model.WritingStatusBar.ShowMessageForDuration(
 				"GitHub release cancelled",
 				statusbar.LevelWarning,
@@ -396,6 +424,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// straight into the GitHub release with the freshly-saved tag.
 		if pending := model.pendingReleaseUpload; pending != nil {
 			model.releaseViewState.releaseCreated = true
+			model.releaseUploading = true
 			rc := model.globalConfig.ReleaseConfig
 			if rc.AutoBuild {
 				model.WritingStatusBar.Level = statusbar.LevelWarning
@@ -423,6 +452,58 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			2*time.Second,
 		)
 		return model, statusCmd
+	case closeReleaseConfigPopupMsg:
+		model.popup = nil
+		// If the popup was opened automatically as a pre-upload step,
+		// cancelling rolls back the pending release so we don't loop
+		// back into the popup on the next event tick.
+		if model.pendingReleaseUpload != nil {
+			model.pendingReleaseUpload = nil
+			model.releaseUploading = false
+			cancelCmd := model.WritingStatusBar.ShowMessageForDuration(
+				"Release configuration cancelled",
+				statusbar.LevelWarning,
+				2*time.Second,
+			)
+			return model, cancelCmd
+		}
+		return model, nil
+	case releaseConfigSavedMsg:
+		model.popup = nil
+		if msg.err != nil {
+			model.log.Error("Error saving release config", "error", msg.err)
+			model.pendingReleaseUpload = nil
+			model.releaseUploading = false
+			return model, model.WritingStatusBar.ShowMessageForDuration(
+				fmt.Sprintf("Could not save release config: %s", msg.err),
+				statusbar.LevelError,
+				3*time.Second,
+			)
+		}
+		// Update the in-memory config so the rest of this session uses
+		// the freshly saved values without a restart. GhToken is
+		// re-read from the environment because the popup wrote to .env
+		// (godotenv only re-loads on next process boot).
+		model.globalConfig.ReleaseConfig.Repository = msg.repository
+		model.globalConfig.ReleaseConfig.Branch = msg.branch
+		model.globalConfig.ReleaseConfig.Version = msg.version
+		model.globalConfig.ReleaseConfig.BinaryAssetsPath = msg.assetsPath
+		if token := os.Getenv("GH_TOKEN"); token != "" {
+			model.globalConfig.ReleaseConfig.GhToken = token
+			model.globalConfig.ReleaseConfig.IsGhTokenSet = true
+		}
+		if msg.fromAutoOpen && model.pendingReleaseUpload != nil {
+			// Resume the upload flow: open the version editor so the
+			// user can confirm/bump the freshly saved version and then
+			// the existing `versionUpdatedMsg` chain runs the upload.
+			model.popup = openVersionEditor(model)
+			return model, nil
+		}
+		return model, model.WritingStatusBar.ShowMessageForDuration(
+			"Release configuration saved",
+			statusbar.LevelSuccess,
+			2*time.Second,
+		)
 	case diffFetchedMsg:
 		if msg.err != nil {
 			model.WritingStatusBar.Content = fmt.Sprintf("Error loading diff: %s", msg.err)
@@ -532,6 +613,14 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if selectedItem, ok := model.releaseMainList.SelectedItem().(HistoryReleaseItem); ok {
 				item := selectedItem
 				model.pendingReleaseUpload = &item
+				// Pre-flight: if repo or token is missing, open the
+				// config popup first. On save the chain resumes into
+				// the version editor; on cancel it rolls back.
+				rc := model.globalConfig.ReleaseConfig
+				if !hasReleaseEssentials(rc.Repository, rc.IsGhTokenSet) {
+					model.popup = openReleaseConfigPopup(model, true)
+					return model, nil
+				}
 				model.popup = openVersionEditor(model)
 			}
 			return model, nil
@@ -577,7 +666,12 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				_, cmd := createRelease(model)
 				return model, cmd
 			}
-			createRelease(model)
+			// Preserve the loadCmd returned by createRelease so the
+			// release-history sync actually runs. Without this, the
+			// model is left with releaseLoading=true and no goroutine
+			// to ever flip it back — which used to strand the loading
+			// panel on screen for the entire upload phase.
+			_, loadCmd := createRelease(model)
 			release, err := model.db.GetLatestRelease(model.pwd)
 			if err != nil {
 				model.err = err
@@ -585,8 +679,16 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			item := HistoryReleaseItem{release: release}
 			model.pendingReleaseUpload = &item
+			// Same pre-flight guard as "Create release in repository":
+			// if repo or token is missing, route through the config
+			// popup first.
+			rc := model.globalConfig.ReleaseConfig
+			if !hasReleaseEssentials(rc.Repository, rc.IsGhTokenSet) {
+				model.popup = openReleaseConfigPopup(model, true)
+				return model, loadCmd
+			}
 			model.popup = openVersionEditor(model)
-			return model, nil
+			return model, loadCmd
 		default:
 			// "Rewrite using existing release" routes through here once
 			// the second popup fires: each item carries the
@@ -821,11 +923,36 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.WritingStatusBar.Content = "AI release message ready!"
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
-		touchedR := []stageID{stageSummary, stageBody, stageTitle}
+		// Stages actually re-run depend on which stage the cascade
+		// started from. stageSummary→all 3, stageBody→2 downstream,
+		// stageTitle→just refine.
+		touchedR := []stageID{}
+		for s := msg.From; s <= stageTitle; s++ {
+			touchedR = append(touchedR, s)
+		}
 		if msg.Err == nil {
-			model.pipeline.pushStageHistory(stageSummary, model.releaseBodyOutput)
-			model.pipeline.pushStageHistory(stageBody, model.releaseTitleOutput)
-			model.pipeline.pushStageHistory(stageTitle, model.releaseFinalOutput)
+			// Apply the cascade outputs on the main goroutine before the
+			// stage flip + history push, so View() sees consistent state
+			// the moment pipelineShowsFinalCard turns true.
+			if msg.From <= stageSummary {
+				model.releaseBodyOutput = msg.Body
+			}
+			if msg.From <= stageBody {
+				model.releaseTitleOutput = msg.Title
+			}
+			model.releaseFinalOutput = msg.Final
+			model.releaseText = msg.Final
+			model.commitLivePreview = msg.Final
+
+			if msg.From <= stageSummary {
+				model.pipeline.pushStageHistory(stageSummary, model.releaseBodyOutput)
+			}
+			if msg.From <= stageBody {
+				model.pipeline.pushStageHistory(stageBody, model.releaseTitleOutput)
+			}
+			if msg.From <= stageTitle {
+				model.pipeline.pushStageHistory(stageTitle, model.releaseFinalOutput)
+			}
 		}
 		cmds = append(cmds, model.applyPipelineResult(touchedR, msg.Err))
 		return model, tea.Batch(cmds...)
@@ -837,6 +964,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// hints where to look.
 			model.log.Warn("release build failed", "output", msg.Output, "err", msg.Err)
 			model.pendingReleaseUpload = nil
+			model.releaseUploading = false
 			cmds = append(cmds, model.WritingStatusBar.StopSpinner())
 			model.WritingStatusBar.Content = "Build failed · check logs"
 			model.WritingStatusBar.Level = statusbar.LevelError
@@ -858,12 +986,20 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(cmds...)
 	case releaseUpdloadResultMsg:
 		cmds = append(cmds, model.WritingStatusBar.StopSpinner())
+		// Always clear the upload flag — success and failure both end the
+		// upload phase, and leaving it true would strand the loading
+		// panel on screen (the original Unit 09 bug).
+		model.releaseUploading = false
 		if msg.Err != nil {
 			model.err = msg.Err
 			model.WritingStatusBar.Content = fmt.Sprintf("Error: %s", msg.Err.Error())
 			model.WritingStatusBar.Level = statusbar.LevelError
 		} else {
-			model.WritingStatusBar.Content = "The release was successfully uploaded to Github"
+			if msg.NoAssets {
+				model.WritingStatusBar.Content = "Release uploaded to GitHub · no asset files attached"
+			} else {
+				model.WritingStatusBar.Content = "The release was successfully uploaded to Github"
+			}
 			model.WritingStatusBar.Level = statusbar.LevelInfo
 		}
 		return model, tea.Batch(cmds...)
@@ -883,9 +1019,13 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// would swallow the key whenever a popup was active.
 		if msg.String() == "ctrl+x" {
 			// The version popup uses ctrl+x to decrement the version
-			// component under the cursor. Let the popup consume it
-			// instead of quitting the TUI.
-			if _, ok := model.popup.(versionPopupModel); !ok {
+			// component under the cursor; so does the release config
+			// popup (its Version field reuses bumpDigitAtCursor). Let
+			// both popups consume the key instead of quitting the TUI.
+			switch model.popup.(type) {
+			case versionPopupModel, releaseConfigPopupModel:
+				// fall through to popup routing below
+			default:
 				return quitWithAutodraft(model)
 			}
 		}

@@ -69,14 +69,10 @@ func (model *Model) renderReleaseCommitsPanel(width, height int) string {
 	cw, _ := titledPanelChrome()
 	innerW := max(1, width-cw-2)
 
-	mode := model.releaseMode
-	if mode == "" {
-		mode = "release"
-	}
 	count := len(model.selectedCommitList)
 	footer := lipgloss.NewStyle().
 		Foreground(theme.Muted).
-		Render(fmt.Sprintf("%d commit(s) · %s", count, mode))
+		Render(fmt.Sprintf("%d commit(s)", count))
 
 	rows := make([]string, 0, count)
 	subjStyle := lipgloss.NewStyle().Foreground(theme.FG)
@@ -207,14 +203,13 @@ func (model *Model) renderPipelinePanel(width, height int) string {
 		numStages = 3
 	}
 
-	showFinal := model.pipeline.preset == pipelinePresetCommit &&
-		model.pipeline.allDone() && strings.TrimSpace(model.commitTranslate) != ""
+	showFinal := pipelineShowsFinalCard(model)
 	focusedFinal := model.pipeline.focusedFinal && showFinal
 
 	baseFinalBody := 0
 	finalCardH := 0
 	if showFinal {
-		baseFinalBody = computeFinalBodyRows(model.commitTranslate, innerW)
+		baseFinalBody = computeFinalBodyRows(pipelineFinalCardContent(model), innerW)
 		finalCardH = baseFinalBody + 2
 	}
 
@@ -476,6 +471,42 @@ func renderStageCardDivider(theme *styles.Theme, gap int, status stageStatus) st
 	return " " + lipgloss.NewStyle().Foreground(color).Render(line) + " "
 }
 
+// pipelineShowsFinalCard reports whether the pipeline view should
+// reserve a final-output slot beneath the stage cards. Single source of
+// truth shared by the renderer and the focus-cycle handler so the two
+// can't drift — without this, Tab could land on a card the renderer
+// has hidden, leaving the user staring at apparently-unfocused cards.
+//
+// Commit pipeline: final card appears once stages finish and
+// `commitTranslate` is non-empty.
+// Release pipeline: final card appears once stages finish and
+// `releaseFinalOutput` is non-empty.
+func pipelineShowsFinalCard(model *Model) bool {
+	if !model.pipeline.allDone() {
+		return false
+	}
+	switch model.pipeline.preset {
+	case pipelinePresetCommit:
+		return strings.TrimSpace(model.commitTranslate) != ""
+	case pipelinePresetRelease:
+		return strings.TrimSpace(model.releaseFinalOutput) != ""
+	}
+	return false
+}
+
+// pipelineFinalCardContent returns the text the final card should
+// display for the currently-active preset. Commit preset renders the
+// assembled commit message; release preset renders the polished release
+// note from stage 3.
+func pipelineFinalCardContent(model *Model) string {
+	switch model.pipeline.preset {
+	case pipelinePresetRelease:
+		return model.releaseFinalOutput
+	default:
+		return model.commitTranslate
+	}
+}
+
 // computeFinalBodyRows decides how tall the final-commit card's body
 // should be. It wraps `commitTranslate` to `innerW`, counts the lines,
 // and clamps to a sensible range so the card grows for multi-paragraph
@@ -591,7 +622,7 @@ func (model *Model) renderFinalCommitCard(width, bodyRows int, focused bool) str
 
 	const glamourGutter = 3
 	rendered := model.renderCommitMessage(
-		strings.TrimSpace(model.commitTranslate),
+		strings.TrimSpace(pipelineFinalCardContent(model)),
 		max(1, innerW-glamourGutter),
 	)
 
@@ -602,7 +633,13 @@ func (model *Model) renderFinalCommitCard(width, bodyRows int, focused bool) str
 		rendered += strings.Repeat("\n", bodyRows-lineCount)
 	}
 
-	hint := lipgloss.NewStyle().Foreground(theme.AI).Bold(true).Render("⏎ accept & commit")
+	hintText := "⏎ accept & commit"
+	title := "final commit ready"
+	if model.pipeline.preset == pipelinePresetRelease {
+		hintText = "⏎ create release"
+		title = "final release ready"
+	}
+	hint := lipgloss.NewStyle().Foreground(theme.AI).Bold(true).Render(hintText)
 
 	borderColor := theme.Success
 	if focused {
@@ -612,7 +649,7 @@ func (model *Model) renderFinalCommitCard(width, bodyRows int, focused bool) str
 	return renderTitledPanel(titledPanelOpts{
 		icon:        "●",
 		iconColor:   theme.Success,
-		title:       "final commit ready",
+		title:       title,
 		hintRight:   hint,
 		hintRaw:     true,
 		content:     rendered,

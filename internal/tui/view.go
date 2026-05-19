@@ -137,31 +137,40 @@ func (model *Model) View() tea.View {
 
 	switch model.state {
 	case stateSettingAPIKey:
-		boxStyle := model.Theme.AppStyles().Base.
-			Border(lipgloss.RoundedBorder(), true).
-			BorderForeground(model.Theme.BorderFocus).
-			Padding(1, 2).
-			Width(80).
-			Height(model.height / 2).
-			Align(lipgloss.Center)
-
-		titleStyle := model.Theme.AppStyles().Base.Foreground(model.Theme.Secondary).Bold(true)
-
-		mainInstructionStyle := model.Theme.AppStyles().Base.Foreground(model.Theme.White)
-		secondaryInstructionStyle := model.Theme.AppStyles().Base.Foreground(model.Theme.Accent)
-		contentLines := []string{
-			titleStyle.Render("Groq API Key Configuration"),
+		// Visual parity with the release-config popup: left-aligned
+		// title, single labeled input, italic hint line. Removes the
+		// old all-centered slab so the API-key surface matches every
+		// other configuration popup the user will see.
+		base := model.Theme.AppStyles().Base
+		title := base.Foreground(model.Theme.Secondary).Bold(true).Render("Configure Groq API key")
+		label := base.Foreground(model.Theme.FgBase).Bold(true).Render("API key (write-only)")
+		muted := base.Foreground(model.Theme.FgMuted).Italic(true)
+		hint := muted.Render(
+			"Get your key at https://console.groq.com/keys · stored in ~/.config/CommitCraft/.env at mode 0o600",
+		)
+		footer := base.Foreground(model.Theme.FgMuted).Render(
+			"enter save · esc cancel · ctrl+x quit",
+		)
+		content := lipgloss.JoinVertical(
+			lipgloss.Left,
+			title,
 			"",
-			mainInstructionStyle.Render("Enter your Groq API Key:"),
-			"",
+			label,
 			model.apiKeyInput.View(),
+			hint,
 			"",
-			secondaryInstructionStyle.Render(
-				"(Press Enter to save, Esc to cancel)",
-			),
+			footer,
+		)
+		boxWidth := 80
+		if boxWidth > model.width-4 {
+			boxWidth = model.width - 4
 		}
-		boxContent := lipgloss.JoinVertical(lipgloss.Center, contentLines...)
-		renderedBox := boxStyle.Render(boxContent)
+		boxStyle := lipgloss.NewStyle().
+			Width(boxWidth).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(model.Theme.BorderFocus)
+		renderedBox := boxStyle.Render(content)
 		centeredBox := lipgloss.Place(
 			availableWidthForMainContent,
 			availableHeightForMainContent,
@@ -189,11 +198,14 @@ func (model *Model) View() tea.View {
 	case stateReleaseMainMenu:
 		histW := model.width
 		histH := max(0, model.height-statusBarH-VerticalSpaceH-helpViewH-tabBarH)
-		// While the async release-history sync is in flight, render a
-		// centered loading panel instead of the half-painted chrome.
-		// Without this, the user sees the master list flash in before
-		// the dual panel hydrates — visually noisy on slow git lookups.
-		if model.releaseLoading {
+		// While either the async release-history sync or the GitHub
+		// build/upload pipeline is in flight, render a centered loading
+		// panel instead of the half-painted chrome. Without this, the
+		// user sees the master list flash in before the dual panel
+		// hydrates — visually noisy on slow git lookups — and after the
+		// upload kicks off they'd otherwise see stale chrome behind the
+		// confirmation popup.
+		if model.releaseLoading || model.releaseUploading {
 			mainContent = model.renderReleaseLoading(histW, histH)
 			break
 		}
@@ -287,6 +299,9 @@ func (model *Model) View() tea.View {
 		ok = true
 		popupView = popupModel.View()
 	case versionPopupModel:
+		ok = true
+		popupView = popupModel.View()
+	case releaseConfigPopupModel:
 		ok = true
 		popupView = popupModel.View()
 	case commitTypePopupModel:
