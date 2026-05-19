@@ -30,12 +30,12 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- None — Units 01, 02, 03, 04, 08 shipped on `feat/release-flow-cleanup`.
+- Unit 07 (slim) + Unit 10 — landing together on `feat/release-flow-cleanup` to close out the release feat.
 
 ## Next Up
 
-- Back on the original plan: Units 05 (`wire-final-output-to-viewport`), 06 (`converge-report-screen`), 07 (`release-upload-empty-bin-guard`).
-- See `context/specs/00-build-plan.md` for the full ordered list (now 8 units).
+- After 07 + 10 land: merge `feat/release-flow-cleanup` → `main` (manual MERGE commit; the branch carries too much delta to thread through the commitcraft skill), then create a documented GitHub release.
+- Post-release: headless CLI `--plain` mode question, broader test coverage, any commit-mode bugs surfaced during release work.
 
 ## Open Questions
 
@@ -54,6 +54,10 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- 2026-05-19 — **Units 05, 09 already shipped** on this branch (commits `409e1f2`, `44646d1` + spec docs `d79b98b`, `a90307d`).
+- 2026-05-19 — **Unit 06 withdrawn.** Started writing spec/impl, then a re-trace of `update.go:554`'s `case "Release Commit"` revealed it's dispatched from the *post-pipeline* popup in `stateReleaseBuildingText` (`update_release.go:434`), not from `stateReleaseMainMenu`. `releaseText` is always populated by the cascade before `createRelease` runs. The "bug" was a misread of the call graph. Reverted all changes; build plan annotated.
+- 2026-05-19 — **Unit 07 trimmed.** `v0.51.2` (`bd41cf7`) already replaced `sh -c` with `exec.Command("gh", ...)`, guarded the asset walk on empty path, and switched to `--notes-file`. Remaining work is one `LevelInfo` status-bar message when uploading without assets.
+- 2026-05-19 — **Unit 10 added.** Release configuration onboarding popup. Carries: (a) `GH_TOKEN` migration from TOML to `~/.config/CommitCraft/.env`, (b) auto-detect helpers for repo/branch/version/assets-path, (c) multi-field config popup with Tab-cycled fields, (d) auto-open before upload if any required field missing, (e) command-palette entry "Configure release", (f) refresh of the legacy `stateSettingAPIKey` view to use the same styled component for consistency.
 - 2026-05-04 — Branch renamed `feat/release-merge-reword` → `feat/release-flow-cleanup` so it carries the 7-unit audit (the original reword work landed in commits `a70c8b7`, `7000c3d`, `c7a9654`).
 - 2026-05-04 — **Unit 01 shipped** as `e1ccab5 [REM] release: remove cosmetic release/merge toggle`. v0.49.0.
 - 2026-05-04 — **Spec-driven scaffolding imported** as `11fe653 [DOC] context: import spec-driven-dev scaffolding`. The five remaining context files (project-overview, ui-context, code-standards, ai-workflow-rules, progress-tracker) plus `context/specs/` (build plan, template, specs 01/02/03/04/08) plus the new "Spec-Driven Workflow" section in `CLAUDE.md` all land here. Until this commit, `context/` had been generated but kept untracked across sessions; persisting it so a fresh clone gets the project context without re-running the discovery flow.

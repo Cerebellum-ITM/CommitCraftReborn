@@ -93,6 +93,33 @@ func callIaReleaseCascadeCmd(model *Model, from stageID) tea.Cmd {
 	}
 }
 
+// openReleaseConfigPopup builds the multi-field release configuration
+// popup, pre-filling the inputs with whatever is already in the live
+// ReleaseConfig plus auto-detected defaults from the workspace. The
+// `autoOpen` flag flows through to releaseConfigSavedMsg so the
+// upload-chain handler can resume the upload after the save.
+func openReleaseConfigPopup(model *Model, autoOpen bool) releaseConfigPopupModel {
+	w := model.width / 2
+	if w < 60 {
+		w = 60
+	}
+	if w > 90 {
+		w = 90
+	}
+	h := model.height * 3 / 4
+	if h < 24 {
+		h = 24
+	}
+	current := ReleaseConfigSnapshot{
+		Repository: model.globalConfig.ReleaseConfig.Repository,
+		Branch:     model.globalConfig.ReleaseConfig.Branch,
+		Version:    model.globalConfig.ReleaseConfig.Version,
+		AssetsPath: model.globalConfig.ReleaseConfig.BinaryAssetsPath,
+	}
+	detected := DetectRelease(model.pwd)
+	return newReleaseConfigPopup(w, h, model.Theme, current, detected, autoOpen)
+}
+
 func openVersionEditor(model *Model) versionPopupModel {
 	tag, err := git.GetLastGitTag()
 	if err != nil {

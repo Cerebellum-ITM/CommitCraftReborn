@@ -32,6 +32,7 @@ type paletteCommand struct {
 const (
 	cmdGenerateLocalConfig = "config.local.create"
 	cmdShowTagPalette      = "tags.show"
+	cmdConfigureRelease    = "release.configure"
 )
 
 // builtinCommands is the seed registry. Add entries here as new actions
@@ -39,9 +40,11 @@ const (
 func builtinCommands(useNerdFonts bool) []paletteCommand {
 	cfg := ""
 	tags := ""
+	rel := ""
 	if !useNerdFonts {
 		cfg = "*"
 		tags = "#"
+		rel = "↑"
 	}
 	return []paletteCommand{
 		{
@@ -55,6 +58,12 @@ func builtinCommands(useNerdFonts bool) []paletteCommand {
 			Title:       "Show tag palette",
 			Description: "Open the color reference for every commit-type tag",
 			Icon:        tags,
+		},
+		{
+			ID:          cmdConfigureRelease,
+			Title:       "Configure release",
+			Description: "Set repository, branch, version, assets path and GH_TOKEN",
+			Icon:        rel,
 		},
 	}
 }
