@@ -27,9 +27,14 @@ func NerdFontSymbols() *Symbols {
 		// Codicons (VS Code) for the -w startup chooser items: pencil,
 		// git_merge, history. Each is a single-cell glyph so the popup
 		// rows stay aligned with their labels.
-		RewordChooserCommit: "", // nf-cod-edit
-		RewordChooserMerge:  "", // nf-cod-git_merge
-		RewordChooserDb:     "", // nf-cod-history
+		RewordChooserCommit: "",      // nf-cod-edit
+		RewordChooserMerge:  "",      // nf-cod-git_merge
+		RewordChooserDb:     "",      // nf-cod-history
+		ConfigureRelease:    "\uf135", // nf-fa-rocket
+		ConfigureChangelog:  "\uf0f6", // nf-fa-file_text_alt
+		BuildTool:           "\uf0ad", // nf-fa-wrench
+		TokenIcon:           "\uf084", // nf-fa-key
+		BranchIcon:          "\uf126", // nf-fa-code_branch
 	}
 }
 
@@ -57,6 +62,11 @@ func DefaultSymbols() *Symbols {
 		RewordChooserCommit: "✎",
 		RewordChooserMerge:  "Y",
 		RewordChooserDb:     "↺",
+		ConfigureRelease:    "↑",
+		ConfigureChangelog:  "≡",
+		BuildTool:           "~",
+		TokenIcon:           "@",
+		BranchIcon:          "%",
 	}
 }
 

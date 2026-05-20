@@ -2,9 +2,16 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
-## v0.54.0 — 2026-05-19
+## v0.54.0 — 2026-05-20
 
 Post-v0.53.0 polish on the release configuration popup plus a new in-TUI popup for the changelog feature. Ships as one tag.
+
+**Late additions (2026-05-20 follow-up on the same `feat/release-config-polish` branch):**
+
+- **Token field "g" mystery solved**: the GH_TOKEN row was rendering a lonely `g` (the first rune of the `"ghp_..."` placeholder) because bubbles' `textinput.Model` only paints `Width()+1` runes of the placeholder, and we never set a width. The mask itself worked correctly — what looked like an unmasked typed character was actually the static placeholder. Dropped the placeholder entirely; the hint underneath already explains what to put in the field.
+- **Both config popups +20 %**: the release-config and changelog-config popups now use `width * 3/5` (floor `72`, ceiling `108`) and `height * 9/10` so the new auto_build / build_tool / build_target rows have breathing room.
+- **In-popup list picker on Enter**: focusing the `Build tool` or `Build target` field and pressing Enter pops an inline list of choices (cached at popup creation: `make` for the tool, every non-phony Makefile target in source order for the target). Arrow keys navigate, Enter commits, Esc dismisses. The list is rendered exactly where the textinput row would be, so spatial context stays put.
+- **Nerd-font icons on every configuration surface**: new symbol fields `ConfigureRelease`, `ConfigureChangelog`, `BuildTool`, `TokenIcon`, `BranchIcon` (with ASCII fallbacks). The command palette entries and both popup titles plus every field label now lead with the matching glyph.
 
 **Unit 11 — release config popup polish.**
 

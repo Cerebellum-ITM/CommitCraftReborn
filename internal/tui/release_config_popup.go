@@ -61,6 +61,19 @@ type releaseConfigPopupModel struct {
 	detected  ReleaseDetect
 	autoOpen  bool
 	saveError string
+	// picker holds the in-popup list-picker state used by the
+	// build_tool and build_target fields. When pickerActive is true,
+	// the popup intercepts arrow keys / enter / esc for navigation
+	// instead of forwarding them to the focused textinput.
+	pickerActive  bool
+	pickerField   int
+	pickerOptions []string
+	pickerIndex   int
+	// buildToolChoices / buildTargetChoices are cached at popup
+	// creation time so Enter doesn't have to re-read disk every time
+	// the picker opens.
+	buildToolChoices   []string
+	buildTargetChoices []string
 }
 
 // newReleaseConfigPopup builds the popup with detected defaults merged
@@ -74,22 +87,27 @@ func newReleaseConfigPopup(
 	current ReleaseConfigSnapshot,
 	detected ReleaseDetect,
 	autoOpen bool,
+	buildToolChoices []string,
+	buildTargetChoices []string,
 ) releaseConfigPopupModel {
 	m := releaseConfigPopupModel{
-		width:    width,
-		height:   height,
-		theme:    theme,
-		detected: detected,
-		autoOpen: autoOpen,
+		width:              width,
+		height:             height,
+		theme:              theme,
+		detected:           detected,
+		autoOpen:           autoOpen,
+		buildToolChoices:   buildToolChoices,
+		buildTargetChoices: buildTargetChoices,
 	}
-	m.labels[releaseFieldRepository] = "Repository (owner/name)"
-	m.labels[releaseFieldBranch] = "Branch"
-	m.labels[releaseFieldVersion] = "Version"
-	m.labels[releaseFieldAssets] = "Binary assets path"
-	m.labels[releaseFieldAutoBuild] = "Auto build (true/false)"
-	m.labels[releaseFieldBuildTool] = "Build tool"
-	m.labels[releaseFieldBuildTarget] = "Build target"
-	m.labels[releaseFieldToken] = "GH_TOKEN"
+	sym := theme.AppSymbols()
+	m.labels[releaseFieldRepository] = sym.BranchIcon + "  Repository (owner/name)"
+	m.labels[releaseFieldBranch] = sym.BranchIcon + "  Branch"
+	m.labels[releaseFieldVersion] = sym.Tag + "  Version"
+	m.labels[releaseFieldAssets] = sym.NewDbRecord + "  Binary assets path"
+	m.labels[releaseFieldAutoBuild] = sym.BuildTool + "  Auto build (true/false)"
+	m.labels[releaseFieldBuildTool] = sym.BuildTool + "  Build tool"
+	m.labels[releaseFieldBuildTarget] = sym.BuildTool + "  Build target"
+	m.labels[releaseFieldToken] = sym.TokenIcon + "  GH_TOKEN"
 
 	m.hints[releaseFieldRepository] = formatHint("Detected", detected.Repository)
 	m.hints[releaseFieldBranch] = formatHint("Current branch", detected.Branch)
@@ -130,7 +148,12 @@ func newReleaseConfigPopup(
 			// bubbles upgrade that drops the default never regresses
 			// to plain text.
 			ti.EchoCharacter = '*'
-			ti.Placeholder = "ghp_..."
+			// NO placeholder. bubbles renders the placeholder by copying
+			// up to `Width()+1` runes from it; without an explicit
+			// Width(), only the first rune is painted, so "ghp_..."
+			// shows as a lone `g` and looks identical to a typed char
+			// that failed to mask. The hint label below the input
+			// already explains what to enter.
 		}
 		m.inputs[i] = ti
 	}
@@ -165,6 +188,38 @@ func (m releaseConfigPopupModel) Init() tea.Cmd { return nil }
 
 func (m releaseConfigPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if km, ok := msg.(tea.KeyMsg); ok {
+		// Picker mode: intercept navigation keys before the textinput
+		// gets a chance to swallow them. Esc cancels without committing
+		// the highlighted option, Enter commits.
+		if m.pickerActive {
+			switch km.String() {
+			case "esc":
+				m.pickerActive = false
+				return m, nil
+			case "enter":
+				if len(m.pickerOptions) > 0 {
+					choice := m.pickerOptions[m.pickerIndex]
+					m.inputs[m.pickerField].SetValue(choice)
+					m.inputs[m.pickerField].SetCursor(len(choice))
+				}
+				m.pickerActive = false
+				return m, nil
+			case "up", "k":
+				if len(m.pickerOptions) > 0 {
+					m.pickerIndex = (m.pickerIndex - 1 + len(m.pickerOptions)) %
+						len(m.pickerOptions)
+				}
+				return m, nil
+			case "down", "j":
+				if len(m.pickerOptions) > 0 {
+					m.pickerIndex = (m.pickerIndex + 1) % len(m.pickerOptions)
+				}
+				return m, nil
+			}
+			// Any other key while the picker is open is ignored —
+			// textinput edits don't apply mid-pick.
+			return m, nil
+		}
 		switch km.String() {
 		case "esc":
 			return m, func() tea.Msg { return closeReleaseConfigPopupMsg{} }
@@ -175,6 +230,17 @@ func (m releaseConfigPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.cycleFocus(-1)
 			return m, nil
 		case "enter":
+			// Build tool / target fields open the in-popup list
+			// picker on Enter instead of advancing focus. Saves the
+			// user from typing exact target names.
+			if m.focus == releaseFieldBuildTool {
+				m = m.openPicker(releaseFieldBuildTool, m.buildToolChoices)
+				return m, nil
+			}
+			if m.focus == releaseFieldBuildTarget {
+				m = m.openPicker(releaseFieldBuildTarget, m.buildTargetChoices)
+				return m, nil
+			}
 			if m.focus < releaseFieldCount-1 {
 				m = m.cycleFocus(+1)
 				return m, nil
@@ -209,6 +275,28 @@ func (m releaseConfigPopupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.inputs[m.focus], cmd = m.inputs[m.focus].Update(msg)
 	return m, cmd
+}
+
+// openPicker arms the in-popup list picker for `field`. The picker
+// starts highlighted on whichever option matches the current field
+// value (so the user sees the existing pick as the cursor); otherwise
+// it lands on index 0. Empty option lists are tolerated — the picker
+// just renders "no options" and Enter is a no-op until the user Escs.
+func (m releaseConfigPopupModel) openPicker(
+	field int, options []string,
+) releaseConfigPopupModel {
+	m.pickerActive = true
+	m.pickerField = field
+	m.pickerOptions = options
+	m.pickerIndex = 0
+	cur := strings.TrimSpace(m.inputs[field].Value())
+	for i, opt := range options {
+		if opt == cur {
+			m.pickerIndex = i
+			break
+		}
+	}
+	return m
 }
 
 func (m releaseConfigPopupModel) cycleFocus(delta int) releaseConfigPopupModel {
@@ -258,25 +346,42 @@ func (m releaseConfigPopupModel) save() tea.Cmd {
 
 // renderHelpFooter renders the popup's bottom hint line through the
 // project-wide help styles (ShortKey / ShortDesc / ShortSeparator) so
-// the popup matches the look of every other on-screen help row. Space
-// is only advertised on the Auto build field where it actually toggles.
+// the popup matches the look of every other on-screen help row. The
+// advertised keys change depending on which field is focused and
+// whether the in-popup picker is active.
 func (m releaseConfigPopupModel) renderHelpFooter() string {
 	help := m.theme.AppStyles().Help
 	sep := help.ShortSeparator.Render(" · ")
 	type entry struct{ k, d string }
-	rows := []entry{
-		{"tab/↓", "next"},
-		{"shift+tab/↑", "prev"},
+	var rows []entry
+	switch {
+	case m.pickerActive:
+		rows = []entry{
+			{"↑/k", "up"},
+			{"↓/j", "down"},
+			{"enter", "pick"},
+			{"esc", "cancel pick"},
+			{"ctrl+x", "quit"},
+		}
+	default:
+		rows = []entry{
+			{"tab/↓", "next"},
+			{"shift+tab/↑", "prev"},
+		}
+		switch m.focus {
+		case releaseFieldAutoBuild:
+			rows = append(rows, entry{"space", "toggle"})
+		case releaseFieldBuildTool, releaseFieldBuildTarget:
+			rows = append(rows, entry{"enter", "pick from list"})
+		default:
+			rows = append(rows, entry{"enter", "save (last field)"})
+		}
+		rows = append(rows,
+			entry{"ctrl+s", "save"},
+			entry{"esc", "cancel"},
+			entry{"ctrl+x", "quit"},
+		)
 	}
-	if m.focus == releaseFieldAutoBuild {
-		rows = append(rows, entry{"space", "toggle"})
-	}
-	rows = append(rows,
-		entry{"enter", "save (last field)"},
-		entry{"ctrl+s", "save"},
-		entry{"esc", "cancel"},
-		entry{"ctrl+x", "quit"},
-	)
 	var parts []string
 	for i, e := range rows {
 		if i > 0 {
@@ -287,9 +392,35 @@ func (m releaseConfigPopupModel) renderHelpFooter() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
 }
 
+// renderFieldPicker renders the inline list-picker overlay used by the
+// build_tool and build_target fields. Replaces the textinput row so the
+// user keeps spatial context: the picker sits exactly where the value
+// would be.
+func (m releaseConfigPopupModel) renderFieldPicker() string {
+	base := m.theme.AppStyles().Base
+	if len(m.pickerOptions) == 0 {
+		return base.Foreground(m.theme.FgMuted).
+			Italic(true).
+			Render("  (no options detected · esc to dismiss)")
+	}
+	idle := base.Foreground(m.theme.FgBase)
+	active := base.Foreground(m.theme.Accent).Bold(true)
+	var rows []string
+	for i, opt := range m.pickerOptions {
+		if i == m.pickerIndex {
+			rows = append(rows, active.Render("  ▸ "+opt))
+		} else {
+			rows = append(rows, idle.Render("    "+opt))
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
 func (m releaseConfigPopupModel) View() tea.View {
 	base := m.theme.AppStyles().Base
-	title := base.Foreground(m.theme.Secondary).Bold(true).Render("Configure release")
+	sym := m.theme.AppSymbols()
+	title := base.Foreground(m.theme.Secondary).Bold(true).
+		Render(sym.ConfigureRelease + "  Configure release")
 
 	muted := base.Foreground(m.theme.FgMuted)
 	label := base.Foreground(m.theme.FgBase).Bold(true)
@@ -305,7 +436,11 @@ func (m releaseConfigPopupModel) View() tea.View {
 		if m.hints[i] != "" {
 			hint = muted.Italic(true).Render(m.hints[i])
 		}
-		rows = append(rows, head, m.inputs[i].View(), hint, "")
+		body := m.inputs[i].View()
+		if m.pickerActive && i == m.pickerField {
+			body = m.renderFieldPicker()
+		}
+		rows = append(rows, head, body, hint, "")
 	}
 
 	rows = append(rows, m.renderHelpFooter())

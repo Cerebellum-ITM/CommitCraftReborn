@@ -127,11 +127,12 @@ func newChangelogConfigPopup(
 		theme:    theme,
 		detected: detected,
 	}
-	m.labels[changelogFieldEnabled] = "Enabled (true/false)"
-	m.labels[changelogFieldPath] = "Path"
-	m.labels[changelogFieldBumpStrategy] = "Bump strategy (patch/minor/major)"
-	m.labels[changelogFieldPromptFile] = "Prompt file"
-	m.labels[changelogFieldPromptModel] = "Prompt model"
+	sym := theme.AppSymbols()
+	m.labels[changelogFieldEnabled] = sym.ConfigureChangelog + "  Enabled (true/false)"
+	m.labels[changelogFieldPath] = sym.ConfigureChangelog + "  Path"
+	m.labels[changelogFieldBumpStrategy] = sym.Tag + "  Bump strategy (patch/minor/major)"
+	m.labels[changelogFieldPromptFile] = sym.CommitCraft + "  Prompt file"
+	m.labels[changelogFieldPromptModel] = sym.CommitCraft + "  Prompt model"
 
 	m.hints[changelogFieldEnabled] = "space to toggle · runs after the commit pipeline when on"
 	m.hints[changelogFieldPath] = formatHint("Detected", detected.PathDetected)
@@ -273,7 +274,9 @@ func (m changelogConfigPopupModel) renderHelpFooter() string {
 
 func (m changelogConfigPopupModel) View() tea.View {
 	base := m.theme.AppStyles().Base
-	title := base.Foreground(m.theme.Secondary).Bold(true).Render("Configure changelog")
+	sym := m.theme.AppSymbols()
+	title := base.Foreground(m.theme.Secondary).Bold(true).
+		Render(sym.ConfigureChangelog + "  Configure changelog")
 	muted := base.Foreground(m.theme.FgMuted)
 	label := base.Foreground(m.theme.FgBase).Bold(true)
 

@@ -61,23 +61,58 @@ var makefileTargetRegex = regexp.MustCompile(`(?m)^([A-Za-z0-9_.-]+)\s*:`)
 // "make" with empty target so the user can fill it in. If no Makefile
 // at all, return ("", "").
 func detectMakefileTarget(pwd string) (string, string) {
-	path := filepath.Join(pwd, "Makefile")
-	data, err := os.ReadFile(path)
-	if err != nil {
+	targets := ListMakefileTargets(pwd)
+	if targets == nil {
 		return "", ""
 	}
-	targets := map[string]bool{}
-	for _, m := range makefileTargetRegex.FindAllStringSubmatch(string(data), -1) {
-		if len(m) >= 2 {
-			targets[strings.ToLower(m[1])] = true
-		}
+	have := map[string]bool{}
+	for _, t := range targets {
+		have[strings.ToLower(t)] = true
 	}
 	for _, preferred := range []string{"build_release", "release", "build"} {
-		if targets[preferred] {
+		if have[preferred] {
 			return "make", preferred
 		}
 	}
 	return "make", ""
+}
+
+// ListMakefileTargets returns every target declared in `pwd/Makefile`
+// in source order (case-preserving, deduped). Returns nil when no
+// Makefile exists. Phony names that start with `.` (like `.PHONY`) are
+// skipped. Used by the release config popup's build_target picker.
+func ListMakefileTargets(pwd string) []string {
+	path := filepath.Join(pwd, "Makefile")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range makefileTargetRegex.FindAllStringSubmatch(string(data), -1) {
+		if len(m) < 2 {
+			continue
+		}
+		name := m[1]
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		key := strings.ToLower(name)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, name)
+	}
+	return out
+}
+
+// ListBuildTools returns the build tools CommitCraft can drive today.
+// The release config popup opens this list on Enter for the build_tool
+// field so the user gets discoverability even though `make` is the
+// only entry — future tools land here without UI changes.
+func ListBuildTools() []string {
+	return []string{"make"}
 }
 
 // repoRegex captures the trailing `owner/repo` portion of any github URL,
