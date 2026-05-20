@@ -392,6 +392,21 @@ func (m releaseConfigPopupModel) renderHelpFooter() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, parts...)
 }
 
+// renderTokenConfiguredRow paints the GH_TOKEN "configured" indicator
+// shown when the env already has a stored value and the user hasn't
+// typed a replacement yet. Renders as a single line that mirrors the
+// textinput's prompt-and-content layout so the rest of the popup
+// keeps its vertical rhythm. The actual mask kicks in the moment the
+// user types — at that point the regular textinput.View takes over.
+func (m releaseConfigPopupModel) renderTokenConfiguredRow() string {
+	base := m.theme.AppStyles().Base
+	check := base.Foreground(m.theme.Success).Bold(true).Render("  ✓ stored")
+	rest := base.Foreground(m.theme.FgMuted).
+		Italic(true).
+		Render(" — type to replace")
+	return check + rest
+}
+
 // renderFieldPicker renders the inline list-picker overlay used by the
 // build_tool and build_target fields. Replaces the textinput row so the
 // user keeps spatial context: the picker sits exactly where the value
@@ -439,6 +454,17 @@ func (m releaseConfigPopupModel) View() tea.View {
 		body := m.inputs[i].View()
 		if m.pickerActive && i == m.pickerField {
 			body = m.renderFieldPicker()
+		}
+		// GH_TOKEN row: when the token is already stored in .env and
+		// the user hasn't started typing a replacement, paint a clear
+		// "configured" indicator instead of an empty masked input.
+		// Otherwise the popup looks like the field is unset, which
+		// confused the user reviewing v0.54.0.
+		if i == releaseFieldToken &&
+			m.detected.GhTokenSet &&
+			strings.TrimSpace(m.inputs[i].Value()) == "" &&
+			!(m.pickerActive && i == m.pickerField) {
+			body = m.renderTokenConfiguredRow()
 		}
 		rows = append(rows, head, body, hint, "")
 	}

@@ -118,7 +118,7 @@ func (d commandPaletteDelegate) Render(w io.Writer, m list.Model, index int, lis
 		lipgloss.Top,
 		cursor,
 		iconStyle.Render(icon),
-		" ",
+		"  ",
 		titleStyle.Render(it.cmd.Title),
 	)
 	descLine := "    " + descStyle.Render(it.cmd.Description)
