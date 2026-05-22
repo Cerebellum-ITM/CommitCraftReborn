@@ -26,6 +26,7 @@ type KeyMap struct {
 	GlobalQuit     key.Binding
 	Toggle         key.Binding
 	Help           key.Binding
+	History        key.Binding
 	Esc            key.Binding
 	Filter         key.Binding
 	Logs           key.Binding
@@ -300,13 +301,47 @@ func releaseKeys() KeyMap {
 			key.WithKeys("ctrl+e"),
 			key.WithHelp("ctrl+e", "Swap inspect mode"),
 		),
+
+		// Release pipeline stage controls (mirror pipelineKeys()). The
+		// dispatch in update_release.go still uses raw msg.String() until
+		// Unit 14 migrates it to key.Matches; populating the fields here
+		// makes that migration a one-shot textual swap without behavior
+		// change in Unit 13.
+		Toggle: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "retry pipeline"),
+		),
+		RerunStage1: key.NewBinding(
+			key.WithKeys("1"),
+			key.WithHelp("1", "retry stage 1 (cascades)"),
+		),
+		RerunStage2: key.NewBinding(
+			key.WithKeys("2"),
+			key.WithHelp("2", "retry stage 2 (cascades)"),
+		),
+		RerunStage3: key.NewBinding(
+			key.WithKeys("3"),
+			key.WithHelp("3", "retry stage 3"),
+		),
+		History: key.NewBinding(
+			key.WithKeys("H"),
+			key.WithHelp("H", "stage history"),
+		),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup"),
+			key.WithHelp("pgup", "stage scroll up"),
+		),
+		PgDown: key.NewBinding(
+			key.WithKeys("pgdown"),
+			key.WithHelp("pgdown", "stage scroll down"),
+		),
 	}
 }
 
 func viewPortKeys() KeyMap {
 	return KeyMap{
-		PgUp:   key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "page up")),
-		PgDown: key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "page down")),
+		PgUp:   key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "stage scroll up")),
+		PgDown: key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "stage scroll down")),
 		NextField: key.NewBinding(
 			key.WithKeys("tab"),
 			key.WithHelp("tab", "Switch Focus →"),
@@ -323,6 +358,30 @@ func viewPortKeys() KeyMap {
 			key.WithDisabled(),
 		),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
+
+		// Mirror of the release pipeline stage controls so the bindings
+		// stay live when focus cycles to the viewport (transitions.go
+		// swaps the active keymap to viewPortKeys() at that point).
+		Toggle: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "retry pipeline"),
+		),
+		RerunStage1: key.NewBinding(
+			key.WithKeys("1"),
+			key.WithHelp("1", "retry stage 1 (cascades)"),
+		),
+		RerunStage2: key.NewBinding(
+			key.WithKeys("2"),
+			key.WithHelp("2", "retry stage 2 (cascades)"),
+		),
+		RerunStage3: key.NewBinding(
+			key.WithKeys("3"),
+			key.WithHelp("3", "retry stage 3"),
+		),
+		History: key.NewBinding(
+			key.WithKeys("H"),
+			key.WithHelp("H", "stage history"),
+		),
 	}
 }
 
@@ -430,6 +489,9 @@ func (k KeyMap) ShortHelp() []key.Binding {
 	}
 	if k.Help.Enabled() {
 		b = append(b, k.Help)
+	}
+	if k.History.Enabled() {
+		b = append(b, k.History)
 	}
 	if k.GlobalQuit.Enabled() {
 		b = append(b, k.GlobalQuit)
@@ -543,6 +605,9 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 	if k.RerunStage3.Enabled() {
 		b = append(b, k.RerunStage3)
+	}
+	if k.History.Enabled() {
+		b = append(b, k.History)
 	}
 	return [][]key.Binding{b}
 }

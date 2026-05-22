@@ -2,6 +2,10 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.54.1 — 2026-05-22
+
+Internal scaffolding for Unit 14's `msg.String()` → `key.Matches` migration. Populates `releaseKeys()` and `viewPortKeys()` with the release pipeline stage controls (`r`, `1`/`2`/`3`, `H`, `pgup`/`pgdown`) that have been matched via raw `msg.String()` since Unit 08 because the corresponding `KeyMap` fields were zero-valued in those variants. Adds a new `History` field to the `KeyMap` struct and wires it through `ShortHelp` / `FullHelp`. Writes the project's "use `key.Matches` with the active keymap as single source of truth" rule into `context/code-standards.md` so the historical footgun (`feedback_keymatch_zero_binding.md`) cannot be reintroduced silently. No user-visible change — dispatch in `update_release.go:374` still uses the `msg.String()` switch; Unit 14 will migrate it in one swap.
+
 ## v0.54.0 — 2026-05-20
 
 Post-v0.53.0 polish on the release configuration popup plus a new in-TUI popup for the changelog feature. Ships as one tag.
