@@ -137,10 +137,46 @@ Implementation: read up to 200 lines of the Makefile, regex-match `^([A-Za-z0-9_
 
 ## Verify when done
 
-- [ ] `go build ./...` passes, `go vet ./...` clean.
-- [ ] Open the popup on `/tmp/cc-test/repo`. Eight fields visible. Repository/Branch/Version/Assets pre-fill as before; `Auto build` defaults to `[ ] auto`; `Build tool` shows `make` when a Makefile exists; `Build target` shows the detected target.
-- [ ] Typing in the GH_TOKEN field shows `*` per character, not the actual letter.
-- [ ] The footer hint uses theme help styles (keys highlighted, descriptions muted, `·` separator from the theme — visually identical to the bottom-of-screen help line).
-- [ ] Ctrl+X anywhere inside the popup quits the TUI cleanly (autodraft fires).
-- [ ] Save persists `auto_build`/`build_tool`/`build_target` into `.commitcraft.toml`.
-- [ ] No regression: existing pre-flight auto-open from the upload path still works.
+- [x] `go build ./...` passes, `go vet ./...` clean.
+- [x] Open the popup on `/tmp/cc-test/repo`. Eight fields visible. Repository/Branch/Version/Assets pre-fill as before; `Auto build` defaults to `[ ] auto`; `Build tool` shows `make` when a Makefile exists; `Build target` shows the detected target.
+- [x] Typing in the GH_TOKEN field shows `*` per character, not the actual letter. (Real root cause documented below — Component B was the wrong hypothesis.)
+- [x] The footer hint uses theme help styles (keys highlighted, descriptions muted, `·` separator from the theme — visually identical to the bottom-of-screen help line).
+- [x] Ctrl+X anywhere inside the popup quits the TUI cleanly (autodraft fires).
+- [x] Save persists `auto_build`/`build_tool`/`build_target` into `.commitcraft.toml`.
+- [x] No regression: existing pre-flight auto-open from the upload path still works.
+
+## Post-implementation notes (2026-05-20 / 2026-05-22)
+
+The shipping implementation grew beyond the original spec in four ways. Captured here so the spec stays usable as a reading entry point.
+
+### Component B was a misdiagnosis — the "g" was the placeholder
+
+The hypothesis was that `textinput.EchoPassword` was failing to mask. Isolation tests proved the mask worked correctly. The actual culprit was bubbles' `placeholderView`: when no `Width()` is set on the textinput, it only paints `Width()+1 == 1` runes of the placeholder. With `Placeholder = "ghp_..."` that single rune is `g`, rendered muted (unfocused) or in cursor-reverse (focused). The screenshot the user flagged was the static placeholder, not a typed/unmasked char.
+
+**Implemented fix:** drop the placeholder for the GH_TOKEN row entirely. The hint label underneath already explains what to put there. `EchoCharacter='*'` stays as defensive insurance.
+
+### Configured-state indicator on GH_TOKEN
+
+Once the placeholder was gone, a new gap appeared: an empty input with no placeholder doesn't tell the user whether the token is configured. Added a render branch — when `detected.GhTokenSet == true` and the input value is empty (no typed replacement) the row paints `  ✓ stored — type to replace` (success color + muted italic suffix). As soon as the user types anything, the regular masked textinput takes over.
+
+### In-popup list picker on Enter for build_tool / build_target
+
+Spec didn't anticipate this affordance. After the user shipped v0.53.0 they asked for a list-picker on Enter so the auto-detected value isn't a take-it-or-leave-it. Implementation:
+
+- New struct fields on `releaseConfigPopupModel`: `pickerActive`, `pickerField`, `pickerOptions`, `pickerIndex`, plus cached `buildToolChoices` / `buildTargetChoices` populated at popup construction time.
+- New helper `openPicker(field, options)`. Enter on the build_tool or build_target field arms it; the picker grabs Up/Down/k/j, Enter commits the highlighted option, Esc cancels.
+- Picker is rendered inline where the textinput would go via `renderFieldPicker` so spatial context stays put.
+- New helpers in `release_config_detect.go`: `ListMakefileTargets(pwd)` (all non-phony targets in source order) and `ListBuildTools()` (just `["make"]` today; extension point for future).
+- The help footer (`renderHelpFooter`) now branches on `pickerActive` and on focused field so the advertised keys match the current mode.
+
+### +20 % sizing + nerd-font icons + palette spacing
+
+Three smaller polish items captured here for completeness:
+
+- `openReleaseConfigPopup` and `openChangelogConfigPopup` switched from `width/2` + `height*3/4` to `width*3/5` (floor 72, ceiling 108) + `height*9/10` so the new fields breathe.
+- New `styles.Symbols` fields `ConfigureRelease` / `ConfigureChangelog` / `BuildTool` / `TokenIcon` / `BranchIcon` (with ASCII fallbacks). Both popup titles, every field label, and the four command-palette entries lead with the matching glyph.
+- The command-palette delegate (`commandPaletteDelegate.Render`) joins the icon and the title with two spaces instead of one — nerd-font glyphs are wider than ASCII so a single space looked cramped.
+
+### Footnote on Component D
+
+The Ctrl+X carve-out for `releaseConfigPopupModel` was removed as designed. The version popup (`versionPopupModel`) keeps its carve-out because Ctrl+X is its dedicated version-decrement shortcut. Inside the release config popup, Ctrl+A still bumps the version segment under the cursor on the Version field; the Ctrl+X decrement was dropped along with the carve-out (use Ctrl+A repeatedly or edit manually).

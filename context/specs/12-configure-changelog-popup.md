@@ -109,11 +109,17 @@ The release popup auto-opens before an upload when required config is missing. T
 
 ## Verify when done
 
-- [ ] `go build ./...` passes.
-- [ ] Command palette → "Configure changelog" opens the popup with 5 fields. Defaults pre-filled (path detected, bump suggested, model placeholder).
-- [ ] Toggle `enabled` with `space`; Tab cycles fields; Esc closes; Enter on last field saves.
-- [ ] Saving with `bump_strategy = "weird"` shows an inline error and does not write disk.
-- [ ] Saving with valid values writes the `[changelog]` table into `.commitcraft.toml` exactly once (no duplicate sections after multiple saves).
-- [ ] On next `commitcraft` start, the popup re-opens pre-filled with the values just saved.
-- [ ] Footer hint uses `theme.AppStyles().Help`.
-- [ ] Ctrl+X quits cleanly from inside the popup.
+- [x] `go build ./...` passes.
+- [x] Command palette → "Configure changelog" opens the popup with 5 fields. Defaults pre-filled (path detected, bump suggested, model placeholder).
+- [x] Toggle `enabled` with `space`; Tab cycles fields; Esc closes; Enter on last field saves.
+- [x] Saving with `bump_strategy = "weird"` shows an inline error and does not write disk.
+- [x] Saving with valid values writes the `[changelog]` table into `.commitcraft.toml` exactly once (no duplicate sections after multiple saves).
+- [x] On next `commitcraft` start, the popup re-opens pre-filled with the values just saved.
+- [x] Footer hint uses `theme.AppStyles().Help`.
+- [x] Ctrl+X quits cleanly from inside the popup.
+
+## Post-implementation notes (2026-05-20)
+
+- Same nerd-font icon treatment as Unit 11: popup title leads with `ConfigureChangelog` (`nf-fa-file_text_alt`); per-field labels lead with `ConfigureChangelog` (Enabled / Path), `Tag` (Bump strategy), `CommitCraft` (Prompt file / Prompt model). ASCII fallbacks defined in `DefaultSymbols`.
+- Popup sizing matches Unit 11's +20 % so the two surfaces look balanced when the user pings back and forth via the command palette.
+- No list-picker affordance for this popup — `bump_strategy` is short enough to type and validate; `prompt_file` / `prompt_model` are open-ended strings without a small fixed candidate set. Can be added later if usage suggests it.
