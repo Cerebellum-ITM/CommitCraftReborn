@@ -21,6 +21,8 @@ type ReleaseDetect struct {
 	SuggestedVersion string // BumpVersionPatch(LastTag) or "v0.1.0"
 	AssetsPath       string // first of "bin", "build", "dist" that exists, else ""
 	GhTokenSet       bool   // does the env already have GH_TOKEN?
+	BuildTool        string // "make" when a Makefile is present, else ""
+	BuildTarget      string // detected Makefile target (build_release / build / release)
 }
 
 // DetectRelease runs the read-only detection probes against `pwd` and
@@ -42,7 +44,75 @@ func DetectRelease(pwd string) ReleaseDetect {
 	if d.SuggestedVersion == "" {
 		d.SuggestedVersion = "v0.1.0"
 	}
+	d.BuildTool, d.BuildTarget = detectMakefileTarget(pwd)
 	return d
+}
+
+// makefileTargetRegex captures the leading word of any Makefile target
+// declaration (`name:` or `name :` at the start of a line). Used by
+// detectMakefileTarget to surface candidate build targets for the
+// release config popup.
+var makefileTargetRegex = regexp.MustCompile(`(?m)^([A-Za-z0-9_.-]+)\s*:`)
+
+// detectMakefileTarget scans a Makefile in `pwd` and returns the build
+// tool name plus the most likely build target. Preference order, from
+// strongest to weakest match: `build_release`, `release`, `build`. If no
+// preferred target is present but the Makefile exists, return tool
+// "make" with empty target so the user can fill it in. If no Makefile
+// at all, return ("", "").
+func detectMakefileTarget(pwd string) (string, string) {
+	targets := ListMakefileTargets(pwd)
+	if targets == nil {
+		return "", ""
+	}
+	have := map[string]bool{}
+	for _, t := range targets {
+		have[strings.ToLower(t)] = true
+	}
+	for _, preferred := range []string{"build_release", "release", "build"} {
+		if have[preferred] {
+			return "make", preferred
+		}
+	}
+	return "make", ""
+}
+
+// ListMakefileTargets returns every target declared in `pwd/Makefile`
+// in source order (case-preserving, deduped). Returns nil when no
+// Makefile exists. Phony names that start with `.` (like `.PHONY`) are
+// skipped. Used by the release config popup's build_target picker.
+func ListMakefileTargets(pwd string) []string {
+	path := filepath.Join(pwd, "Makefile")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range makefileTargetRegex.FindAllStringSubmatch(string(data), -1) {
+		if len(m) < 2 {
+			continue
+		}
+		name := m[1]
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		key := strings.ToLower(name)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, name)
+	}
+	return out
+}
+
+// ListBuildTools returns the build tools CommitCraft can drive today.
+// The release config popup opens this list on Enter for the build_tool
+// field so the user gets discoverability even though `make` is the
+// only entry — future tools land here without UI changes.
+func ListBuildTools() []string {
+	return []string{"make"}
 }
 
 // repoRegex captures the trailing `owner/repo` portion of any github URL,

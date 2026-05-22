@@ -304,6 +304,9 @@ func (model *Model) View() tea.View {
 	case releaseConfigPopupModel:
 		ok = true
 		popupView = popupModel.View()
+	case changelogConfigPopupModel:
+		ok = true
+		popupView = popupModel.View()
 	case commitTypePopupModel:
 		ok = true
 		popupView = popupModel.View()

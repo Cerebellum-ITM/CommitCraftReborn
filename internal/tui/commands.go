@@ -99,25 +99,66 @@ func callIaReleaseCascadeCmd(model *Model, from stageID) tea.Cmd {
 // `autoOpen` flag flows through to releaseConfigSavedMsg so the
 // upload-chain handler can resume the upload after the save.
 func openReleaseConfigPopup(model *Model, autoOpen bool) releaseConfigPopupModel {
-	w := model.width / 2
-	if w < 60 {
-		w = 60
+	// Sized 20 % larger than the v0.53.0 release-config popup: the
+	// auto_build / build_tool / build_target additions plus the
+	// upcoming list-picker affordances need the extra breathing
+	// room. Floors / ceilings shift accordingly.
+	w := model.width * 3 / 5
+	if w < 72 {
+		w = 72
 	}
-	if w > 90 {
-		w = 90
+	if w > 108 {
+		w = 108
 	}
-	h := model.height * 3 / 4
-	if h < 24 {
-		h = 24
+	h := model.height * 9 / 10
+	if h < 29 {
+		h = 29
 	}
 	current := ReleaseConfigSnapshot{
-		Repository: model.globalConfig.ReleaseConfig.Repository,
-		Branch:     model.globalConfig.ReleaseConfig.Branch,
-		Version:    model.globalConfig.ReleaseConfig.Version,
-		AssetsPath: model.globalConfig.ReleaseConfig.BinaryAssetsPath,
+		Repository:  model.globalConfig.ReleaseConfig.Repository,
+		Branch:      model.globalConfig.ReleaseConfig.Branch,
+		Version:     model.globalConfig.ReleaseConfig.Version,
+		AssetsPath:  model.globalConfig.ReleaseConfig.BinaryAssetsPath,
+		AutoBuild:   model.globalConfig.ReleaseConfig.AutoBuild,
+		BuildTool:   model.globalConfig.ReleaseConfig.BuildTool,
+		BuildTarget: model.globalConfig.ReleaseConfig.BuildTarget,
 	}
 	detected := DetectRelease(model.pwd)
-	return newReleaseConfigPopup(w, h, model.Theme, current, detected, autoOpen)
+	tools := ListBuildTools()
+	targets := ListMakefileTargets(model.pwd)
+	return newReleaseConfigPopup(
+		w, h, model.Theme, current, detected, autoOpen, tools, targets,
+	)
+}
+
+// openChangelogConfigPopup mirrors openReleaseConfigPopup for the
+// ChangelogConfig. The popup pre-fills the inputs with whatever is
+// already in the live config and runs DetectChangelog for the
+// auto-detected defaults panel.
+func openChangelogConfigPopup(model *Model) changelogConfigPopupModel {
+	// Same +20 % sizing as openReleaseConfigPopup so the two popups
+	// look balanced when the user pings back and forth via the
+	// command palette.
+	w := model.width * 3 / 5
+	if w < 72 {
+		w = 72
+	}
+	if w > 108 {
+		w = 108
+	}
+	h := model.height * 9 / 10
+	if h < 27 {
+		h = 27
+	}
+	current := ChangelogConfigSnapshot{
+		Enabled:      model.globalConfig.Changelog.Enabled,
+		Path:         model.globalConfig.Changelog.Path,
+		BumpStrategy: model.globalConfig.Changelog.BumpStrategy,
+		PromptFile:   model.globalConfig.Changelog.PromptFile,
+		PromptModel:  model.globalConfig.Changelog.PromptModel,
+	}
+	detected := DetectChangelog(model.pwd)
+	return newChangelogConfigPopup(w, h, model.Theme, current, detected)
 }
 
 func openVersionEditor(model *Model) versionPopupModel {

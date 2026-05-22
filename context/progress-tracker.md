@@ -30,11 +30,11 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- Unit 07 (slim) + Unit 10 — landing together on `feat/release-flow-cleanup` to close out the release feat.
+- Units 11 (`configure-release-popup-polish`) + 12 (`configure-changelog-popup`) — code complete on `feat/release-config-polish` as v0.54.0. Awaiting user review before merge.
 
 ## Next Up
 
-- After 07 + 10 land: merge `feat/release-flow-cleanup` → `main` (manual MERGE commit; the branch carries too much delta to thread through the commitcraft skill), then create a documented GitHub release.
+- After 11 + 12 land: merge `feat/release-config-polish` → `main` with proper `[MERGE]` title; tag + GitHub release.
 - Post-release: headless CLI `--plain` mode question, broader test coverage, any commit-mode bugs surfaced during release work.
 
 ## Open Questions
@@ -54,6 +54,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- 2026-05-22 — **Units 11 + 12 code-complete** on `feat/release-config-polish`. Four commits land the popup polish plus the changelog popup: `21a0479` (initial Units 11+12), `10ff474` (token-mask root cause + popup sizing + list picker + nerd-font icons), `82477b9` (configured-state indicator on GH_TOKEN + palette icon spacing), `<this commit>` (spec post-implementation notes). Spec 11's Component B hypothesis (EchoMode masking failure) was wrong — the "g" was the bubbles `placeholderView` rendering one rune from `"ghp_..."` because no width was set. Fix: drop the placeholder; add a `✓ stored — type to replace` row when `detected.GhTokenSet`. Awaiting user review before merging to main as v0.54.0.
 - 2026-05-19 — **Units 05, 09 already shipped** on this branch (commits `409e1f2`, `44646d1` + spec docs `d79b98b`, `a90307d`).
 - 2026-05-19 — **Unit 06 withdrawn.** Started writing spec/impl, then a re-trace of `update.go:554`'s `case "Release Commit"` revealed it's dispatched from the *post-pipeline* popup in `stateReleaseBuildingText` (`update_release.go:434`), not from `stateReleaseMainMenu`. `releaseText` is always populated by the cascade before `createRelease` runs. The "bug" was a misread of the call graph. Reverted all changes; build plan annotated.
 - 2026-05-19 — **Unit 07 trimmed.** `v0.51.2` (`bd41cf7`) already replaced `sh -c` with `exec.Command("gh", ...)`, guarded the asset walk on empty path, and switched to `--notes-file`. Remaining work is one `LevelInfo` status-bar message when uploading without assets.

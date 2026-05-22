@@ -127,6 +127,24 @@ type Symbols struct {
 	RewordChooserCommit string
 	RewordChooserMerge  string
 	RewordChooserDb     string
+	// ConfigureRelease (nf-fa-rocket, U+F135) is the command-palette
+	// and popup-title icon for the release configuration surface.
+	// Falls back to "↑" without nerd fonts so the palette row keeps
+	// its visual rhythm.
+	ConfigureRelease string
+	// ConfigureChangelog (nf-fa-file_text_alt, U+F0F6) is the
+	// command-palette and popup-title icon for the changelog
+	// configuration surface. Falls back to "≡" without nerd fonts.
+	ConfigureChangelog string
+	// BuildTool (nf-fa-wrench, U+F0AD) is the per-field glyph next
+	// to the build_tool / build_target inputs. Falls back to "~".
+	BuildTool string
+	// TokenIcon (nf-fa-key, U+F084) labels the GH_TOKEN row. Falls
+	// back to "@" without nerd fonts.
+	TokenIcon string
+	// BranchIcon (nf-fa-code_branch, U+F126) labels the Branch and
+	// repository rows in the release config popup. Falls back to "%".
+	BranchIcon string
 }
 
 type Styles struct {

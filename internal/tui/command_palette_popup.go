@@ -33,37 +33,37 @@ const (
 	cmdGenerateLocalConfig = "config.local.create"
 	cmdShowTagPalette      = "tags.show"
 	cmdConfigureRelease    = "release.configure"
+	cmdConfigureChangelog  = "changelog.configure"
 )
 
 // builtinCommands is the seed registry. Add entries here as new actions
 // become available; the palette renders them in declaration order.
-func builtinCommands(useNerdFonts bool) []paletteCommand {
-	cfg := ""
-	tags := ""
-	rel := ""
-	if !useNerdFonts {
-		cfg = "*"
-		tags = "#"
-		rel = "↑"
-	}
+func builtinCommands(theme *styles.Theme) []paletteCommand {
+	sym := theme.AppSymbols()
 	return []paletteCommand{
 		{
 			ID:          cmdGenerateLocalConfig,
 			Title:       "Generate local config file",
 			Description: "Create .commitcraft.toml in the current directory if missing",
-			Icon:        cfg,
+			Icon:        sym.LocalConfig,
 		},
 		{
 			ID:          cmdShowTagPalette,
 			Title:       "Show tag palette",
 			Description: "Open the color reference for every commit-type tag",
-			Icon:        tags,
+			Icon:        sym.Tag,
 		},
 		{
 			ID:          cmdConfigureRelease,
 			Title:       "Configure release",
 			Description: "Set repository, branch, version, assets path and GH_TOKEN",
-			Icon:        rel,
+			Icon:        sym.ConfigureRelease,
+		},
+		{
+			ID:          cmdConfigureChangelog,
+			Title:       "Configure changelog",
+			Description: "Toggle and tune the post-pipeline CHANGELOG entry",
+			Icon:        sym.ConfigureChangelog,
 		},
 	}
 }
@@ -118,7 +118,7 @@ func (d commandPaletteDelegate) Render(w io.Writer, m list.Model, index int, lis
 		lipgloss.Top,
 		cursor,
 		iconStyle.Render(icon),
-		" ",
+		"  ",
 		titleStyle.Render(it.cmd.Title),
 	)
 	descLine := "    " + descStyle.Render(it.cmd.Description)
@@ -137,7 +137,8 @@ func newCommandPalettePopup(
 	theme *styles.Theme,
 	useNerdFonts bool,
 ) commandPalettePopupModel {
-	cmds := builtinCommands(useNerdFonts)
+	_ = useNerdFonts
+	cmds := builtinCommands(theme)
 	items := make([]list.Item, len(cmds))
 	for i, c := range cmds {
 		items[i] = commandItem{cmd: c}
