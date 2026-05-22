@@ -30,12 +30,13 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- Units 11 (`configure-release-popup-polish`) + 12 (`configure-changelog-popup`) — code complete on `feat/release-config-polish` as v0.54.0. Awaiting user review before merge.
+- _(idle)_ — no feature work in flight. v0.54.0 shipped.
 
 ## Next Up
 
-- After 11 + 12 land: merge `feat/release-config-polish` → `main` with proper `[MERGE]` title; tag + GitHub release.
-- Post-release: headless CLI `--plain` mode question, broader test coverage, any commit-mode bugs surfaced during release work.
+- Headless CLI `--plain` mode question (open question below).
+- Broader test coverage.
+- Any commit-mode bugs surfaced during release work.
 
 ## Open Questions
 
@@ -54,6 +55,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- 2026-05-22 — **v0.54.0 shipped.** Merged `feat/release-config-polish` → `main` as `b854f66 [MERGE] feat/release-config-polish: Release config & changelog popups (v0.54.0)`. Cross-compiled three binaries via `make build_release`, tagged `v0.54.0` (annotated), pushed `main` + tag, published GitHub release with all three binaries at https://github.com/Cerebellum-ITM/CommitCraftReborn/releases/tag/v0.54.0. Feature branch deleted (local + remote).
 - 2026-05-22 — **Units 11 + 12 code-complete** on `feat/release-config-polish`. Four commits land the popup polish plus the changelog popup: `21a0479` (initial Units 11+12), `10ff474` (token-mask root cause + popup sizing + list picker + nerd-font icons), `82477b9` (configured-state indicator on GH_TOKEN + palette icon spacing), `<this commit>` (spec post-implementation notes). Spec 11's Component B hypothesis (EchoMode masking failure) was wrong — the "g" was the bubbles `placeholderView` rendering one rune from `"ghp_..."` because no width was set. Fix: drop the placeholder; add a `✓ stored — type to replace` row when `detected.GhTokenSet`. Awaiting user review before merging to main as v0.54.0.
 - 2026-05-19 — **Units 05, 09 already shipped** on this branch (commits `409e1f2`, `44646d1` + spec docs `d79b98b`, `a90307d`).
 - 2026-05-19 — **Unit 06 withdrawn.** Started writing spec/impl, then a re-trace of `update.go:554`'s `case "Release Commit"` revealed it's dispatched from the *post-pipeline* popup in `stateReleaseBuildingText` (`update_release.go:434`), not from `stateReleaseMainMenu`. `releaseText` is always populated by the cascade before `createRelease` runs. The "bug" was a misread of the call graph. Reverted all changes; build plan annotated.
