@@ -43,7 +43,7 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		// workspace history flow: empty query → just swap the pill;
 		// non-empty → reset+set so DefaultFilter re-runs against the new
 		// FilterValue source.
-		if msg.String() == "ctrl+f" {
+		if key.Matches(msg, model.keys.CycleFilterMode) {
 			model.releaseHistoryView.CycleFilterMode()
 			val := model.releaseHistoryView.FilterValue()
 			if val == "" {
@@ -61,14 +61,14 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		// Enter blurs; every other key forwards to the input and the
 		// master list filter is kept in sync.
 		if model.releaseHistoryView.IsFilterFocused() {
-			switch msg.String() {
-			case "esc":
+			switch {
+			case key.Matches(msg, model.keys.Esc):
 				model.releaseHistoryView.ResetFilter()
 				model.releaseHistoryView.BlurFilter()
 				model.releaseMainList.SetFilterText("")
 				model.releaseMainList.SetFilterState(list.Unfiltered)
 				return model, nil
-			case "enter":
+			case key.Matches(msg, model.keys.Enter):
 				model.releaseHistoryView.BlurFilter()
 				return model, nil
 			}
@@ -85,8 +85,8 @@ func updateReleaseMainMenu(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			return model, cmd
 		}
-		switch msg.String() {
-		case "pgup", "pgdown", "ctrl+up", "ctrl+down":
+		switch {
+		case key.Matches(msg, model.keys.PgUp), key.Matches(msg, model.keys.PgDown):
 			panelCmd := model.releaseHistoryView.UpdatePanel(msg)
 			return model, panelCmd
 		}
@@ -364,30 +364,22 @@ func updateReleaseBuildingText(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		// to pipelineReleaseRetryStage which only resets the affected
 		// stages and feeds the cascade through the partial-cascade
 		// runner; full retry (`r`) is just stage-1 retry.
-		//
-		// Match by raw `msg.String()` rather than `key.Matches`: the
-		// active keymap in this state is `releaseKeys()`, which leaves
-		// Toggle / RerunStageN / PgUp / PgDown unbound. Reading the
-		// raw string keeps the bindings working without forcing every
-		// caller of `model.keys` to grow extra fields it doesn't use
-		// elsewhere.
-		switch msg.String() {
-		case "H":
+		switch {
+		case key.Matches(msg, model.keys.History):
 			return model, openStageHistoryPopup(model, model.pipeline.focusedStage)
-		case "r":
+		case key.Matches(msg, model.keys.Toggle),
+			key.Matches(msg, model.keys.RerunStage1):
 			return model, model.pipelineReleaseRetryStage(stageSummary)
-		case "1":
-			return model, model.pipelineReleaseRetryStage(stageSummary)
-		case "2":
+		case key.Matches(msg, model.keys.RerunStage2):
 			return model, model.pipelineReleaseRetryStage(stageBody)
-		case "3":
+		case key.Matches(msg, model.keys.RerunStage3):
 			return model, model.pipelineReleaseRetryStage(stageTitle)
-		case "pgup":
+		case key.Matches(msg, model.keys.PgUp):
 			if vp := model.stageViewportModel(model.pipeline.focusedStage); vp != nil {
 				vp.HalfPageUp()
 			}
 			return model, nil
-		case "pgdown":
+		case key.Matches(msg, model.keys.PgDown):
 			if vp := model.stageViewportModel(model.pipeline.focusedStage); vp != nil {
 				vp.HalfPageDown()
 			}
@@ -568,7 +560,7 @@ func updateReleaseChoosingCommits(msg tea.Msg, model *Model) (tea.Model, tea.Cmd
 		// FilterValue (Subject/Hash/Type/Tag) is evaluated against the
 		// existing items immediately — without it, the visible set
 		// would only refresh on the next keystroke.
-		if msg.String() == "ctrl+f" {
+		if key.Matches(msg, model.keys.CycleFilterMode) {
 			model.releaseChooseFilterBar.CycleMode()
 			applyReleaseChooseModeFilter(model)
 			return model, nil

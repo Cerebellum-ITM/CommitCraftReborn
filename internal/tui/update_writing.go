@@ -195,13 +195,13 @@ func handleTypeSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cm
 	if len(model.finalCommitTypes) == 0 {
 		return false, model, nil
 	}
-	switch msg.String() {
-	case "left", "h":
+	switch {
+	case key.Matches(msg, model.keys.Left):
 		i := indexOfCommitType(model.finalCommitTypes, model.commitType)
 		i = (i - 1 + len(model.finalCommitTypes)) % len(model.finalCommitTypes)
 		model.commitType = model.finalCommitTypes[i].Tag
 		return true, model, nil
-	case "right", "l":
+	case key.Matches(msg, model.keys.Right):
 		i := indexOfCommitType(model.finalCommitTypes, model.commitType)
 		i = (i + 1) % len(model.finalCommitTypes)
 		model.commitType = model.finalCommitTypes[i].Tag
@@ -214,10 +214,19 @@ func handleTypeSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cm
 // the scope section has focus. Scope is single-value, so navigation keys
 // are no-ops; e/Enter opens the picker and x clears the current scope.
 func handleScopeSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "x", "backspace", "delete":
+	switch {
+	case key.Matches(msg, model.keys.ClearField):
 		model.resetScopes()
 		return true, model, nil
+	}
+	// `e` is a focus-contextual shortcut for opening the scope picker —
+	// not advertised in the `?` popup, so per the standards rule
+	// (context/code-standards.md "Keyboard Dispatch") it stays as
+	// msg.String(). `enter` could route through model.keys.Enter, but
+	// keeping both keys together preserves the per-focus dispatch
+	// semantics (Enter means "open scope picker" only when scope has
+	// focus; elsewhere it means "accept AI suggestion").
+	switch msg.String() {
 	case "e", "enter":
 		startPwd := model.gitStatusData.Root
 		if startPwd == "" {
@@ -243,15 +252,15 @@ func handleKeypointsSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Model, t
 	if len(model.keyPoints) == 0 {
 		return false, model, nil
 	}
-	switch msg.String() {
-	case "up", "k", "left", "h":
+	switch {
+	case key.Matches(msg, model.keys.Up), key.Matches(msg, model.keys.Left):
 		model.keypointIndex = (model.keypointIndex - 1 + len(model.keyPoints)) %
 			len(model.keyPoints)
 		return true, model, nil
-	case "down", "j", "right", "l":
+	case key.Matches(msg, model.keys.Down), key.Matches(msg, model.keys.Right):
 		model.keypointIndex = (model.keypointIndex + 1) % len(model.keyPoints)
 		return true, model, nil
-	case "x", "backspace", "delete":
+	case key.Matches(msg, model.keys.ClearField):
 		i := model.keypointIndex
 		if i < 0 || i >= len(model.keyPoints) {
 			return true, model, nil
@@ -279,19 +288,19 @@ func handlePipelineModelsSectionKey(model *Model, msg tea.KeyMsg) (bool, tea.Mod
 	if model.pipelineModelStageIndex >= len(stages) {
 		model.pipelineModelStageIndex = 0
 	}
-	switch msg.String() {
-	case "up", "k", "left", "h":
+	switch {
+	case key.Matches(msg, model.keys.Up), key.Matches(msg, model.keys.Left):
 		model.pipelineModelStageIndex = (model.pipelineModelStageIndex - 1 + len(stages)) % len(
 			stages,
 		)
 		return true, model, nil
-	case "down", "j", "right", "l":
+	case key.Matches(msg, model.keys.Down), key.Matches(msg, model.keys.Right):
 		model.pipelineModelStageIndex = (model.pipelineModelStageIndex + 1) % len(stages)
 		return true, model, nil
-	case "enter":
+	case key.Matches(msg, model.keys.Enter):
 		entry := stages[model.pipelineModelStageIndex]
 		return true, model, openModelPickerCmd(model, entry.stage, entry.label)
-	case "H":
+	case key.Matches(msg, model.keys.History):
 		entry := stages[model.pipelineModelStageIndex]
 		if id, ok := stageIDForModelStage(entry.stage); ok {
 			return true, model, openStageHistoryPopup(model, id)

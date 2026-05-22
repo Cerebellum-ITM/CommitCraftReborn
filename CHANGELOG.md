@@ -2,6 +2,16 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.55.0 — 2026-05-22
+
+Migrate every main-matcher shortcut dispatch in `internal/tui/update_*.go` from raw `msg.String()` checks to `key.Matches` against the active `KeyMap`. Touches the `ctrl+f` filter-mode cycler (workspace history + release history + release commit picker), the `esc`/`enter` handlers inside the focused filter bar, the `pgup`/`pgdown`/`ctrl+up`/`ctrl+down` panel-scroll dispatchers, the release-pipeline stage controls (`r`, `1`/`2`/`3`, `H`, `pgup`/`pgdown` — the original Unit 08 workaround), the commit-pipeline `H` (stage history), and the compose-tab per-focus handlers (commit-type cycle, scope clear, keypoints nav, pipeline-models nav). Adds two new `KeyMap` fields (`CycleFilterMode` for `ctrl+f`, `ClearField` for `x`/`backspace`/`delete`) and populates `mainListKeys()` / `releaseMainListKeys()` / `releaseKeys()` / `writingMessageKeys()` / `pipelineKeys()` accordingly so every binding the handlers reference has a real key.Binding behind it. Rewrites `keybindings_popup.go` so the four per-state popup builders read the key strings via `binding.Help().Key` from the active `KeyMap` instead of duplicating literals — a binding rename now propagates to the `?` popup automatically.
+
+The remaining `msg.String()` hits in `internal/tui/` are intentional carve-outs per the new "Keyboard Dispatch" rule in `context/code-standards.md`: mention `@` extraction (`update_writing.go:43`), the `e`/`enter` scope-picker shortcut that isn't advertised in `?`, popup-close handlers in transient popups (`diffview_popup.go`, `mention_popup.go`, `keybindings_popup.go`), the scroll inside `history_dual_panel.go`, and the global guards in `update.go:1049-1115` (`ctrl+x` / `ctrl+l` / `ctrl+k` / `ctrl+1-3`).
+
+### Usage
+
+No user-visible behavior change. All shortcuts that worked in v0.54.1 continue to work in v0.55.0; the `?` popup now stays in sync with the keymap automatically and surfaces the actual bindings (so e.g. the stale `d / x` delete label is gone — only `d` is shown, matching the real `Delete` binding).
+
 ## v0.54.1 — 2026-05-22
 
 Internal scaffolding for Unit 14's `msg.String()` → `key.Matches` migration. Populates `releaseKeys()` and `viewPortKeys()` with the release pipeline stage controls (`r`, `1`/`2`/`3`, `H`, `pgup`/`pgdown`) that have been matched via raw `msg.String()` since Unit 08 because the corresponding `KeyMap` fields were zero-valued in those variants. Adds a new `History` field to the `KeyMap` struct and wires it through `ShortHelp` / `FullHelp`. Writes the project's "use `key.Matches` with the active keymap as single source of truth" rule into `context/code-standards.md` so the historical footgun (`feedback_keymatch_zero_binding.md`) cannot be reintroduced silently. No user-visible change — dispatch in `update_release.go:374` still uses the `msg.String()` switch; Unit 14 will migrate it in one swap.

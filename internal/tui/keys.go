@@ -20,27 +20,29 @@ type KeyMap struct {
 	NextViewPort key.Binding
 
 	// General
-	Enter          key.Binding
-	Delete         key.Binding
-	Quit           key.Binding
-	GlobalQuit     key.Binding
-	Toggle         key.Binding
-	Help           key.Binding
-	History        key.Binding
-	Esc            key.Binding
-	Filter         key.Binding
-	Logs           key.Binding
-	AddCommit      key.Binding
-	AddCommitKey   key.Binding
-	CreateIaCommit key.Binding
-	SaveDraft      key.Binding
-	Edit           key.Binding
-	EditIaCommit   key.Binding
-	ReleaseCommit  key.Binding
-	ToggleDrafts   key.Binding
-	SwapMode       key.Binding
-	CycleNext      key.Binding
-	CyclePrev      key.Binding
+	Enter           key.Binding
+	Delete          key.Binding
+	Quit            key.Binding
+	GlobalQuit      key.Binding
+	Toggle          key.Binding
+	Help            key.Binding
+	History         key.Binding
+	Esc             key.Binding
+	Filter          key.Binding
+	CycleFilterMode key.Binding
+	ClearField      key.Binding
+	Logs            key.Binding
+	AddCommit       key.Binding
+	AddCommitKey    key.Binding
+	CreateIaCommit  key.Binding
+	SaveDraft       key.Binding
+	Edit            key.Binding
+	EditIaCommit    key.Binding
+	ReleaseCommit   key.Binding
+	ToggleDrafts    key.Binding
+	SwapMode        key.Binding
+	CycleNext       key.Binding
+	CyclePrev       key.Binding
 
 	// TextArea
 	insertLine      key.Binding
@@ -97,9 +99,15 @@ func writingMessageKeys() KeyMap {
 			key.WithKeys("alt+tab", "insert"),
 			key.WithHelp("alt+tab or insert", "add new line"),
 		),
-		Esc:  key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
-		Up:   key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-		Down: key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Esc:   key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		Up:    key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
+		Down:  key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
+		Left:  key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "prev")),
+		Right: key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "next")),
+		ClearField: key.NewBinding(
+			key.WithKeys("x", "backspace", "delete"),
+			key.WithHelp("x/⌫", "clear / remove"),
+		),
 		PgUp: key.NewBinding(
 			key.WithKeys("pgup"),
 			key.WithHelp("pgup", "Scroll keypoints up"),
@@ -127,6 +135,10 @@ func writingMessageKeys() KeyMap {
 			key.WithKeys("3"),
 			key.WithHelp("3", "Re-run Stage 3"),
 			key.WithDisabled(),
+		),
+		History: key.NewBinding(
+			key.WithKeys("H"),
+			key.WithHelp("H", "stage history"),
 		),
 	}
 }
@@ -186,7 +198,19 @@ func mainListKeys() KeyMap {
 		// Logs:       key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "show logs")),
 		ReleaseCommit: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "Create a release")),
 		Filter:        key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
-		// Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+		CycleFilterMode: key.NewBinding(
+			key.WithKeys("ctrl+f"),
+			key.WithHelp("ctrl+f", "cycle filter mode"),
+		),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup", "ctrl+up"),
+			key.WithHelp("pgup/ctrl+↑", "scroll inspect panel up"),
+		),
+		PgDown: key.NewBinding(
+			key.WithKeys("pgdown", "ctrl+down"),
+			key.WithHelp("pgdown/ctrl+↓", "scroll inspect panel down"),
+		),
+		Esc: key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
 		CreateLocalTomlConfig: key.NewBinding(
 			key.WithKeys("ctrl+c"),
 			key.WithHelp("ctrl+c", "Create local config template file"),
@@ -239,6 +263,19 @@ func releaseMainListKeys() KeyMap {
 		Quit:       key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		GlobalQuit: key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "quit")),
 		Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+		Esc:        key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
+		CycleFilterMode: key.NewBinding(
+			key.WithKeys("ctrl+f"),
+			key.WithHelp("ctrl+f", "cycle filter mode"),
+		),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup", "ctrl+up"),
+			key.WithHelp("pgup/ctrl+↑", "scroll inspect panel up"),
+		),
+		PgDown: key.NewBinding(
+			key.WithKeys("pgdown", "ctrl+down"),
+			key.WithHelp("pgdown/ctrl+↓", "scroll inspect panel down"),
+		),
 		SwitchMode: key.NewBinding(
 			key.WithKeys("ctrl+s"),
 			key.WithHelp("ctrl+s", "Switch Mode"),
@@ -301,12 +338,12 @@ func releaseKeys() KeyMap {
 			key.WithKeys("ctrl+e"),
 			key.WithHelp("ctrl+e", "Swap inspect mode"),
 		),
+		CycleFilterMode: key.NewBinding(
+			key.WithKeys("ctrl+f"),
+			key.WithHelp("ctrl+f", "cycle filter mode"),
+		),
 
-		// Release pipeline stage controls (mirror pipelineKeys()). The
-		// dispatch in update_release.go still uses raw msg.String() until
-		// Unit 14 migrates it to key.Matches; populating the fields here
-		// makes that migration a one-shot textual swap without behavior
-		// change in Unit 13.
+		// Release pipeline stage controls (mirror pipelineKeys()).
 		Toggle: key.NewBinding(
 			key.WithKeys("r"),
 			key.WithHelp("r", "retry pipeline"),

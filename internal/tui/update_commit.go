@@ -144,7 +144,7 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		// it just swaps the mode pill; when there is an active query we
 		// re-apply it so DefaultFilter re-runs against the new
 		// FilterValue strings.
-		if msg.String() == "ctrl+f" {
+		if key.Matches(msg, model.keys.CycleFilterMode) {
 			model.historyView.CycleFilterMode()
 			val := model.historyView.FilterValue()
 			if val == "" {
@@ -166,14 +166,14 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 		// list); every other key is forwarded and the master list's filter is
 		// kept in sync after each value change.
 		if model.historyView.IsFilterFocused() {
-			switch msg.String() {
-			case "esc":
+			switch {
+			case key.Matches(msg, model.keys.Esc):
 				model.historyView.ResetFilter()
 				model.historyView.BlurFilter()
 				model.mainList.SetFilterText("")
 				model.mainList.SetFilterState(list.Unfiltered)
 				return model, nil
-			case "enter":
+			case key.Matches(msg, model.keys.Enter):
 				model.historyView.BlurFilter()
 				return model, nil
 			}
@@ -190,8 +190,8 @@ func updateChoosingCommit(msg tea.Msg, model *Model) (tea.Model, tea.Cmd) {
 			}
 			return model, cmd
 		}
-		switch msg.String() {
-		case "pgup", "pgdown", "ctrl+up", "ctrl+down":
+		switch {
+		case key.Matches(msg, model.keys.PgUp), key.Matches(msg, model.keys.PgDown):
 			panelCmd := model.historyView.UpdatePanel(msg)
 			return model, panelCmd
 		}
