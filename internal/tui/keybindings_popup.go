@@ -3,11 +3,29 @@ package tui
 import (
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"commit_craft_reborn/internal/tui/styles"
 )
+
+// bindKeys joins the rendered Help().Key of each enabled binding with the
+// help-style separator. Used by the per-state popup builders so the key
+// column reflects whatever is actually populated in the active KeyMap —
+// a binding rename propagates here automatically.
+func bindKeys(bs ...key.Binding) string {
+	parts := make([]string, 0, len(bs))
+	for _, b := range bs {
+		if !b.Enabled() {
+			continue
+		}
+		if k := b.Help().Key; k != "" {
+			parts = append(parts, k)
+		}
+	}
+	return strings.Join(parts, " · ")
+}
 
 // closeKeybindingsPopupMsg dismisses the keybindings popup.
 type closeKeybindingsPopupMsg struct{}
@@ -121,19 +139,21 @@ func (m keybindingsPopupModel) View() tea.View {
 	return tea.NewView(boxStyle.Render(body))
 }
 
-// keybindingsForState returns the popup contents for states that surface the
-// `?` shortcut. The second return value is false for states that should keep
-// the bubbles help.ShowAll fallback (compose / release views).
-func keybindingsForState(s appState) ([]keybindingGroup, bool) {
+// keybindingsForState returns the popup contents for states that surface
+// the `?` shortcut. The active `KeyMap` (model.keys) is the single source
+// of truth for displayed key strings; descriptions remain contextual.
+// The second return value is false for states that should keep the
+// bubbles `help.ShowAll` fallback (compose / release views).
+func keybindingsForState(s appState, k KeyMap) ([]keybindingGroup, bool) {
 	switch s {
 	case stateChoosingCommit:
-		return workspaceKeybindings(), true
+		return workspaceKeybindings(k), true
 	case stateReleaseMainMenu:
-		return releaseKeybindings(), true
+		return releaseKeybindings(k), true
 	case stateReleaseChoosingCommits:
-		return releaseChooseCommitsKeybindings(), true
+		return releaseChooseCommitsKeybindings(k), true
 	case stateReleaseBuildingText:
-		return releaseBuildingTextKeybindings(), true
+		return releaseBuildingTextKeybindings(k), true
 	}
 	return nil, false
 }
@@ -142,34 +162,37 @@ func keybindingsForState(s appState) ([]keybindingGroup, bool) {
 // view. Tab cycles between stage cards (and the final card once the
 // refine stage finishes); Esc walks back to the picker without
 // re-running the pipeline.
-func releaseBuildingTextKeybindings() []keybindingGroup {
+func releaseBuildingTextKeybindings(k KeyMap) []keybindingGroup {
 	return []keybindingGroup{
 		{
 			title: "Navigate",
 			entries: []helpEntry{
-				{"tab / shift+tab", "cycle stage cards (body → title → refine → final)"},
-				{"pgup / pgdn", "scroll the focused stage's output"},
-				{"esc", "back to commit picker (or cancel a running pipeline)"},
+				{
+					bindKeys(k.NextField, k.PrevField),
+					"cycle stage cards (body → title → refine → final)",
+				},
+				{bindKeys(k.PgUp, k.PgDown), "scroll the focused stage's output"},
+				{bindKeys(k.Esc), "back to commit picker (or cancel a running pipeline)"},
 			},
 		},
 		{
 			title: "Pipeline",
 			entries: []helpEntry{
-				{"↵", "open create-release menu (after stage 3 finishes)"},
-				{"r", "retry the full pipeline (body → title → refine)"},
+				{bindKeys(k.Enter), "open create-release menu (after stage 3 finishes)"},
+				{bindKeys(k.Toggle), "retry the full pipeline (body → title → refine)"},
 				{
-					"1 / 2 / 3",
+					bindKeys(k.RerunStage1, k.RerunStage2, k.RerunStage3),
 					"retry from stage 1 (body) / 2 (title) / 3 (refine); cascades downstream",
 				},
-				{"H", "open the focused stage's history"},
+				{bindKeys(k.History), "open the focused stage's history"},
 			},
 		},
 		{
 			title: "Global",
 			entries: []helpEntry{
-				{"^1 / ^2 / ^3", "switch tab (history / compose / pipeline)"},
-				{"^x", "quit"},
-				{"?", "this help"},
+				{"^1 · ^2 · ^3", "switch tab (history / compose / pipeline)"},
+				{bindKeys(k.GlobalQuit), "quit"},
+				{bindKeys(k.Help), "this help"},
 			},
 		},
 	}
@@ -179,40 +202,37 @@ func releaseBuildingTextKeybindings() []keybindingGroup {
 // picker (Compose tab in Release Mode). Mirrors the workspace history
 // popup but with the picker-specific keys (ctrl+a select, ctrl+e
 // context-aware swap).
-func releaseChooseCommitsKeybindings() []keybindingGroup {
+func releaseChooseCommitsKeybindings(k KeyMap) []keybindingGroup {
 	return []keybindingGroup{
 		{
 			title: "Navigate",
 			entries: []helpEntry{
-				{"↑↓", "move cursor"},
-				{"tab / shift+tab", "cycle focus (filter → commits → message → files → diff)"},
-				{"/", "filter"},
-				{"esc", "back to release menu"},
+				{bindKeys(k.Up, k.Down), "move cursor"},
+				{
+					bindKeys(k.NextField, k.PrevField),
+					"cycle focus (filter → commits → message → files → diff)",
+				},
+				{bindKeys(k.Filter), "filter"},
+				{bindKeys(k.Esc), "back to release menu"},
 			},
 		},
 		{
 			title: "Commit picker",
 			entries: []helpEntry{
-				{"^a", "add/remove the highlighted commit from the release"},
-				{"^f", "cycle filter mode (TITLE/TYPE/VERSION/BRANCH)"},
-				{"^e (commits)", "swap All commits ⇄ Selected only"},
-				{"^e (files panel)", "toggle filename ⇄ full relative path"},
-				{"↵", "generate the release text from the selected commits"},
-			},
-		},
-		{
-			title: "Inspect",
-			entries: []helpEntry{
-				{"pgup/pgdn", "scroll the focused viewport"},
+				{bindKeys(k.AddCommit), "add/remove the highlighted commit from the release"},
+				{bindKeys(k.CycleFilterMode), "cycle filter mode (TITLE/TYPE/VERSION/BRANCH)"},
+				{bindKeys(k.SwapMode) + " (commits)", "swap All commits ⇄ Selected only"},
+				{bindKeys(k.SwapMode) + " (files panel)", "toggle filename ⇄ full relative path"},
+				{bindKeys(k.Enter), "generate the release text from the selected commits"},
 			},
 		},
 		{
 			title: "App",
 			entries: []helpEntry{
-				{"^1 / ^2 / ^3", "switch tab (history / compose / pipeline)"},
+				{"^1 · ^2 · ^3", "switch tab (history / compose / pipeline)"},
 				{"^k", "command palette"},
 				{"^l", "logs"},
-				{"^x", "quit"},
+				{bindKeys(k.GlobalQuit), "quit"},
 			},
 		},
 	}
@@ -222,41 +242,41 @@ func releaseChooseCommitsKeybindings() []keybindingGroup {
 // tab. Mirrors workspaceKeybindings but with release-flavoured labels —
 // filter modes are TITLE/TYPE/VERSION/BRANCH and the dual panel cycles
 // commits/stages instead of key points/stages.
-func releaseKeybindings() []keybindingGroup {
+func releaseKeybindings(k KeyMap) []keybindingGroup {
 	return []keybindingGroup{
 		{
 			title: "Navigate",
 			entries: []helpEntry{
-				{"↑↓", "move cursor"},
-				{"↵", "open release"},
-				{"/", "filter"},
-				{"^f", "cycle filter mode (TITLE/TYPE/VERSION/BRANCH)"},
+				{bindKeys(k.Up, k.Down), "move cursor"},
+				{bindKeys(k.Enter), "open release"},
+				{bindKeys(k.Filter), "filter"},
+				{bindKeys(k.CycleFilterMode), "cycle filter mode (TITLE/TYPE/VERSION/BRANCH)"},
 			},
 		},
 		{
 			title: "Inspect panel",
 			entries: []helpEntry{
-				{"^e", "swap inspect mode (Commits/Body ↔ Stages/Response)"},
-				{"^]", "next commit / stage"},
-				{"^[", "prev commit / stage"},
-				{"R", "jump to release entry"},
-				{"pgup/pgdn · ^↑/^↓", "scroll right viewport"},
+				{bindKeys(k.SwapMode), "swap inspect mode (Commits/Body ↔ Stages/Response)"},
+				{bindKeys(k.CycleNext), "next commit / stage"},
+				{bindKeys(k.CyclePrev), "prev commit / stage"},
+				{bindKeys(k.EditIaCommit), "jump to release entry"},
+				{bindKeys(k.PgUp, k.PgDown), "scroll right viewport"},
 			},
 		},
 		{
 			title: "Releases",
 			entries: []helpEntry{
-				{"r / tab", "create a release"},
-				{"d / x", "delete"},
+				{bindKeys(k.ReleaseCommit), "create a release"},
+				{bindKeys(k.Delete), "delete"},
 			},
 		},
 		{
 			title: "App",
 			entries: []helpEntry{
 				{"^k", "command palette"},
-				{"^s", "switch app mode"},
+				{bindKeys(k.SwitchMode), "switch app mode"},
 				{"^l", "logs"},
-				{"^x", "quit"},
+				{bindKeys(k.GlobalQuit), "quit"},
 			},
 		},
 	}
@@ -264,44 +284,44 @@ func releaseKeybindings() []keybindingGroup {
 
 // workspaceKeybindings lists the shortcuts available on the History tab,
 // grouped so the popup reads as a quick reference instead of a flat list.
-func workspaceKeybindings() []keybindingGroup {
+func workspaceKeybindings(k KeyMap) []keybindingGroup {
 	return []keybindingGroup{
 		{
 			title: "Navigate",
 			entries: []helpEntry{
-				{"↑↓", "move cursor"},
-				{"↵", "open commit"},
-				{"/", "filter"},
-				{"^f", "cycle filter mode"},
+				{bindKeys(k.Up, k.Down), "move cursor"},
+				{bindKeys(k.Enter), "open commit"},
+				{bindKeys(k.Filter), "filter"},
+				{bindKeys(k.CycleFilterMode), "cycle filter mode"},
 			},
 		},
 		{
 			title: "Inspect panel",
 			entries: []helpEntry{
-				{"^e", "swap inspect mode (KP/Body ↔ Stages/Response)"},
-				{"^]", "next stage / key point"},
-				{"^[", "prev stage / key point"},
-				{"pgup/pgdn · ^↑/^↓", "scroll right viewport"},
+				{bindKeys(k.SwapMode), "swap inspect mode (KP/Body ↔ Stages/Response)"},
+				{bindKeys(k.CycleNext), "next stage / key point"},
+				{bindKeys(k.CyclePrev), "prev stage / key point"},
+				{bindKeys(k.PgUp, k.PgDown), "scroll right viewport"},
 			},
 		},
 		{
 			title: "Commits",
 			entries: []helpEntry{
-				{"n / tab", "new commit"},
-				{"e", "edit commit"},
-				{"r", "create release"},
-				{"d / x", "delete"},
-				{"^d", "toggle drafts view"},
+				{bindKeys(k.AddCommit), "new commit"},
+				{bindKeys(k.EditIaCommit), "edit commit"},
+				{bindKeys(k.ReleaseCommit), "create release"},
+				{bindKeys(k.Delete), "delete"},
+				{bindKeys(k.ToggleDrafts), "toggle drafts view"},
 			},
 		},
 		{
 			title: "App",
 			entries: []helpEntry{
-				{"^s", "switch app mode"},
-				{"^c", "create local config template"},
-				{"^y", "add commit tag types to local config"},
+				{bindKeys(k.SwitchMode), "switch app mode"},
+				{bindKeys(k.CreateLocalTomlConfig), "create local config template"},
+				{bindKeys(k.AddCommitTypes), "add commit tag types to local config"},
 				{"^l", "logs"},
-				{"^x", "quit"},
+				{bindKeys(k.GlobalQuit), "quit"},
 			},
 		},
 	}

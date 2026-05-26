@@ -1140,7 +1140,7 @@ func (model *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if model.state == stateReleaseChoosingCommits && model.releaseChooseFilterBar.IsFocused() {
 				break
 			}
-			if entries, ok := keybindingsForState(model.state); ok {
+			if entries, ok := keybindingsForState(model.state, model.keys); ok {
 				w := max(50, model.width*2/3)
 				h := max(18, model.height*2/3)
 				model.popup = newKeybindingsPopup(w, h, model.Theme, entries)

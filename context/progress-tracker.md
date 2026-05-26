@@ -30,13 +30,12 @@ Update this file after every meaningful implementation change.
 
 ## In Progress
 
-- _(idle)_ — no feature work in flight. v0.54.0 shipped.
+- Units 13 + 14 code-complete on `feat/keymatches-migration` as v0.55.0. Awaiting user smoke test before merge.
 
 ## Next Up
 
-- Headless CLI `--plain` mode question (open question below).
-- Broader test coverage.
-- Any commit-mode bugs surfaced during release work.
+- Merge `feat/keymatches-migration` → `main` with `[MERGE]` title, tag + GitHub release.
+- Post-release: headless CLI `--plain` mode question, broader test coverage, any commit-mode bugs surfaced during release work.
 
 ## Open Questions
 
@@ -55,6 +54,8 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- 2026-05-22 — **Unit 14 code-complete** on `feat/keymatches-migration`. Migrated every main-matcher `msg.String()` in `internal/tui/update_*.go` to `key.Matches`: `ctrl+f` filter cycle (workspace + release history + release picker), filter-bar `esc`/`enter`, panel-scroll (`pgup`/`pgdown`/`ctrl+up`/`ctrl+down`), release-pipeline stage controls (the original Unit 08 block at `update_release.go:374`), commit-pipeline `H` (`pipeline_update.go:123`), and the compose per-focus handlers (commit-type cycle, scope clear, keypoints nav, pipeline-models nav). Added `CycleFilterMode` + `ClearField` fields to `KeyMap`, populated `mainListKeys()` / `releaseMainListKeys()` / `releaseKeys()` / `writingMessageKeys()` / `pipelineKeys()` with the missing bindings. Rewrote `keybindings_popup.go` so the four per-state builders take the active `KeyMap` and pull key strings via `binding.Help().Key`; updated the caller in `update.go:1143` to pass `model.keys`. Final audit: `grep msg.String()` in `internal/tui/` returns only the documented carve-outs (mention `@`, scope-picker `e`/`enter`, transient popup closes, scroll inside history dual panel, global guards in `update.go`). v0.55.0.
+- 2026-05-22 — **Unit 13 code-complete** on `feat/keymatches-migration`. Added `History` field to `KeyMap`, populated `releaseKeys()` + `viewPortKeys()` with the release pipeline stage controls (`r`/`1`/`2`/`3`/`H`/`pgup`/`pgdown`) that have been matched via raw `msg.String()` since Unit 08, extended `ShortHelp`/`FullHelp` for `History`, wrote the "key.Matches with keymap as single source of truth" rule into `context/code-standards.md`. v0.54.1. No behavior change yet — dispatch in `update_release.go:374` still uses the string switch; Unit 14 will migrate it.
 - 2026-05-22 — **v0.54.0 shipped.** Merged `feat/release-config-polish` → `main` as `b854f66 [MERGE] feat/release-config-polish: Release config & changelog popups (v0.54.0)`. Cross-compiled three binaries via `make build_release`, tagged `v0.54.0` (annotated), pushed `main` + tag, published GitHub release with all three binaries at https://github.com/Cerebellum-ITM/CommitCraftReborn/releases/tag/v0.54.0. Feature branch deleted (local + remote).
 - 2026-05-22 — **Units 11 + 12 code-complete** on `feat/release-config-polish`. Four commits land the popup polish plus the changelog popup: `21a0479` (initial Units 11+12), `10ff474` (token-mask root cause + popup sizing + list picker + nerd-font icons), `82477b9` (configured-state indicator on GH_TOKEN + palette icon spacing), `<this commit>` (spec post-implementation notes). Spec 11's Component B hypothesis (EchoMode masking failure) was wrong — the "g" was the bubbles `placeholderView` rendering one rune from `"ghp_..."` because no width was set. Fix: drop the placeholder; add a `✓ stored — type to replace` row when `detected.GhTokenSet`. Awaiting user review before merging to main as v0.54.0.
 - 2026-05-19 — **Units 05, 09 already shipped** on this branch (commits `409e1f2`, `44646d1` + spec docs `d79b98b`, `a90307d`).

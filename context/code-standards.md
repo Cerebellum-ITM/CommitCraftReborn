@@ -25,6 +25,14 @@
 - New popup → its own file (`<feature>_popup.go`) plus a model field on `Model`. Wire show/hide through `transitions.go` patterns.
 - Keep state transitions explicit: when adding a new state, declare it in `model.go`, add an entry to `pipelinePresetTitles` if AI-related, and document the transition in `architecture.md`.
 
+## Keyboard Dispatch
+
+- All shortcut dispatch goes through `key.Matches(msg, keys.X)` where `keys` is the state's active keymap (e.g. `releaseKeys()`, `mainListKeys()`, `pipelineKeys()`).
+- The active keymap is the **single source of truth**. It MUST populate every field its update handler references — `key.Matches` against a zero-value `key.Binding{}` silently returns `false`, so a forgotten field looks identical at runtime to "user didn't press it" (footgun documented in `feedback_keymatch_zero_binding.md`).
+- `msg.String()` matching is reserved for transient, non-advertised input: closing a confirm popup with `q`/`esc`, extracting a literal character for typed input (`@` for mentions), or navigation inside an already-focused bubbles component that is not shown in the `?` popup. **If a key appears in `?`, it goes through `key.Matches`.**
+- Global guards in `update.go` (`ctrl+x` / `ctrl+l` / `ctrl+k` / `ctrl+1-3`) are an exception — they run before the state's keymap and intentionally stay as raw string matches.
+- Help-popup rendering reads from the active `KeyMap` (via `ShortHelp()` / `FullHelp()` or the hard-coded per-state lists in `keybindings_popup.go`). Adding a new shortcut means: (1) add the field to `KeyMap`, (2) populate it in every variant that needs it, (3) match it via `key.Matches` in the handler, (4) include it in the help wiring.
+
 ## Styling (Lip Gloss)
 
 - **Never hardcode colors in render code.** Always read from `model.Theme` (e.g., `theme.Primary`, `theme.AppStyles().Help.ShortKey`). Hex literals are only allowed inside `internal/tui/styles/*.go` theme constructors.
