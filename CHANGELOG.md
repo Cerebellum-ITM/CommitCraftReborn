@@ -2,6 +2,55 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.57.0 — 2026-05-27
+
+Add `commitcraft ai verify --id <ID>`: a deterministic, offline checker that scans a draft's composed `final_message` (the same text that would go into `git commit`) for AI-residue phrases, structural defects, and trailer hygiene problems. The verifier lives in `internal/aiengine/verify.go` as a pure function `VerifyFinalMessage(string) VerifyReport` so the TUI can surface findings later without re-implementing rules.
+
+Rule set (all deterministic, no Groq call, no diff dependency):
+
+- `ai_residue_phrase` (error) — known leakage strings like `here is the commit message`, `paragraph 1`, `as an ai`.
+- `template_placeholder` (error) — literal `<title>` / `{body}` / `<keypoints>` etc. surviving into the message.
+- `code_fence_wrapper` (error) — title or body wrapped in triple backticks.
+- `title_format_missing_tag` (error) — first line does not start with `[TAG]`.
+- `title_format_missing_scope` (warning) — has `[TAG]` but not the `[TAG] scope: …` shape.
+- `title_too_long_hard` (error) — title > 100 chars.
+- `title_too_long_soft` (warning) — title > 72 chars (GitHub convention).
+- `empty_title` (error) / `empty_body` (warning) / `title_equals_body` (error).
+- `duplicate_line_in_body` (warning) — any non-empty, non-separator line repeated verbatim.
+
+Hallucinated-paths / wrong-language checks are intentionally **out of scope** for this iteration; they'll come back when the upcoming `ai link-commit` work persists a per-draft file list.
+
+### Usage
+
+```
+commitcraft ai verify --id 42
+commitcraft ai verify --id 42 --strict-warnings
+```
+
+Output is a JSON `VerifyReport` on stdout:
+
+```json
+{
+  "has_errors": false,
+  "has_warnings": true,
+  "findings": [
+    {
+      "rule": "duplicate_line_in_body",
+      "severity": "warning",
+      "message": "Line repeated 2× in body: Updated CHANGELOG.md",
+      "location": "body"
+    }
+  ]
+}
+```
+
+Exit codes:
+
+- **0** — clean, or only warnings without `--strict-warnings`.
+- **1** — bootstrap error or draft not found.
+- **2** — usage error (missing `--id`).
+- **4** — at least one finding with `severity: error`, or any finding when `--strict-warnings` is set. (Exit code 3 is reserved for `ai context --strict` so the two gates remain distinguishable.)
+
 ## v0.56.0 — 2026-05-27
 
 Add a pre-flight context-size estimator for the Change Analyzer stage (stage 1 of the AI pipeline). The estimator lives in `internal/aiengine/context_estimate.go` as a pure function — no Groq call, no DB write — and is exposed first via a new headless CLI subcommand `commitcraft ai context`. The reusable `aiengine.EstimateChangeAnalyzer` will back a TUI indicator in a follow-up; this iteration is CLI-only.

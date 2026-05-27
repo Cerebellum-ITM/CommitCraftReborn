@@ -35,6 +35,7 @@ Subcommands:
   list-addable-tags  List builtin tags known to the code but not yet in the local config.
   add-tag            Append one or more builtin tags to the local .commitcraft.toml.
   context            Estimate the Change Analyzer payload size against the staged diff and the configured model's context window (offline, no Groq call).
+  verify             Run deterministic checks against a draft's final_message (AI residue, title format, duplicates). Exit 4 when errors are present.
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -68,6 +69,8 @@ func Dispatch(args []string) int {
 		return runAddTag(rest)
 	case "context":
 		return runContext(rest)
+	case "verify":
+		return runVerify(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
