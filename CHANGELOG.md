@@ -2,6 +2,38 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.58.0 — 2026-05-27
+
+Add `commitcraft ai merge --branch <source> [--into <target>]`: a headless subcommand that generates a `[MERGE]` draft from the commits between `<into>..<branch>` using the existing `aiengine.RunRelease` pipeline (same 3-stage body → title → refine flow the TUI uses for release notes). Persists as a normal `storage.Commit` row with `Type="MERGE"` and `Scope=<branch>` so every existing subcommand (`ai edit`, `ai show`, `ai promote`, `ai verify`) works on the draft unchanged.
+
+Two new git helpers in `internal/git/git.go`:
+
+- `VerifyRev(workspace, rev)` — wraps `git rev-parse --verify <rev>^{commit}` to reject missing or non-commit refs.
+- `GetCommitsBetween(workspace, target, source)` — runs `git log --reverse --pretty=format:%h%x00%ad%x00%s%x00%b%x1f <target>..<source>` and parses each record into a `CommitRange`. Used as input to the release pipeline.
+
+`ai regenerate` does **not** yet support merge drafts (it routes through the commit pipeline and would produce garbage). For tweaks use `ai edit`; for a clean re-run invoke `ai merge` again. A future unit will teach `ai regenerate` to dispatch on draft type.
+
+### Usage
+
+```
+commitcraft ai merge --branch feat/agent-cli-improvements
+commitcraft ai verify --id <id>
+commitcraft ai edit --id <id> --title "..."          # if needed
+commitcraft ai promote --id <id>
+
+git checkout main
+git merge --no-ff feat/agent-cli-improvements \
+  -m "$(commitcraft ai show --id <id> | jq -r .final_message)"
+```
+
+Flags:
+
+- `--branch <name>` (required) — source branch to summarize.
+- `--into <name>` (default `main`) — target branch the merge is going into.
+- `--workspace <path>` (default cwd) — repo path.
+
+Exit codes: `0` success, `1` runtime errors (api, db, git, no commits in range), `2` usage errors (missing/invalid flags, ref not found).
+
 ## v0.57.0 — 2026-05-27
 
 Add `commitcraft ai verify --id <ID>`: a deterministic, offline checker that scans a draft's composed `final_message` (the same text that would go into `git commit`) for AI-residue phrases, structural defects, and trailer hygiene problems. The verifier lives in `internal/aiengine/verify.go` as a pure function `VerifyFinalMessage(string) VerifyReport` so the TUI can surface findings later without re-implementing rules.

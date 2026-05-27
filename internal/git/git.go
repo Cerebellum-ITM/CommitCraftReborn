@@ -335,6 +335,96 @@ func LookupCommitMessages(hashes []string) (map[string]CommitMessage, error) {
 	return out, nil
 }
 
+// CommitRange is a single entry from a `git log <a>..<b>` range. The
+// release / merge pipelines consume this shape via aiengine.ReleaseCommit.
+type CommitRange struct {
+	Hash    string
+	Date    string
+	Subject string
+	Body    string
+}
+
+// VerifyRev returns nil when the given rev exists in workspace.
+// Empty workspace falls back to the current cwd, matching the rest of
+// this package. Wraps `git rev-parse --verify <rev>^{commit}` so we
+// also reject non-commit refs (tags pointing at trees, etc.).
+func VerifyRev(workspace, rev string) error {
+	rev = strings.TrimSpace(rev)
+	if rev == "" {
+		return fmt.Errorf("empty revision")
+	}
+	args := []string{}
+	if workspace != "" {
+		args = append(args, "-C", workspace)
+	}
+	args = append(args, "rev-parse", "--verify", "--quiet", rev+"^{commit}")
+	cmd := exec.Command("git", args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rev %q not found", rev)
+	}
+	return nil
+}
+
+// GetCommitsBetween returns the commits reachable from source but not
+// from target, in chronological (oldest-first) order — i.e. the
+// natural reading order for "what landed on this branch since it
+// diverged from main". Each entry carries the short hash, author
+// date, subject, and body.
+//
+// Format spec: `--pretty=format:%h%x00%ad%x00%s%x00%b%x1f`. NUL
+// (`%x00`) separates fields, US (`%x1f`) separates records. Both are
+// safe — git commit messages are 8-bit-clean text and don't contain
+// either control byte.
+func GetCommitsBetween(workspace, target, source string) ([]CommitRange, error) {
+	args := []string{}
+	if workspace != "" {
+		args = append(args, "-C", workspace)
+	}
+	args = append(args,
+		"log",
+		"--reverse",
+		"--date=short",
+		"--pretty=format:%h%x00%ad%x00%s%x00%b%x1f",
+		target+".."+source,
+	)
+	cmd := exec.Command("git", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("git log %s..%s: %s", target, source,
+			strings.TrimSpace(stderr.String()))
+	}
+	raw := strings.TrimRight(stdout.String(), "\x1f\n")
+	if raw == "" {
+		return nil, nil
+	}
+	records := strings.Split(raw, "\x1f")
+	out := make([]CommitRange, 0, len(records))
+	for _, rec := range records {
+		rec = strings.TrimLeft(rec, "\n")
+		if rec == "" {
+			continue
+		}
+		fields := strings.SplitN(rec, "\x00", 4)
+		if len(fields) < 3 {
+			continue
+		}
+		c := CommitRange{
+			Hash:    fields[0],
+			Date:    fields[1],
+			Subject: fields[2],
+		}
+		if len(fields) == 4 {
+			c.Body = strings.TrimSpace(fields[3])
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
 // GetLastGitTag returns the most recent tag using natural-version sort order.
 // Empty string + nil error means the repo has no tags yet.
 func GetLastGitTag() (string, error) {
