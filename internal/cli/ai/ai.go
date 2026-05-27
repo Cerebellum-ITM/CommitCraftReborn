@@ -37,6 +37,7 @@ Subcommands:
   context            Estimate the Change Analyzer payload size against the staged diff and the configured model's context window (offline, no Groq call).
   verify             Run deterministic checks against a draft's final_message (AI residue, title format, duplicates). Exit 4 when errors are present.
   merge              Generate a [MERGE] draft from the commits in <into>..<branch> using the release pipeline.
+  release            Generate a [RELEASE] draft from the commits in <from>..<to>. Drafting only — publishing (gh) is a separate follow-up.
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -74,6 +75,8 @@ func Dispatch(args []string) int {
 		return runVerify(rest)
 	case "merge":
 		return runMerge(rest)
+	case "release":
+		return runRelease(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0

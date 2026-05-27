@@ -97,17 +97,7 @@ func runMerge(args []string) int {
 		return 1
 	}
 
-	releaseCommits := make([]aiengine.ReleaseCommit, len(commits))
-	for i, c := range commits {
-		releaseCommits[i] = aiengine.ReleaseCommit{
-			Hash:    c.Hash,
-			Date:    c.Date,
-			Subject: c.Subject,
-			Body:    c.Body,
-		}
-	}
-
-	in := aiengine.ReleaseInput{Commits: releaseCommits}
+	in := aiengine.ReleaseInput{Commits: projectToReleaseCommits(commits)}
 	out, err := aiengine.RunRelease(aiengine.Deps{
 		Cfg: boot.cfg, DB: boot.db, Log: boot.log, Pwd: ws,
 	}, in)
@@ -154,16 +144,4 @@ func runMerge(args []string) int {
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(cj)
 	return 0
-}
-
-// serializeCommitRange stores the input commit list on the draft's
-// Diff_code field so it stays inspectable after the fact. Plain-text
-// format mirroring `git log --oneline` is enough for traceability;
-// regeneration on merge drafts is out of scope for this unit.
-func serializeCommitRange(commits []git.CommitRange) string {
-	var b strings.Builder
-	for _, c := range commits {
-		fmt.Fprintf(&b, "%s %s %s\n%s\n\n", c.Hash, c.Date, c.Subject, c.Body)
-	}
-	return strings.TrimRight(b.String(), "\n")
 }

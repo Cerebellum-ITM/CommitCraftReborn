@@ -2,6 +2,35 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.59.0 — 2026-05-27
+
+Add `commitcraft ai release --version <vX.Y.Z> [--from <ref>] [--to <ref>]`: a headless subcommand that generates a `[RELEASE]` draft from the commits in `<from>..<to>` using the existing `aiengine.RunRelease` pipeline (same engine `ai merge` and the TUI release mode use). Persists as a normal `storage.Commit` row with `Type="RELEASE"` and `Scope=<version>` so `ai edit` / `ai show` / `ai verify` / `ai promote` work unchanged.
+
+This unit only **drafts** the release notes. Publishing (`gh release create`, tag push, binary upload) stays a follow-up subcommand (`ai release publish --id <ID>`) so the agent can stop at promote without needing GH credentials.
+
+Defaults:
+
+- `--from` falls back to the most recent tag (via `git tag --sort=-v:refname`). If the repo has no tags, `--from` becomes required (exit 2 with `no_base_ref`).
+- `--to` defaults to `HEAD`.
+
+Storage caveat documented for the user: the TUI's release flow persists to a separate `releases` table (`storage.Release`); the headless `ai release` writes to the regular `commits` table. The two surfaces don't see each other's drafts today — a future unit can bridge them, but the divergence is intentional for v1 because it lets us reuse every existing subcommand on the new drafts without schema work.
+
+Refactor: extracted `projectToReleaseCommits` + `serializeCommitRange` + `lastTagAt` from `merge.go` into a new `internal/cli/ai/range_helpers.go` so `release.go` reuses them without duplication.
+
+### Usage
+
+```
+commitcraft ai release --version v0.59.0
+commitcraft ai verify --id <id>
+commitcraft ai edit --id <id> --body -    # if trimming commits manually
+commitcraft ai promote --id <id>
+
+# Eventually (next unit):
+commitcraft ai release publish --id <id>  # not implemented yet
+```
+
+Exit codes: `0` success, `1` runtime errors (api, db, git, no commits), `2` usage errors (missing `--version`, no tags + no `--from`, invalid refs).
+
 ## v0.58.0 — 2026-05-27
 
 Add `commitcraft ai merge --branch <source> [--into <target>]`: a headless subcommand that generates a `[MERGE]` draft from the commits between `<into>..<branch>` using the existing `aiengine.RunRelease` pipeline (same 3-stage body → title → refine flow the TUI uses for release notes). Persists as a normal `storage.Commit` row with `Type="MERGE"` and `Scope=<branch>` so every existing subcommand (`ai edit`, `ai show`, `ai promote`, `ai verify`) works on the draft unchanged.
