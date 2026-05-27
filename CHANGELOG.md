@@ -2,6 +2,45 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.56.0 — 2026-05-27
+
+Add a pre-flight context-size estimator for the Change Analyzer stage (stage 1 of the AI pipeline). The estimator lives in `internal/aiengine/context_estimate.go` as a pure function — no Groq call, no DB write — and is exposed first via a new headless CLI subcommand `commitcraft ai context`. The reusable `aiengine.EstimateChangeAnalyzer` will back a TUI indicator in a follow-up; this iteration is CLI-only.
+
+The estimator reproduces the exact payload `CallChangeAnalyzer` would send (`change_analyzer.prompt` + `"DEVELOPER_POINTS:\n…\nGIT_CHANGES:\n…"`), measures it in characters, derives an `est_tokens = ceil(chars/4)` heuristic, and compares it against the cached `context_window` of `Prompts.ChangeAnalyzerPromptModel` (read from `groq_models_cache` via `db.LoadModelsCache`). The diff is fetched through the same `git.GetStagedDiffSummary` cap (`Prompts.ChangeAnalyzerMaxDiffSize`) so any truncation that would hit the real pipeline is surfaced in the output too.
+
+### Usage
+
+```
+commitcraft ai context
+```
+
+Prints a single JSON object on stdout:
+
+```json
+{
+  "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+  "context_window": 131072,
+  "system_prompt_chars": 4321,
+  "user_input_chars": 78240,
+  "total_chars": 82561,
+  "est_tokens": 20641,
+  "usage_pct": 15.74,
+  "fits": true,
+  "diff_truncated": false,
+  "diff_max_bytes": 80000
+}
+```
+
+Add `--strict` for agent-driven flows that want a deterministic gate:
+
+```
+commitcraft ai context --strict
+```
+
+Same JSON output, same exit 0 on success, but exits **3** when `fits: false` so the caller can branch on the exit code instead of parsing JSON. The strict flag is a no-op when `fits` is `null` (model not in the local cache) — we don't gate on unknown context windows.
+
+When the configured model is absent from the local `groq_models_cache`, `context_window` is `0` and `usage_pct`/`fits` are `null` — the caller decides whether to refresh the cache or skip the gate. When there are no staged changes, the command emits `{"code": "no_staged_diff", "error": "…"}` on stderr and exits 1.
+
 ## v0.55.0 — 2026-05-22
 
 Migrate every main-matcher shortcut dispatch in `internal/tui/update_*.go` from raw `msg.String()` checks to `key.Matches` against the active `KeyMap`. Touches the `ctrl+f` filter-mode cycler (workspace history + release history + release commit picker), the `esc`/`enter` handlers inside the focused filter bar, the `pgup`/`pgdown`/`ctrl+up`/`ctrl+down` panel-scroll dispatchers, the release-pipeline stage controls (`r`, `1`/`2`/`3`, `H`, `pgup`/`pgdown` — the original Unit 08 workaround), the commit-pipeline `H` (stage history), and the compose-tab per-focus handlers (commit-type cycle, scope clear, keypoints nav, pipeline-models nav). Adds two new `KeyMap` fields (`CycleFilterMode` for `ctrl+f`, `ClearField` for `x`/`backspace`/`delete`) and populates `mainListKeys()` / `releaseMainListKeys()` / `releaseKeys()` / `writingMessageKeys()` / `pipelineKeys()` accordingly so every binding the handlers reference has a real key.Binding behind it. Rewrites `keybindings_popup.go` so the four per-state popup builders read the key strings via `binding.Help().Key` from the active `KeyMap` instead of duplicating literals — a binding rename now propagates to the `?` popup automatically.

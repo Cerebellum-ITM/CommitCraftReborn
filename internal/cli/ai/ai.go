@@ -34,6 +34,7 @@ Subcommands:
   list-tags          List the commit-type tags accepted by 'generate' (default + global + local) as JSON.
   list-addable-tags  List builtin tags known to the code but not yet in the local config.
   add-tag            Append one or more builtin tags to the local .commitcraft.toml.
+  context            Estimate the Change Analyzer payload size against the staged diff and the configured model's context window (offline, no Groq call).
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -65,6 +66,8 @@ func Dispatch(args []string) int {
 		return runListAddableTags(rest)
 	case "add-tag":
 		return runAddTag(rest)
+	case "context":
+		return runContext(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
