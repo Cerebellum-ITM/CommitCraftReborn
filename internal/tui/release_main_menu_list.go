@@ -123,6 +123,9 @@ func (d HistoryReleaseDelegate) Render(w io.Writer, m list.Model, index int, lis
 	}
 	dateRendered := dateStyle.Render(dateStr)
 
+	srcStyle, srcLabel := sourcePillStyle(release.Source)
+	srcPill := srcStyle.Render(srcLabel)
+
 	container := lipgloss.NewStyle().PaddingLeft(2)
 	if selected {
 		container = lipgloss.NewStyle().
@@ -140,9 +143,11 @@ func (d HistoryReleaseDelegate) Render(w io.Writer, m list.Model, index int, lis
 	leftBlock := lipgloss.JoinHorizontal(lipgloss.Top, idRendered, " ", typeBlock)
 	leftWidth := lipgloss.Width(leftBlock)
 	dateWidth := lipgloss.Width(dateRendered)
+	srcWidth := lipgloss.Width(srcPill)
 	gapBeforeDate := 2
+	gapBeforeSrc := 1
 
-	msgWidth := totalWidth - leftWidth - dateWidth - 1 - gapBeforeDate
+	msgWidth := totalWidth - leftWidth - srcWidth - dateWidth - 1 - gapBeforeSrc - gapBeforeDate
 	if msgWidth < 8 {
 		msgWidth = 8
 	}
@@ -185,7 +190,7 @@ func (d HistoryReleaseDelegate) Render(w io.Writer, m list.Model, index int, lis
 	}
 
 	currentRowWidth := leftWidth + 1 + lipgloss.Width(msgBlock)
-	pad := totalWidth - currentRowWidth - dateWidth
+	pad := totalWidth - currentRowWidth - srcWidth - gapBeforeSrc - dateWidth
 	if pad < 1 {
 		pad = 1
 	}
@@ -196,6 +201,8 @@ func (d HistoryReleaseDelegate) Render(w io.Writer, m list.Model, index int, lis
 		" ",
 		msgBlock,
 		strings.Repeat(" ", pad),
+		srcPill,
+		strings.Repeat(" ", gapBeforeDate),
 		dateRendered,
 	)
 

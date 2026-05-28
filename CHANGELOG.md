@@ -2,6 +2,14 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.62.0 — 2026-05-28
+
+Render the `AI` / `TUI` source pill on the Releases view, mirroring what already exists on every row of the commits History tab. TUI-created releases show the `TUI` pill; drafts produced by `commitcraft ai release` / `ai merge` now show the `AI` pill instead of going unmarked. Pure rendering change — the underlying `releases.source` column was added in v0.61.0.
+
+### Usage
+
+No configuration or key changes. The pill appears automatically on every row of the Releases view. Legacy releases (pre-v0.61.0) were backfilled to `source = 'tui'` by the v0.61.0 migration and render as `TUI`.
+
 ## v0.61.0 — 2026-05-28
 
 Realign storage of release-pipeline drafts. Until v0.60.0 the headless `ai release` and `ai merge` subcommands persisted to the `commits` table — a shortcut documented as a caveat in their CHANGELOG entries that bit users immediately: `[RELEASE]` / `[MERGE]` rows showed up in the TUI's commits History tab when they were supposed to live in the Releases view. This release moves both subcommands to the `releases` table where the TUI already keeps every row produced by the release pipeline.
