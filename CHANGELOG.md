@@ -2,6 +2,43 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.60.0 — 2026-05-27
+
+Close the loop between a CommitCraft draft and the git commit it became. Adds a `commit_hash` column to the `commits` table (via `applySchemaMigrations`, default `''`), a new `commitcraft ai link-commit --id <draft> --hash <git>` subcommand to write the hash onto an existing row, and a new `commitcraft ai show --commit <hash>` lookup that resolves a short or full hash to the row whose keypoints/telemetry came from it.
+
+The motivation: today the only way to recover a past commit's keypoints is to remember the draft id. Three weeks later, looking at `git log` and wondering *"what was I thinking when I made this commit?"* required guessing. With linking in place, `git log` is the only id you need — `ai show --commit <hash>` returns the full JSON envelope (keypoints, summary, stage telemetry).
+
+Implementation:
+
+- **Schema migration** adds `commit_hash TEXT NOT NULL DEFAULT ''` to `commits`. Idempotent via the existing duplicate-column guard. Existing rows backfill to empty string; they remain queryable by id and stay absent from `--commit` lookups until linked.
+- **`storage.Commit.CommitHash`** field; `commitJSON` envelope gains `commit_hash` (with `omitempty` so unlinked rows don't surface a noisy empty field).
+- **`db.LinkCommitHash(id, hash)`** writes the column; `db.GetCommitsByHashPrefix(prefix)` reads it. Prefix must be ≥4 chars to avoid pathological scans; the CLI handles the ambiguity-check on top.
+- **`git.ResolveCommitHashAt(workspace, rev)`** — workspace-aware sibling of `ResolveCommitHash`, used by `ai link-commit` to honor a `--workspace` flag while still working from any cwd.
+- **`ai show`** now takes either `--id` or `--commit` (mutually exclusive). Ambiguous hash prefix → exit 1 with `ambiguous_hash` and the candidate ids in the error JSON.
+
+### Usage
+
+Manual link after a commit:
+
+```sh
+git commit -m "..."
+commitcraft ai link-commit --id <draft_id> --hash $(git rev-parse HEAD)
+```
+
+Recall a commit's keypoints later:
+
+```sh
+commitcraft ai show --commit cdd3671 | jq .keypoints
+```
+
+The skill is updated in a paired commit to run `ai link-commit` automatically after every successful `git commit`, so the user never has to think about ids again.
+
+Exit codes:
+
+- `0` — link succeeded (a stderr warning still appears if overwriting a prior link).
+- `1` — bootstrap / not-found / db errors; `ambiguous_hash` on `show --commit` falls here.
+- `2` — usage errors (missing `--id` / `--hash`, both `--id` and `--commit` on `show`, hash rev-parse failure).
+
 ## v0.59.0 — 2026-05-27
 
 Add `commitcraft ai release --version <vX.Y.Z> [--from <ref>] [--to <ref>]`: a headless subcommand that generates a `[RELEASE]` draft from the commits in `<from>..<to>` using the existing `aiengine.RunRelease` pipeline (same engine `ai merge` and the TUI release mode use). Persists as a normal `storage.Commit` row with `Type="RELEASE"` and `Scope=<version>` so `ai edit` / `ai show` / `ai verify` / `ai promote` work unchanged.

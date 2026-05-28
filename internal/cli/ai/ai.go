@@ -38,6 +38,7 @@ Subcommands:
   verify             Run deterministic checks against a draft's final_message (AI residue, title format, duplicates). Exit 4 when errors are present.
   merge              Generate a [MERGE] draft from the commits in <into>..<branch> using the release pipeline.
   release            Generate a [RELEASE] draft from the commits in <from>..<to>. Drafting only — publishing (gh) is a separate follow-up.
+  link-commit        Associate a draft id with a git commit hash so 'ai show --commit <hash>' works after the fact.
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -77,6 +78,8 @@ func Dispatch(args []string) int {
 		return runMerge(rest)
 	case "release":
 		return runRelease(rest)
+	case "link-commit":
+		return runLinkCommit(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
@@ -182,6 +185,7 @@ type commitJSON struct {
 	ChangelogLine  string      `json:"changelog_mention,omitempty"`
 	FinalMessage   string      `json:"final_message"`
 	Workspace      string      `json:"workspace"`
+	CommitHash     string      `json:"commit_hash,omitempty"`
 	CreatedAt      string      `json:"created_at"`
 	Stages         []stageJSON `json:"stages,omitempty"`
 }
@@ -220,6 +224,7 @@ func commitToJSON(
 		ChangelogEntry: c.IaChangelog,
 		FinalMessage:   final,
 		Workspace:      c.Workspace,
+		CommitHash:     c.CommitHash,
 		CreatedAt:      c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 	for i, s := range stages {

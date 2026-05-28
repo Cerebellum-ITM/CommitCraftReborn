@@ -276,9 +276,26 @@ func GetCommitDiffSummary(hash string, maxDiffChars int) (string, error) {
 // ResolveCommitHash expands a partial hash (or any rev-spec git accepts) to a
 // full SHA1. Returns an error if the revision does not exist.
 func ResolveCommitHash(rev string) (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--verify", rev+"^{commit}").Output()
+	return ResolveCommitHashAt("", rev)
+}
+
+// ResolveCommitHashAt is the workspace-aware variant of ResolveCommitHash.
+// When workspace is empty, falls back to the caller's cwd, matching the
+// rest of this package. Used by the headless `ai link-commit` subcommand
+// so the resolution honors a `--workspace` flag.
+func ResolveCommitHashAt(workspace, rev string) (string, error) {
+	rev = strings.TrimSpace(rev)
+	if rev == "" {
+		return "", fmt.Errorf("empty revision")
+	}
+	args := []string{}
+	if workspace != "" {
+		args = append(args, "-C", workspace)
+	}
+	args = append(args, "rev-parse", "--verify", rev+"^{commit}")
+	out, err := exec.Command("git", args...).Output()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("rev %q not found: %w", rev, err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }

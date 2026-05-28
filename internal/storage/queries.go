@@ -22,7 +22,7 @@ func splitKeyPoints(s string) []string {
 // GetCommits retrieves commits from the database based on a status.
 func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	rows, err := db.Query(
-		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, commit_hash, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
 		pwd,
 		status,
 	)
@@ -35,7 +35,7 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	for rows.Next() {
 		var c Commit
 		var createdAt, messageES string
-		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog, &c.Source, &createdAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog, &c.Source, &c.CommitHash, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
 		c.KeyPoints = splitKeyPoints(messageES)
@@ -55,7 +55,7 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 // doesn't exist so callers can branch on errors.Is(err, sql.ErrNoRows).
 func (db *DB) GetCommitByID(id int) (Commit, error) {
 	row := db.QueryRow(
-		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, created_at FROM commits WHERE id = ?",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, commit_hash, created_at FROM commits WHERE id = ?",
 		id,
 	)
 	var c Commit
@@ -63,7 +63,7 @@ func (db *DB) GetCommitByID(id int) (Commit, error) {
 	if err := row.Scan(
 		&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace,
 		&c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog,
-		&c.Source, &createdAt,
+		&c.Source, &c.CommitHash, &createdAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c, errors.Wrap(err, "commit not found")
@@ -501,4 +501,72 @@ func (db *DB) FinalizeCommit(c Commit) error {
 		c.ID,
 	)
 	return errors.Wrap(err, "failed to finalize commit")
+}
+
+// LinkCommitHash associates a draft/commit row with the git hash of
+// the commit it became. The hash is stored verbatim — callers should
+// resolve short hashes to full hashes before calling this so future
+// prefix lookups are consistent. Idempotent on the database side; the
+// CLI layer surfaces a stderr warning when overwriting a prior link.
+func (db *DB) LinkCommitHash(id int, hash string) error {
+	res, err := db.Exec(
+		"UPDATE commits SET commit_hash = ? WHERE id = ?",
+		hash, id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to link commit hash")
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "failed to read rows affected")
+	}
+	if n == 0 {
+		return errors.Wrap(sql.ErrNoRows, "commit row not found")
+	}
+	return nil
+}
+
+// GetCommitsByHashPrefix returns every commit row whose commit_hash
+// starts with the given prefix. The prefix is matched against the full
+// 40-char hash stored on the row, so passing a 7-char short hash works
+// as long as it uniquely identifies the row (the caller is responsible
+// for the ambiguity check — this query just returns matches).
+//
+// Prefix shorter than 4 chars is rejected to avoid pathological scans.
+// Empty commit_hash rows (the default for unlinked drafts) are never
+// matched by any non-empty prefix.
+func (db *DB) GetCommitsByHashPrefix(prefix string) ([]Commit, error) {
+	prefix = strings.TrimSpace(prefix)
+	if len(prefix) < 4 {
+		return nil, errors.New("hash prefix must be at least 4 characters")
+	}
+	rows, err := db.Query(
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, commit_hash, created_at FROM commits WHERE commit_hash != '' AND commit_hash LIKE ? ORDER BY created_at DESC",
+		prefix+"%",
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query commits by hash")
+	}
+	defer rows.Close()
+
+	var commits []Commit
+	for rows.Next() {
+		var c Commit
+		var createdAt, messageES string
+		if err := rows.Scan(
+			&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace,
+			&c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog,
+			&c.Source, &c.CommitHash, &createdAt,
+		); err != nil {
+			return nil, errors.Wrap(err, "failed to scan commit row")
+		}
+		c.KeyPoints = splitKeyPoints(messageES)
+		t, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse created_at: "+createdAt)
+		}
+		c.CreatedAt = t.Local()
+		commits = append(commits, c)
+	}
+	return commits, nil
 }
