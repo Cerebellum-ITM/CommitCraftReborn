@@ -2,6 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.63.0 — 2026-05-28
+
+Add `--model <id>` flag to `commitcraft ai context`. Lets an agent (or the user) compare whether the staged diff fits inside an alternative model's context window without editing the config. The payload estimate is model-agnostic (chars/4 heuristic against the fixed system prompt), so only the context-window lookup changes. If the supplied model ID is not in the local `groq_models_cache`, `context_window` returns 0 and `fits` / `usage_pct` are null — same behavior as today for any uncached model.
+
+### Usage
+
+```sh
+# Check against a specific model without changing config
+commitcraft ai context --model llama-3.3-70b-versatile
+
+# Combine with --strict to gate on the alternative model
+commitcraft ai context --model llama-3.3-70b-versatile --strict
+```
+
 ## v0.62.0 — 2026-05-28
 
 Render the `AI` / `TUI` source pill on the Releases view, mirroring what already exists on every row of the commits History tab. TUI-created releases show the `TUI` pill; drafts produced by `commitcraft ai release` / `ai merge` now show the `AI` pill instead of going unmarked. Pure rendering change — the underlying `releases.source` column was added in v0.61.0.

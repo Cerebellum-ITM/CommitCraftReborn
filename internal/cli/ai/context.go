@@ -38,6 +38,11 @@ func runContext(args []string) int {
 		false,
 		"Exit with code 3 when the estimated payload exceeds the model's context window. Off by default so the JSON is always emitted.",
 	)
+	modelOverride := fs.String(
+		"model",
+		"",
+		"Override the model ID used for context-window lookup. Must match an entry in the local groq_models_cache.",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -63,6 +68,9 @@ func runContext(args []string) int {
 	est := aiengine.EstimateChangeAnalyzer(boot.cfg, diff, nil)
 
 	model := boot.cfg.Prompts.ChangeAnalyzerPromptModel
+	if *modelOverride != "" {
+		model = *modelOverride
+	}
 	contextWindow := lookupContextWindow(boot, model)
 
 	out := contextJSON{

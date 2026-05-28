@@ -39,7 +39,7 @@ Update this file after every meaningful implementation change.
   - Unit 19 (`ai link-commit`): shipped as v0.60.0, commit `968ff7d`.
   - Unit 20 (release-storage realignment): code-complete, awaiting paired skill update. `ai release` + `ai merge` now write to the `releases` table; shared subcommands gain `--kind commit|release` for collision-safe lookups.
   - Unit 21 (TUI source badge): code-complete as v0.62.0. `AI` / `TUI` pill now renders on every Releases view row, mirroring the commits History tab.
-  - Items 3, 5, 6 of the umbrella: still pending.
+  - Unit 22 (`ai context --model`): code-complete as v0.63.0. Items 5, 6 of the umbrella: still pending.
 
 ## Next Up
 
@@ -64,6 +64,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- 2026-05-28 — **Unit 22 (`ai context --model`) code-complete** on `feat/agent-cli-improvements`. Added `--model <id>` flag to `runContext` in `internal/cli/ai/context.go`. When supplied, overrides the model ID used for `lookupContextWindow` and the `model` field in the JSON output; payload estimate (`EstimateChangeAnalyzer`) is unchanged. Unknown model → `context_window: 0`, `fits: null`. Smoke-tested: unknown model returns nulls, configured model returns same output as plain `ai context`. v0.63.0. Spec at `context/specs/22-ai-context-model-flag.md`.
 - 2026-05-28 — **Unit 21 (TUI source badge) code-complete** on `feat/agent-cli-improvements`. Added `sourcePillStyle` call to `HistoryReleaseDelegate.Render` in `internal/tui/release_main_menu_list.go`. Three-line change: call the helper, add `srcWidth` + `gapBeforeSrc` to the `msgWidth` deduction, insert `srcPill` between the message block and the date in the `JoinHorizontal` call. Legacy rows (backfilled to `source='tui'` by the v0.61.0 migration) show `TUI`; `ai release` / `ai merge` drafts show `AI`. v0.62.0. Branch is now a good merge candidate — all 8 units complete.
 
 - 2026-05-28 — **Unit 20 (release-storage realignment) code-complete** on `feat/agent-cli-improvements`. `ai release` and `ai merge` now persist to the `releases` table (where the TUI already keeps every row produced by the release pipeline) instead of `commits` — fixes the visible regression where `[RELEASE]` / `[MERGE]` rows appeared in the TUI's commits History tab. Three new migration entries on `releases` (`source`, `status`, `commit_hash`). New storage methods `GetReleaseByID` / `GetReleasesByStatus` / `SaveReleaseDraft` / `FinalizeRelease` / `LinkReleaseHash`. New `internal/cli/ai/dispatch.go` with `dispatchByID(db, id, kindHint)` powering implicit dispatch in `ai show / edit / verify / promote / link-commit / list`. JSON envelope gains `kind` + `branch` + `version` + `source` fields. **Collision discovered during smoke test**: `commits.id=40` and `releases.id=40` both existed → dispatch auto-probe hit commits and corrupted the wrong row. Mitigation: every shared subcommand now accepts an optional `--kind commit|release` flag that forces the table; agents that persist `kind` from the JSON envelope (every `ai release` / `ai merge` response) should pass `--kind release` to subsequent calls. The auto-probe stays as the default for backward compat. Orphan rows from units 17-19 stay in `commits` — accessible by id, absent from TUI Releases view. v0.61.0. Spec at `context/specs/20-release-storage-realignment.md`.
