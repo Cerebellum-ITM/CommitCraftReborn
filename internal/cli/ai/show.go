@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"strings"
-
-	"commit_craft_reborn/internal/storage"
 )
 
 // runShow prints the full JSON for a single draft/commit, including
@@ -25,6 +23,11 @@ func runShow(args []string) int {
 		"commit",
 		"",
 		"Git commit hash (short prefix or full) previously linked via `ai link-commit`. Mutually exclusive with --id.",
+	)
+	kind := fs.String(
+		"kind",
+		"",
+		"Force dispatch table when --id collides across commits/releases: 'commit' | 'release'. Optional; auto-probes when empty.",
 	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -51,7 +54,6 @@ func runShow(args []string) int {
 	}
 	defer bs.db.Close()
 
-	var c storage.Commit
 	if hashPrefix != "" {
 		matches, err := bs.db.GetCommitsByHashPrefix(hashPrefix)
 		if err != nil {
@@ -64,7 +66,15 @@ func runShow(args []string) int {
 				fmt.Sprintf("no linked commit matches hash prefix %q", hashPrefix))
 			return 1
 		case 1:
-			c = matches[0]
+			c := matches[0]
+			cj, err := commitToJSON(c, loadStagesForCommit(bs.db, c.ID),
+				bs.cfg.CommitFormat.TypeFormat)
+			if err != nil {
+				printErrorJSON("incomplete_commit", err.Error())
+				return 1
+			}
+			printCommitJSON(cj)
+			return 0
 		default:
 			ids := make([]int, len(matches))
 			hashes := make([]string, len(matches))
@@ -84,24 +94,40 @@ func runShow(args []string) int {
 			)
 			return 1
 		}
-	} else {
-		c, err = bs.db.GetCommitByID(*id)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				printErrorJSON("not_found", fmt.Sprintf("commit with id=%d not found", *id))
-				return 1
-			}
-			printErrorJSON("db_error", err.Error())
-			return 1
-		}
 	}
 
-	stages := loadStagesForCommit(bs.db, c.ID)
-	cj, err := commitToJSON(c, stages, bs.cfg.CommitFormat.TypeFormat)
+	res, err := dispatchByID(bs.db, *id, *kind)
 	if err != nil {
-		printErrorJSON("incomplete_commit", err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			printErrorJSON("not_found",
+				fmt.Sprintf("no commit or release with id=%d", *id))
+			return 1
+		}
+		printErrorJSON("db_error", err.Error())
 		return 1
 	}
-	printCommitJSON(cj)
+
+	switch res.Kind {
+	case kindCommit:
+		c := *res.Commit
+		cj, err := commitToJSON(c, loadStagesForCommit(bs.db, c.ID),
+			bs.cfg.CommitFormat.TypeFormat)
+		if err != nil {
+			printErrorJSON("incomplete_commit", err.Error())
+			return 1
+		}
+		printCommitJSON(cj)
+	case kindRelease:
+		cj, err := releaseToJSON(*res.Release, bs.cfg.CommitFormat.TypeFormat)
+		if err != nil {
+			printErrorJSON("incomplete_release", err.Error())
+			return 1
+		}
+		printCommitJSON(cj)
+	default:
+		printErrorJSON("not_found",
+			fmt.Sprintf("no commit or release with id=%d", *id))
+		return 1
+	}
 	return 0
 }

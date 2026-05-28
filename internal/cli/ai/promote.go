@@ -8,6 +8,7 @@ import (
 
 	"commit_craft_reborn/internal/changelog"
 	"commit_craft_reborn/internal/git"
+	"commit_craft_reborn/internal/storage"
 )
 
 // runPromote flips a draft to status='completed' via FinalizeCommit.
@@ -22,6 +23,11 @@ func runPromote(args []string) int {
 		"no-changelog-write",
 		false,
 		"Skip writing/staging CHANGELOG.md even when the draft has a changelog entry",
+	)
+	kind := fs.String(
+		"kind",
+		"",
+		"Force dispatch table when --id collides across commits/releases: 'commit' | 'release'. Optional.",
 	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -42,15 +48,21 @@ func runPromote(args []string) int {
 	}
 	defer bs.db.Close()
 
-	c, err := bs.db.GetCommitByID(*id)
+	res, err := dispatchByID(bs.db, *id, *kind)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			printErrorJSON("not_found", fmt.Sprintf("commit with id=%d not found", *id))
+			printErrorJSON("not_found", fmt.Sprintf("no commit or release with id=%d", *id))
 			return 1
 		}
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
+
+	if res.Kind == kindRelease {
+		return promoteRelease(bs, *res.Release)
+	}
+
+	c := *res.Commit
 	if c.MessageEN == "" {
 		printErrorJSON(
 			"invalid_input",
@@ -100,6 +112,39 @@ func runPromote(args []string) int {
 	cj, err := commitToJSON(saved, stages, bs.cfg.CommitFormat.TypeFormat)
 	if err != nil {
 		printErrorJSON("incomplete_commit", err.Error())
+		return 1
+	}
+	printCommitJSON(cj)
+	return 0
+}
+
+// promoteRelease flips a release draft to status='completed'. Skips
+// the changelog write step entirely — release rows don't carry a
+// CHANGELOG mention and the file write only makes sense for regular
+// commits.
+func promoteRelease(bs *bootstrap, r storage.Release) int {
+	if r.Title == "" && r.Body == "" {
+		printErrorJSON(
+			"invalid_input",
+			fmt.Sprintf(
+				"release id=%d has no title or body yet — re-run `ai release` or `ai merge` first",
+				r.ID,
+			),
+		)
+		return 1
+	}
+	if err := bs.db.FinalizeRelease(r.ID); err != nil {
+		printErrorJSON("db_error", err.Error())
+		return 1
+	}
+	saved, err := bs.db.GetReleaseByID(r.ID)
+	if err != nil {
+		saved = r
+		saved.Status = "completed"
+	}
+	cj, err := releaseToJSON(saved, bs.cfg.CommitFormat.TypeFormat)
+	if err != nil {
+		printErrorJSON("incomplete_release", err.Error())
 		return 1
 	}
 	printCommitJSON(cj)

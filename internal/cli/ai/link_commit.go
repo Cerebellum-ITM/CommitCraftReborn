@@ -37,6 +37,11 @@ func runLinkCommit(args []string) int {
 		"",
 		"Repo path used to resolve the hash. Defaults to the current directory.",
 	)
+	kind := fs.String(
+		"kind",
+		"",
+		"Force dispatch table when --id collides across commits/releases: 'commit' | 'release'. Optional.",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -72,43 +77,69 @@ func runLinkCommit(args []string) int {
 		return 2
 	}
 
-	existing, err := boot.db.GetCommitByID(*id)
+	res, err := dispatchByID(boot.db, *id, *kind)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			printErrorJSON("not_found", fmt.Sprintf("draft id=%d not found", *id))
+			printErrorJSON("not_found", fmt.Sprintf("no commit or release with id=%d", *id))
 			return 1
 		}
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
-	if existing.CommitHash != "" && existing.CommitHash != fullHash {
+
+	var existingHash string
+	switch res.Kind {
+	case kindCommit:
+		existingHash = res.Commit.CommitHash
+	case kindRelease:
+		existingHash = res.Release.CommitHash
+	}
+	if existingHash != "" && existingHash != fullHash {
 		fmt.Fprintf(os.Stderr,
 			"warning: draft %d was already linked to %s; overwriting with %s\n",
-			*id, shortHash(existing.CommitHash), shortHash(fullHash))
+			*id, shortHash(existingHash), shortHash(fullHash))
 	}
 
-	if err := boot.db.LinkCommitHash(*id, fullHash); err != nil {
-		printErrorJSON("db_error", err.Error())
-		return 1
+	switch res.Kind {
+	case kindCommit:
+		if err := boot.db.LinkCommitHash(*id, fullHash); err != nil {
+			printErrorJSON("db_error", err.Error())
+			return 1
+		}
+		saved, gerr := boot.db.GetCommitByID(*id)
+		if gerr != nil {
+			fmt.Fprintf(os.Stderr, "warning: post-link reload failed: %v\n", gerr)
+			saved = *res.Commit
+			saved.CommitHash = fullHash
+		}
+		cj, ferr := commitToJSON(
+			saved,
+			loadStagesForCommit(boot.db, saved.ID),
+			boot.cfg.CommitFormat.TypeFormat,
+		)
+		if ferr != nil {
+			printErrorJSON("format_error", ferr.Error())
+			return 1
+		}
+		printCommitJSON(cj)
+	case kindRelease:
+		if err := boot.db.LinkReleaseHash(*id, fullHash); err != nil {
+			printErrorJSON("db_error", err.Error())
+			return 1
+		}
+		saved, gerr := boot.db.GetReleaseByID(*id)
+		if gerr != nil {
+			fmt.Fprintf(os.Stderr, "warning: post-link reload failed: %v\n", gerr)
+			saved = *res.Release
+			saved.CommitHash = fullHash
+		}
+		cj, ferr := releaseToJSON(saved, boot.cfg.CommitFormat.TypeFormat)
+		if ferr != nil {
+			printErrorJSON("format_error", ferr.Error())
+			return 1
+		}
+		printCommitJSON(cj)
 	}
-
-	saved, err := boot.db.GetCommitByID(*id)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: post-link reload failed: %v\n", err)
-		saved = existing
-		saved.CommitHash = fullHash
-	}
-
-	cj, err := commitToJSON(
-		saved,
-		loadStagesForCommit(boot.db, saved.ID),
-		boot.cfg.CommitFormat.TypeFormat,
-	)
-	if err != nil {
-		printErrorJSON("format_error", err.Error())
-		return 1
-	}
-	printCommitJSON(cj)
 	return 0
 }
 

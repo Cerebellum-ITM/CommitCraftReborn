@@ -172,11 +172,21 @@ func tagIsKnown(tag string, types []commit.CommitType) bool {
 // commitJSON is the wire shape returned by every subcommand. Field
 // names are snake_case for easy consumption from any language. Stages
 // are flattened into a small array sorted by stage id.
+//
+// Kind discriminates between rows from the `commits` table
+// (`kind="commit"`) and rows from the `releases` table
+// (`kind="release"`). For release rows, Scope is populated with
+// Branch (for MERGE) or Version (for RELEASE) so legacy consumers
+// that only read Scope keep working; the explicit Branch / Version
+// fields carry the unambiguous values.
 type commitJSON struct {
 	ID             int         `json:"id"`
+	Kind           string      `json:"kind"`
 	Status         string      `json:"status"`
 	Type           string      `json:"type"`
 	Scope          string      `json:"scope"`
+	Branch         string      `json:"branch,omitempty"`
+	Version        string      `json:"version,omitempty"`
 	KeyPoints      []string    `json:"keypoints"`
 	Summary        string      `json:"summary"`
 	Body           string      `json:"body"`
@@ -185,6 +195,7 @@ type commitJSON struct {
 	ChangelogLine  string      `json:"changelog_mention,omitempty"`
 	FinalMessage   string      `json:"final_message"`
 	Workspace      string      `json:"workspace"`
+	Source         string      `json:"source,omitempty"`
 	CommitHash     string      `json:"commit_hash,omitempty"`
 	CreatedAt      string      `json:"created_at"`
 	Stages         []stageJSON `json:"stages,omitempty"`
@@ -214,6 +225,7 @@ func commitToJSON(
 	}
 	cj := commitJSON{
 		ID:             c.ID,
+		Kind:           kindCommit,
 		Status:         c.Status,
 		Type:           c.Type,
 		Scope:          c.Scope,
@@ -224,6 +236,7 @@ func commitToJSON(
 		ChangelogEntry: c.IaChangelog,
 		FinalMessage:   final,
 		Workspace:      c.Workspace,
+		Source:         c.Source,
 		CommitHash:     c.CommitHash,
 		CreatedAt:      c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -247,6 +260,54 @@ func commitToJSON(
 		})
 	}
 	return cj, nil
+}
+
+// releaseScope returns the value that fills the `scope` field of the
+// JSON envelope for a release row, keeping legacy consumers happy:
+// MERGE rows expose Branch, RELEASE rows expose Version.
+func releaseScope(r storage.Release) string {
+	if strings.EqualFold(r.Type, "MERGE") {
+		return r.Branch
+	}
+	return r.Version
+}
+
+// composeReleaseFinalMessage builds the `[TYPE] scope: title\n\nbody`
+// shape from a release row using FormatFinalMessage. Used by both
+// `ai show` (for the JSON envelope) and `ai verify` (as input to the
+// rule set).
+func composeReleaseFinalMessage(r storage.Release, typeFormat string) (string, error) {
+	msg := aiengine.ComposeFinalMessage(r.Title, r.Body, "")
+	return commit.FormatFinalMessage(typeFormat, r.Type, releaseScope(r), msg)
+}
+
+// releaseToJSON projects a release row into the same commitJSON shape
+// used by every other subcommand, with `kind="release"` plus explicit
+// Branch / Version fields. Stages stay empty until per-release
+// telemetry persistence lands (a future unit; the release pipeline
+// currently doesn't write to ai_calls).
+func releaseToJSON(r storage.Release, typeFormat string) (commitJSON, error) {
+	final, err := composeReleaseFinalMessage(r, typeFormat)
+	if err != nil {
+		return commitJSON{}, err
+	}
+	return commitJSON{
+		ID:           r.ID,
+		Kind:         kindRelease,
+		Status:       r.Status,
+		Type:         r.Type,
+		Scope:        releaseScope(r),
+		Branch:       r.Branch,
+		Version:      r.Version,
+		Summary:      r.Body,
+		Body:         r.Body,
+		Title:        r.Title,
+		FinalMessage: final,
+		Workspace:    r.Workspace,
+		Source:       r.Source,
+		CommitHash:   r.CommitHash,
+		CreatedAt:    r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}, nil
 }
 
 func firstNonEmpty(a, b string) string {

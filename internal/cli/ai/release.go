@@ -123,35 +123,28 @@ func runRelease(args []string) int {
 		return 1
 	}
 
-	messageEN := aiengine.ComposeFinalMessage(out.Title, out.Body, "")
-
-	c := storage.Commit{
-		Type:        "RELEASE",
-		Scope:       versionStr,
-		Workspace:   ws,
-		Diff_code:   serializeCommitRange(commits),
-		IaSummary:   out.Body,
-		IaCommitRaw: out.Body,
-		IaTitle:     out.Title,
-		MessageEN:   messageEN,
-		Source:      "ai",
+	r := storage.Release{
+		Type:       "RELEASE",
+		Title:      out.Title,
+		Body:       out.Body,
+		Version:    versionStr,
+		CommitList: serializeCommitRange(commits),
+		Workspace:  ws,
+		Source:     "ai",
+		Status:     "draft",
 	}
-	if err := boot.db.SaveDraft(&c); err != nil {
+	if err := boot.db.SaveReleaseDraft(&r); err != nil {
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
 
-	saved, err := boot.db.GetCommitByID(c.ID)
+	saved, err := boot.db.GetReleaseByID(r.ID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: post-save reload failed: %v\n", err)
-		saved = c
+		saved = r
 	}
 
-	cj, err := commitToJSON(
-		saved,
-		nil, // release-pipeline telemetry persistence is a follow-up
-		boot.cfg.CommitFormat.TypeFormat,
-	)
+	cj, err := releaseToJSON(saved, boot.cfg.CommitFormat.TypeFormat)
 	if err != nil {
 		printErrorJSON("format_error", err.Error())
 		return 1

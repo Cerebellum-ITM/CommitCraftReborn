@@ -33,6 +33,11 @@ func runVerify(args []string) int {
 		false,
 		"Treat warnings as errors for exit-code purposes. JSON output is unchanged.",
 	)
+	kind := fs.String(
+		"kind",
+		"",
+		"Force dispatch table when --id collides across commits/releases: 'commit' | 'release'. Optional.",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -52,18 +57,29 @@ func runVerify(args []string) int {
 	}
 	defer boot.db.Close()
 
-	c, err := boot.db.GetCommitByID(*id)
+	res, err := dispatchByID(boot.db, *id, *kind)
 	if err != nil {
 		printErrorJSON("not_found", fmt.Sprintf("draft id=%d: %s", *id, err.Error()))
 		return 1
 	}
 
-	final, err := commit.FormatFinalMessage(
-		boot.cfg.CommitFormat.TypeFormat,
-		c.Type,
-		c.Scope,
-		c.MessageEN,
-	)
+	var final string
+	switch res.Kind {
+	case kindCommit:
+		c := *res.Commit
+		final, err = commit.FormatFinalMessage(
+			boot.cfg.CommitFormat.TypeFormat,
+			c.Type, c.Scope, c.MessageEN,
+		)
+	case kindRelease:
+		final, err = composeReleaseFinalMessage(
+			*res.Release,
+			boot.cfg.CommitFormat.TypeFormat,
+		)
+	default:
+		printErrorJSON("not_found", fmt.Sprintf("no commit or release with id=%d", *id))
+		return 1
+	}
 	if err != nil {
 		printErrorJSON("incomplete_draft", err.Error())
 		return 1

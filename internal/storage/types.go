@@ -86,5 +86,8 @@ type Release struct {
 	CommitList string
 	Version    string
 	Workspace  string
+	Source     string
+	Status     string
+	CommitHash string
 	CreatedAt  time.Time
 }

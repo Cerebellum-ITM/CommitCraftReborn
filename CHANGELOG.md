@@ -2,6 +2,45 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.61.0 — 2026-05-28
+
+Realign storage of release-pipeline drafts. Until v0.60.0 the headless `ai release` and `ai merge` subcommands persisted to the `commits` table — a shortcut documented as a caveat in their CHANGELOG entries that bit users immediately: `[RELEASE]` / `[MERGE]` rows showed up in the TUI's commits History tab when they were supposed to live in the Releases view. This release moves both subcommands to the `releases` table where the TUI already keeps every row produced by the release pipeline.
+
+The CLI surface is unchanged. `ai release --version`, `ai merge --branch`, and the shared `ai show / edit / verify / promote / link-commit / list` subcommands all behave the same from the agent's perspective. Implicit dispatch handles the table routing: each shared subcommand looks up the id in `commits` first and falls back to `releases` on miss. The JSON envelope gains a `kind` field (`"commit"` or `"release"`) plus explicit `branch` / `version` (omitempty) so consumers can disambiguate without parsing scope.
+
+**Collision-safe lookups via `--kind`**: because the two tables auto-increment from their own sequences, the same numeric id can exist in both (e.g. `commits.id = 40` and `releases.id = 40`). Without help, dispatch hits `commits` first — fine when no collision exists, dangerous when one does (the wrong row gets edited/promoted). To eliminate the risk, every shared subcommand accepts an optional `--kind commit|release` flag that forces the lookup to one table. Agents that persist the `(id, kind)` pair from the JSON envelope of `ai release` / `ai merge` should pass `--kind release` to every subsequent call; agents that work only with `ai generate` rows can pass `--kind commit` (or rely on the auto-probe, which favors commits anyway).
+
+Storage changes (idempotent migrations via `applySchemaMigrations`):
+
+- `releases.source TEXT NOT NULL DEFAULT 'tui'` — discriminator for the upcoming TUI badge (unit 21).
+- `releases.status TEXT NOT NULL DEFAULT 'completed'` — existing TUI rows backfill to completed; headless drafts start at `'draft'` and flip via `ai promote`.
+- `releases.commit_hash TEXT NOT NULL DEFAULT ''` — `ai link-commit` now works on MERGE rows the same way it does on regular commits (a merge produces a real git commit whose hash is worth recalling).
+
+New `storage` methods: `GetReleaseByID`, `GetReleasesByStatus`, `SaveReleaseDraft`, `FinalizeRelease`, `LinkReleaseHash`. Existing `CreateRelease` / `GetLatestRelease` / `GetReleases` queries updated to include the three new columns.
+
+`ai edit` for release rows accepts only `--title` and `--body`. Passing `--scope`, `--tag`, or `--changelog` returns exit code 2 with `unsupported_field_for_release` — those fields don't map cleanly onto release rows (scope is implicit from branch/version, type rarely changes, releases don't carry a CHANGELOG mention).
+
+**Orphaned legacy rows**: drafts created by the previous units that wrote to the `commits` table (e.g. ids 999, 1000, 1002, 1003, 1015 in the dev environment) stay where they are. They remain accessible via `ai show --id <old>` because the dispatch hits `commits` first, but they no longer surface in the TUI's Releases view. No retroactive migration — the cleanest cut is to leave history alone and let `ai release` / `ai merge` produce correctly-placed rows going forward.
+
+### Usage
+
+The agent's flow is unchanged:
+
+```sh
+commitcraft ai release --version v0.61.0                     # writes to releases table
+commitcraft ai verify --id <id> --kind release               # disambiguates collisions
+commitcraft ai edit --id <id> --kind release --title "..."   # title/body only on releases
+commitcraft ai promote --id <id> --kind release              # FinalizeRelease
+
+commitcraft ai merge --branch feat/foo                       # also releases table now
+commitcraft ai link-commit --id <id> --kind release --hash "$(git rev-parse HEAD)"
+
+commitcraft ai show --id <id> --kind release                 # JSON has kind="release"
+commitcraft ai list                                          # commits + releases merged
+```
+
+The follow-up (unit 21) adds the `UI / AI` source badge to the TUI's Releases view, mirroring what already exists on the commits History tab.
+
 ## v0.60.0 — 2026-05-27
 
 Close the loop between a CommitCraft draft and the git commit it became. Adds a `commit_hash` column to the `commits` table (via `applySchemaMigrations`, default `''`), a new `commitcraft ai link-commit --id <draft> --hash <git>` subcommand to write the hash onto an existing row, and a new `commitcraft ai show --commit <hash>` lookup that resolves a short or full hash to the row whose keypoints/telemetry came from it.

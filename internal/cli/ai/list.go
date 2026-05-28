@@ -6,17 +6,22 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
 // listEntry is a compact summary returned by `ai list`. Useful for
 // agents that want to scan available drafts before picking one to
-// inspect via `ai show --id`.
+// inspect via `ai show --id`. `kind` discriminates between rows from
+// the `commits` table and rows from the `releases` table (which
+// includes MERGE / RELEASE drafts).
 type listEntry struct {
 	ID           int    `json:"id"`
+	Kind         string `json:"kind"`
 	Status       string `json:"status"`
 	Type         string `json:"type"`
 	Scope        string `json:"scope"`
+	Source       string `json:"source,omitempty"`
 	TitleSnippet string `json:"title_snippet"`
 	CreatedAt    string `json:"created_at"`
 }
@@ -51,7 +56,12 @@ func runList(args []string) int {
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
-	out := make([]listEntry, 0, len(commits))
+	releases, err := bs.db.GetReleasesByStatus(bs.pwd, *status)
+	if err != nil {
+		printErrorJSON("db_error", err.Error())
+		return 1
+	}
+	out := make([]listEntry, 0, len(commits)+len(releases))
 	for _, c := range commits {
 		title := strings.SplitN(strings.TrimSpace(c.IaTitle), "\n", 2)[0]
 		if len(title) > 80 {
@@ -59,13 +69,38 @@ func runList(args []string) int {
 		}
 		out = append(out, listEntry{
 			ID:           c.ID,
+			Kind:         kindCommit,
 			Status:       c.Status,
 			Type:         c.Type,
 			Scope:        c.Scope,
+			Source:       c.Source,
 			TitleSnippet: title,
 			CreatedAt:    c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
+	for _, r := range releases {
+		title := strings.SplitN(strings.TrimSpace(r.Title), "\n", 2)[0]
+		if len(title) > 80 {
+			title = title[:80] + "…"
+		}
+		scope := r.Branch
+		if scope == "" {
+			scope = r.Version
+		}
+		out = append(out, listEntry{
+			ID:           r.ID,
+			Kind:         kindRelease,
+			Status:       r.Status,
+			Type:         r.Type,
+			Scope:        scope,
+			Source:       r.Source,
+			TitleSnippet: title,
+			CreatedAt:    r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].CreatedAt > out[j].CreatedAt
+	})
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(out)

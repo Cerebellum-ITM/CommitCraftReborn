@@ -15,15 +15,15 @@ import (
 
 // runMerge generates a [MERGE] draft from the commits between
 // <into>..<branch> using the existing release pipeline
-// (aiengine.RunRelease). The draft is persisted as a normal
-// storage.Commit row with Type="MERGE" and Scope=<source branch>, so
-// every other subcommand (ai edit / ai show / ai promote / ai verify)
-// works on it unchanged.
+// (aiengine.RunRelease). The draft is persisted as a `releases` row
+// with Type="MERGE" and Branch=<source>, alongside TUI-created
+// release rows. Shared subcommands (`ai show / edit / verify /
+// promote / link-commit`) dispatch on id and operate on this row
+// transparently.
 //
 // `ai regenerate` is NOT yet wired for merge drafts — it would route
-// through the commit pipeline and produce garbage. Documented in the
-// subcommand's `-h` text. For tweaks, use `ai edit`; for a clean
-// re-run, invoke `ai merge` again.
+// through the commit pipeline and produce garbage. For tweaks, use
+// `ai edit`; for a clean re-run, invoke `ai merge` again.
 func runMerge(args []string) int {
 	fs := flagSet("ai merge")
 	branch := fs.String(
@@ -106,35 +106,28 @@ func runMerge(args []string) int {
 		return 1
 	}
 
-	messageEN := aiengine.ComposeFinalMessage(out.Title, out.Body, "")
-
-	c := storage.Commit{
-		Type:        "MERGE",
-		Scope:       branchName,
-		Workspace:   ws,
-		Diff_code:   serializeCommitRange(commits),
-		IaSummary:   out.Body,
-		IaCommitRaw: out.Body,
-		IaTitle:     out.Title,
-		MessageEN:   messageEN,
-		Source:      "ai",
+	r := storage.Release{
+		Type:       "MERGE",
+		Title:      out.Title,
+		Body:       out.Body,
+		Branch:     branchName,
+		CommitList: serializeCommitRange(commits),
+		Workspace:  ws,
+		Source:     "ai",
+		Status:     "draft",
 	}
-	if err := boot.db.SaveDraft(&c); err != nil {
+	if err := boot.db.SaveReleaseDraft(&r); err != nil {
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
 
-	saved, err := boot.db.GetCommitByID(c.ID)
+	saved, err := boot.db.GetReleaseByID(r.ID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: post-save reload failed: %v\n", err)
-		saved = c
+		saved = r
 	}
 
-	cj, err := commitToJSON(
-		saved,
-		nil, // release-pipeline telemetry persistence is a follow-up
-		boot.cfg.CommitFormat.TypeFormat,
-	)
+	cj, err := releaseToJSON(saved, boot.cfg.CommitFormat.TypeFormat)
 	if err != nil {
 		printErrorJSON("format_error", err.Error())
 		return 1
