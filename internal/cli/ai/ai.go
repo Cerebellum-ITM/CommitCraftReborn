@@ -39,6 +39,7 @@ Subcommands:
   merge              Generate a [MERGE] draft from the commits in <into>..<branch> using the release pipeline.
   release            Generate a [RELEASE] draft from the commits in <from>..<to>. Drafting only — publishing (gh) is a separate follow-up.
   link-commit        Associate a draft id with a git commit hash so 'ai show --commit <hash>' works after the fact.
+  key                Manage the two Groq API key slots (user/ai): show state, set a slot's key, swap the active slot.
 
 Run 'commitcraft ai <subcommand> -h' for the flags of each subcommand.
 `
@@ -80,6 +81,8 @@ func Dispatch(args []string) int {
 		return runRelease(rest)
 	case "link-commit":
 		return runLinkCommit(rest)
+	case "key":
+		return runKey(rest)
 	case "-h", "--help", "help":
 		fmt.Fprint(os.Stdout, usage)
 		return 0
@@ -406,6 +409,23 @@ func printErrorJSON(code, msg string) {
 	enc := json.NewEncoder(os.Stderr)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(map[string]string{"error": msg, "code": code})
+}
+
+// printAIRunError maps an error returned by aiengine.Run / RunRelease to a
+// structured stderr payload. A Groq 429 (api.ErrRateLimited, wrapped through
+// the engine with %w) becomes a "rate_limited" code with a hint naming the
+// active key slot and the swap command, so the agent can switch slots and
+// retry instead of treating it as an opaque api_error. Everything else stays
+// "api_error".
+func printAIRunError(bs *bootstrap, err error) {
+	if errors.Is(err, api.ErrRateLimited) {
+		printErrorJSON("rate_limited",
+			fmt.Sprintf("Groq rate-limited the active key (slot=%s). "+
+				"Run `commitcraft ai key swap` to switch slots, then retry. (%v)",
+				bs.cfg.TUI.ActiveKeySlot, err))
+		return
+	}
+	printErrorJSON("api_error", err.Error())
 }
 
 // printCommitJSON writes a commitJSON to stdout, indented for human

@@ -2,6 +2,27 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.66.0 — 2026-05-29
+
+Dual Groq API key support. Two key slots — **user** and **ai** — with exactly one active at a time, managed via the new `commitcraft ai key` subcommand. Both the TUI and every `commitcraft ai …` command resolve their key from the active slot. Lets you keep a second key on hand and swap to it manually when the free tier rate-limits the first one (the original blocker for the agent-driven `ai merge`).
+
+- `.env` storage: `GROQ_API_KEY` (user slot, unchanged), `GROQ_API_KEY_AI` (ai slot), `GROQ_ACTIVE_KEY` (`user`|`ai`, defaults to user). Existing single-key setups are unaffected.
+- No silent fallback: if the active slot is empty, the usual "API key not provided" error fires — `ai key show` reveals the state.
+- On a Groq `429`, `ai generate` / `regenerate` / `merge` / `release` now return `code: "rate_limited"` with a hint naming the active slot and the swap command, instead of a generic `api_error`. No automatic retry.
+- `.env` mutation logic now lives in `config.SaveEnvVar` (single source of truth; the TUI delegates to it).
+
+### Usage
+
+```sh
+commitcraft ai key                      # show active slot + which slots are set (JSON, no secrets)
+commitcraft ai key set --slot ai        # prompts for the key without echo (or pass --value <key>)
+echo "$KEY" | commitcraft ai key set --slot ai   # scripted: reads the key from stdin
+commitcraft ai key swap                 # toggle user<->ai (errors if the target slot is empty)
+commitcraft ai key use --slot user      # activate a slot explicitly
+```
+
+When a run is rate-limited you'll see `{"code":"rate_limited", ...}`; run `commitcraft ai key swap` and retry.
+
 ## v0.65.0 — 2026-05-29
 
 Add `--dry-run` flag to `commitcraft ai generate`. Runs the full 3-stage AI pipeline (real Groq calls) and returns the same JSON output as a normal generate, but skips all DB writes — no draft row, no telemetry. Returns `"id": 0` and `"status": "dry_run"` in the envelope. Designed for agents that want to iterate on keypoint phrasings without polluting the drafts list.

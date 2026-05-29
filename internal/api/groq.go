@@ -3,12 +3,18 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+// ErrRateLimited is wrapped into the error returned by GetGroqChatCompletion
+// when Groq responds with HTTP 429. Callers detect it via errors.Is to give
+// the user a "swap your API key slot" hint instead of a generic API error.
+var ErrRateLimited = errors.New("groq rate limit (429)")
 
 type Message struct {
 	Role    string `json:"role"`
@@ -182,6 +188,10 @@ func GetGroqChatCompletion(
 		return "", nil, fmt.Errorf("error reading response body: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return "", nil, fmt.Errorf(
+			"API returned 429: %s: %w", string(body), ErrRateLimited)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", nil, fmt.Errorf(
 			"API returned a non-success status: %d, %s",

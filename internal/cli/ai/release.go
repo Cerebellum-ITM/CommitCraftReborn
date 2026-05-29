@@ -119,7 +119,7 @@ func runRelease(args []string) int {
 		Cfg: boot.cfg, DB: boot.db, Log: boot.log, Pwd: ws,
 	}, in)
 	if err != nil {
-		printErrorJSON("api_error", err.Error())
+		printAIRunError(boot, err)
 		return 1
 	}
 

@@ -42,6 +42,7 @@ Update this file after every meaningful implementation change.
   - Unit 22 (`ai context --model`): code-complete as v0.63.0.
   - Unit 23 (`generic_title` verify rule): code-complete as v0.64.0.
   - Unit 24 (`ai generate --dry-run`): code-complete as v0.65.0. Todos los ítems del umbrella completados.
+  - Unit 25 (dual API key swap): code-complete as v0.66.0. **Closing unit** — two Groq key slots (user/ai) + `ai key` subcommand + 429 `rate_limited` reporting. Branch ready to merge.
 
 ## Next Up
 
@@ -65,6 +66,8 @@ Update this file after every meaningful implementation change.
 - **Pre-commit hook formats Go files** with the conform.nvim chain to keep diffs clean across editors.
 
 ## Session Notes
+
+- 2026-05-29 — **Unit 25 (dual API key swap) code-complete** on `feat/agent-cli-improvements`. **Closing unit of the branch.** Two Groq key slots (`user`/`ai`) with one active at a time, managed via new `commitcraft ai key` subcommand (`show`/`set`/`swap`/`use`). `.env` storage: `GROQ_API_KEY` (user, unchanged name → backward compatible), `GROQ_API_KEY_AI` (ai), `GROQ_ACTIVE_KEY` (`user`|`ai`, defaults user). `loader.go` resolves the active slot into `TUI.GroqAPIKey` with **no silent cross-slot fallback** — empty active slot → existing "no key" error; new `TUI.ActiveKeySlot`/`UserKeySet`/`AIKeySet` fields (all `toml:"-"`). `.env` upsert logic lifted from `internal/tui/local_config.go` into new `config.SaveEnvVar` (single source of truth; TUI's `saveEnvVar` now delegates); new `config.LoadKeyState`/`ReadEnvFile` read disk truth via `godotenv.Read`. Key value at the `set` prompt read hidden via `golang.org/x/term` (`term.ReadPassword`), with `term.IsTerminal` fallback to a plain line read for piped/scripted input. 429 handling: `api.ErrRateLimited` sentinel wrapped on HTTP 429 (survives `%w` through the engine); new `printAIRunError(bs, err)` in `ai.go` maps it to `code:"rate_limited"` with an active-slot + `ai key swap` hint across generate/regenerate/merge/release — **report only, no auto-retry, no auto-fallback** (per user decision). Smoke-tested under a temp HOME: full show→set→swap→empty-slot-guard cycle, GH_TOKEN + key order preserved across writes, pipe-fed `set` works. v0.66.0. Spec at `context/specs/25-dual-api-key-swap.md`. Branch now ready to merge — swap is exactly what unblocks the rate-limited agent `ai merge`.
 
 - 2026-05-29 — **Unit 24 (`ai generate --dry-run`) code-complete** on `feat/agent-cli-improvements`. Flag `--dry-run` en `runGenerate`: cuando está activo, salta `SaveDraft` y `persistAICalls`, construye un `storage.Commit` con `Status="dry_run"` y lo serializa vía `commitToJSON` con `ID=0`. Smoke test: `id=0`, `status=dry_run`, cero filas en DB. Cierra el último ítem del umbrella `feat/agent-cli-improvements`. v0.65.0. Spec at `context/specs/24-generate-dry-run.md`.
 - 2026-05-28 — **Unit 23 (`generic_title` verify rule) code-complete** on `feat/agent-cli-improvements`. New warning rule in `VerifyFinalMessage`: extracts title text after `[TAG] scope: ` with `titleTextPattern`, flags ≤ 3-word texts starting with a generic verb (`update`, `add`, `fix`, etc.). 13/13 tests green including 2 new. v0.64.0. Spec at `context/specs/23-verify-generic-title.md`.

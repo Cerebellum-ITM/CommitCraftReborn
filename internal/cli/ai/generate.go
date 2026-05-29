@@ -86,7 +86,7 @@ func runGenerate(args []string) int {
 		Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: bs.pwd,
 	}, in)
 	if err != nil {
-		printErrorJSON("api_error", err.Error())
+		printAIRunError(bs, err)
 		return 1
 	}
 
