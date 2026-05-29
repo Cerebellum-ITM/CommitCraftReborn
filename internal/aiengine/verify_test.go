@@ -104,6 +104,37 @@ func TestVerifyFinalMessage_DuplicateLine(t *testing.T) {
 	}
 }
 
+func TestVerifyFinalMessage_GenericTitle_Flagged(t *testing.T) {
+	for _, title := range []string{
+		"[ADD] ai: update docs",
+		"[FIX] context: fix bug",
+		"[REF] storage: refactor code",
+		"[ADD] ai: add feature",
+	} {
+		r := VerifyFinalMessage(title + "\n\nbody text here")
+		if !findRule(r, "generic_title") {
+			t.Errorf("expected generic_title warning for %q, got %+v", title, r.Findings)
+		}
+		if r.HasErrors {
+			t.Errorf("generic_title should be warning only for %q", title)
+		}
+	}
+}
+
+func TestVerifyFinalMessage_GenericTitle_NotFlagged(t *testing.T) {
+	for _, title := range []string{
+		"[ADD] context: expose model context assessment",                    // 4 words
+		"[ADD] ai: add --model flag to context command",                     // verb + many words
+		"[UI] release_main_menu_list: release source pill indicators added", // no generic verb first
+		"[FIX] storage: resolve collision in dispatch lookup",               // 5 words, specific
+	} {
+		r := VerifyFinalMessage(title + "\n\nbody text here")
+		if findRule(r, "generic_title") {
+			t.Errorf("unexpected generic_title warning for %q", title)
+		}
+	}
+}
+
 func findRule(r VerifyReport, rule string) bool {
 	for _, f := range r.Findings {
 		if f.Rule == rule {

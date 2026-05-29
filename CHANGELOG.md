@@ -2,6 +2,25 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.64.0 — 2026-05-28
+
+Add `generic_title` warning rule to `ai verify`. Flags title text (the portion after `[TAG] scope: `) that starts with a generic action verb and has ≤ 3 words total — patterns like `"update docs"`, `"fix bug"`, `"add feature"` that signal the model ignored the keypoints. Severity is warning, not error; the agent can decide to patch or accept. Titles with 4+ words or non-generic leading words pass cleanly.
+
+### Usage
+
+No new flags. The finding appears automatically in `commitcraft ai verify --id <ID>` output when the title text is too generic:
+
+```json
+{
+  "rule": "generic_title",
+  "severity": "warning",
+  "message": "Title text is likely too generic (\"fix bug\"). Add specifics about what changed.",
+  "location": "title"
+}
+```
+
+Fix with `commitcraft ai edit --id <ID> --title "[FIX] scope: fix null-pointer in release dispatch"`.
+
 ## v0.63.0 — 2026-05-28
 
 Add `--model <id>` flag to `commitcraft ai context`. Lets an agent (or the user) compare whether the staged diff fits inside an alternative model's context window without editing the config. The payload estimate is model-agnostic (chars/4 heuristic against the fixed system prompt), so only the context-window lookup changes. If the supplied model ID is not in the local `groq_models_cache`, `context_window` returns 0 and `fits` / `usage_pct` are null — same behavior as today for any uncached model.

@@ -39,7 +39,8 @@ Update this file after every meaningful implementation change.
   - Unit 19 (`ai link-commit`): shipped as v0.60.0, commit `968ff7d`.
   - Unit 20 (release-storage realignment): code-complete, awaiting paired skill update. `ai release` + `ai merge` now write to the `releases` table; shared subcommands gain `--kind commit|release` for collision-safe lookups.
   - Unit 21 (TUI source badge): code-complete as v0.62.0. `AI` / `TUI` pill now renders on every Releases view row, mirroring the commits History tab.
-  - Unit 22 (`ai context --model`): code-complete as v0.63.0. Items 5, 6 of the umbrella: still pending.
+  - Unit 22 (`ai context --model`): code-complete as v0.63.0.
+  - Unit 23 (`generic_title` verify rule): code-complete as v0.64.0. Item 6 of the umbrella: still pending.
 
 ## Next Up
 
@@ -64,6 +65,7 @@ Update this file after every meaningful implementation change.
 
 ## Session Notes
 
+- 2026-05-28 — **Unit 23 (`generic_title` verify rule) code-complete** on `feat/agent-cli-improvements`. New warning rule in `VerifyFinalMessage`: extracts title text after `[TAG] scope: ` with `titleTextPattern`, flags ≤ 3-word texts starting with a generic verb (`update`, `add`, `fix`, etc.). 13/13 tests green including 2 new. v0.64.0. Spec at `context/specs/23-verify-generic-title.md`.
 - 2026-05-28 — **Unit 22 (`ai context --model`) code-complete** on `feat/agent-cli-improvements`. Added `--model <id>` flag to `runContext` in `internal/cli/ai/context.go`. When supplied, overrides the model ID used for `lookupContextWindow` and the `model` field in the JSON output; payload estimate (`EstimateChangeAnalyzer`) is unchanged. Unknown model → `context_window: 0`, `fits: null`. Smoke-tested: unknown model returns nulls, configured model returns same output as plain `ai context`. v0.63.0. Spec at `context/specs/22-ai-context-model-flag.md`.
 - 2026-05-28 — **Unit 21 (TUI source badge) code-complete** on `feat/agent-cli-improvements`. Added `sourcePillStyle` call to `HistoryReleaseDelegate.Render` in `internal/tui/release_main_menu_list.go`. Three-line change: call the helper, add `srcWidth` + `gapBeforeSrc` to the `msgWidth` deduction, insert `srcPill` between the message block and the date in the `JoinHorizontal` call. Legacy rows (backfilled to `source='tui'` by the v0.61.0 migration) show `TUI`; `ai release` / `ai merge` drafts show `AI`. v0.62.0. Branch is now a good merge candidate — all 8 units complete.
 

@@ -71,6 +71,21 @@ var titleTagPattern = regexp.MustCompile(`^\[[A-Z]+\]`)
 // body and is not constrained here.
 var titleScopePattern = regexp.MustCompile(`^\[[A-Z]+\]\s+\S+:\s+\S`)
 
+// titleTextPattern extracts the free-text portion of a well-formed title
+// (everything after `[TAG] scope: `). Used by the generic-title check.
+var titleTextPattern = regexp.MustCompile(`^\[[A-Z]+\]\s+\S+:\s+(.+)$`)
+
+// genericTitleVerbs are action verbs that produce near-content-free titles
+// when the rest of the title is only 1-2 words. Conservative list — prefer
+// false negatives over false positives. Extend only when we encounter a new
+// pattern in the wild.
+var genericTitleVerbs = map[string]bool{
+	"update": true, "add": true, "remove": true, "fix": true,
+	"improve": true, "document": true, "refactor": true,
+	"implement": true, "create": true, "change": true,
+	"modify": true, "cleanup": true, "delete": true, "rename": true,
+}
+
 // VerifyFinalMessage runs the deterministic rule set against a
 // composed final_message (the same text that would go into
 // `git commit`). Rules never call Groq and never read the diff — they
@@ -83,6 +98,7 @@ func VerifyFinalMessage(finalMessage string) VerifyReport {
 	findings = appendIf(findings, checkEmptyTitle(title))
 	findings = appendIf(findings, checkTitleFormat(title)...)
 	findings = appendIf(findings, checkTitleLength(title)...)
+	findings = appendIf(findings, checkGenericTitle(title))
 	findings = appendIf(findings, checkEmptyBody(title, body))
 	findings = appendIf(findings, checkTitleEqualsBody(title, body))
 	findings = appendIf(findings, checkCodeFence(title, body)...)
@@ -180,6 +196,30 @@ func checkTitleLength(title string) []*VerifyFinding {
 		}}
 	}
 	return nil
+}
+
+// checkGenericTitle warns when the title text (the portion after
+// `[TAG] scope: `) is ≤ 3 words and starts with a generic action verb.
+// Titles like "update docs" or "fix bug" carry near-zero information —
+// the model likely ignored the keypoints.
+func checkGenericTitle(title string) *VerifyFinding {
+	m := titleTextPattern.FindStringSubmatch(title)
+	if m == nil {
+		return nil // malformed title already caught by titleFormat rule
+	}
+	words := strings.Fields(m[1])
+	if len(words) > 3 || len(words) == 0 {
+		return nil
+	}
+	if !genericTitleVerbs[strings.ToLower(words[0])] {
+		return nil
+	}
+	return &VerifyFinding{
+		Rule:     "generic_title",
+		Severity: severityWarning,
+		Message:  "Title text is likely too generic (\"" + m[1] + "\"). Add specifics about what changed.",
+		Location: "title",
+	}
 }
 
 func checkEmptyBody(title, body string) *VerifyFinding {
