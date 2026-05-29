@@ -2,6 +2,20 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.65.0 — 2026-05-29
+
+Add `--dry-run` flag to `commitcraft ai generate`. Runs the full 3-stage AI pipeline (real Groq calls) and returns the same JSON output as a normal generate, but skips all DB writes — no draft row, no telemetry. Returns `"id": 0` and `"status": "dry_run"` in the envelope. Designed for agents that want to iterate on keypoint phrasings without polluting the drafts list.
+
+### Usage
+
+```sh
+commitcraft ai generate --dry-run -k "keypoint 1" -t ADD -s ai
+# → JSON with id=0, status=dry_run, final_message populated
+# → no row created in the DB
+```
+
+`ai verify --id <id>` does not apply to dry-run output (no id). Inspect `final_message` directly from the JSON. When satisfied, re-run without `--dry-run` to persist.
+
 ## v0.64.0 — 2026-05-28
 
 Add `generic_title` warning rule to `ai verify`. Flags title text (the portion after `[TAG] scope: `) that starts with a generic action verb and has ≤ 3 words total — patterns like `"update docs"`, `"fix bug"`, `"add feature"` that signal the model ignored the keypoints. Severity is warning, not error; the agent can decide to patch or accept. Titles with 4+ words or non-generic leading words pass cleanly.
