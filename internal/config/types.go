@@ -30,11 +30,18 @@ type PromptsConfig struct {
 }
 
 type TUIConfig struct {
-	UseNerdFonts bool                 `toml:"use_nerd_fonts"`
-	Theme        string               `toml:"theme,omitempty"`
-	GroqAPIKey   string               `toml:"-"`
-	IsAPIKeySet  bool                 `toml:"-"`
-	Pipeline     PipelineLayoutConfig `toml:"pipeline,omitempty"`
+	UseNerdFonts bool   `toml:"use_nerd_fonts"`
+	Theme        string `toml:"theme,omitempty"`
+	// GroqAPIKey is the resolved key for the active slot (see
+	// GROQ_ACTIVE_KEY). ActiveKeySlot / UserKeySet / AIKeySet describe the
+	// two-slot state behind it. All derived from the global `.env` at load
+	// time, never serialized.
+	GroqAPIKey    string               `toml:"-"`
+	IsAPIKeySet   bool                 `toml:"-"`
+	ActiveKeySlot string               `toml:"-"` // "user" | "ai"
+	UserKeySet    bool                 `toml:"-"`
+	AIKeySet      bool                 `toml:"-"`
+	Pipeline      PipelineLayoutConfig `toml:"pipeline,omitempty"`
 }
 
 // PipelineLayoutConfig controls the per-stage card heights on the

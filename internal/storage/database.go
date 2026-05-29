@@ -219,6 +219,30 @@ func applySchemaMigrations(db *sql.DB) error {
 			defaultValue: "'tui'",
 		},
 		{
+			tableName:    "commits",
+			columnName:   "commit_hash",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+		{
+			tableName:    "releases",
+			columnName:   "source",
+			columnType:   "TEXT",
+			defaultValue: "'tui'",
+		},
+		{
+			tableName:    "releases",
+			columnName:   "status",
+			columnType:   "TEXT",
+			defaultValue: "'completed'",
+		},
+		{
+			tableName:    "releases",
+			columnName:   "commit_hash",
+			columnType:   "TEXT",
+			defaultValue: "''",
+		},
+		{
 			tableName:    "ai_calls",
 			columnName:   "tpm_limit_at_call",
 			columnType:   "INTEGER",

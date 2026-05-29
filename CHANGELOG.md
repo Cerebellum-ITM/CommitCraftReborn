@@ -2,6 +2,307 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.66.0 — 2026-05-29
+
+Dual Groq API key support. Two key slots — **user** and **ai** — with exactly one active at a time, managed via the new `commitcraft ai key` subcommand. Both the TUI and every `commitcraft ai …` command resolve their key from the active slot. Lets you keep a second key on hand and swap to it manually when the free tier rate-limits the first one (the original blocker for the agent-driven `ai merge`).
+
+- `.env` storage: `GROQ_API_KEY` (user slot, unchanged), `GROQ_API_KEY_AI` (ai slot), `GROQ_ACTIVE_KEY` (`user`|`ai`, defaults to user). Existing single-key setups are unaffected.
+- No silent fallback: if the active slot is empty, the usual "API key not provided" error fires — `ai key show` reveals the state.
+- On a Groq `429`, `ai generate` / `regenerate` / `merge` / `release` now return `code: "rate_limited"` with a hint naming the active slot and the swap command, instead of a generic `api_error`. No automatic retry.
+- `.env` mutation logic now lives in `config.SaveEnvVar` (single source of truth; the TUI delegates to it).
+
+### Usage
+
+```sh
+commitcraft ai key                      # show active slot + which slots are set (JSON, no secrets)
+commitcraft ai key set --slot ai        # prompts for the key without echo (or pass --value <key>)
+echo "$KEY" | commitcraft ai key set --slot ai   # scripted: reads the key from stdin
+commitcraft ai key swap                 # toggle user<->ai (errors if the target slot is empty)
+commitcraft ai key use --slot user      # activate a slot explicitly
+```
+
+When a run is rate-limited you'll see `{"code":"rate_limited", ...}`; run `commitcraft ai key swap` and retry.
+
+## v0.65.0 — 2026-05-29
+
+Add `--dry-run` flag to `commitcraft ai generate`. Runs the full 3-stage AI pipeline (real Groq calls) and returns the same JSON output as a normal generate, but skips all DB writes — no draft row, no telemetry. Returns `"id": 0` and `"status": "dry_run"` in the envelope. Designed for agents that want to iterate on keypoint phrasings without polluting the drafts list.
+
+### Usage
+
+```sh
+commitcraft ai generate --dry-run -k "keypoint 1" -t ADD -s ai
+# → JSON with id=0, status=dry_run, final_message populated
+# → no row created in the DB
+```
+
+`ai verify --id <id>` does not apply to dry-run output (no id). Inspect `final_message` directly from the JSON. When satisfied, re-run without `--dry-run` to persist.
+
+## v0.64.0 — 2026-05-28
+
+Add `generic_title` warning rule to `ai verify`. Flags title text (the portion after `[TAG] scope: `) that starts with a generic action verb and has ≤ 3 words total — patterns like `"update docs"`, `"fix bug"`, `"add feature"` that signal the model ignored the keypoints. Severity is warning, not error; the agent can decide to patch or accept. Titles with 4+ words or non-generic leading words pass cleanly.
+
+### Usage
+
+No new flags. The finding appears automatically in `commitcraft ai verify --id <ID>` output when the title text is too generic:
+
+```json
+{
+  "rule": "generic_title",
+  "severity": "warning",
+  "message": "Title text is likely too generic (\"fix bug\"). Add specifics about what changed.",
+  "location": "title"
+}
+```
+
+Fix with `commitcraft ai edit --id <ID> --title "[FIX] scope: fix null-pointer in release dispatch"`.
+
+## v0.63.0 — 2026-05-28
+
+Add `--model <id>` flag to `commitcraft ai context`. Lets an agent (or the user) compare whether the staged diff fits inside an alternative model's context window without editing the config. The payload estimate is model-agnostic (chars/4 heuristic against the fixed system prompt), so only the context-window lookup changes. If the supplied model ID is not in the local `groq_models_cache`, `context_window` returns 0 and `fits` / `usage_pct` are null — same behavior as today for any uncached model.
+
+### Usage
+
+```sh
+# Check against a specific model without changing config
+commitcraft ai context --model llama-3.3-70b-versatile
+
+# Combine with --strict to gate on the alternative model
+commitcraft ai context --model llama-3.3-70b-versatile --strict
+```
+
+## v0.62.0 — 2026-05-28
+
+Render the `AI` / `TUI` source pill on the Releases view, mirroring what already exists on every row of the commits History tab. TUI-created releases show the `TUI` pill; drafts produced by `commitcraft ai release` / `ai merge` now show the `AI` pill instead of going unmarked. Pure rendering change — the underlying `releases.source` column was added in v0.61.0.
+
+### Usage
+
+No configuration or key changes. The pill appears automatically on every row of the Releases view. Legacy releases (pre-v0.61.0) were backfilled to `source = 'tui'` by the v0.61.0 migration and render as `TUI`.
+
+## v0.61.0 — 2026-05-28
+
+Realign storage of release-pipeline drafts. Until v0.60.0 the headless `ai release` and `ai merge` subcommands persisted to the `commits` table — a shortcut documented as a caveat in their CHANGELOG entries that bit users immediately: `[RELEASE]` / `[MERGE]` rows showed up in the TUI's commits History tab when they were supposed to live in the Releases view. This release moves both subcommands to the `releases` table where the TUI already keeps every row produced by the release pipeline.
+
+The CLI surface is unchanged. `ai release --version`, `ai merge --branch`, and the shared `ai show / edit / verify / promote / link-commit / list` subcommands all behave the same from the agent's perspective. Implicit dispatch handles the table routing: each shared subcommand looks up the id in `commits` first and falls back to `releases` on miss. The JSON envelope gains a `kind` field (`"commit"` or `"release"`) plus explicit `branch` / `version` (omitempty) so consumers can disambiguate without parsing scope.
+
+**Collision-safe lookups via `--kind`**: because the two tables auto-increment from their own sequences, the same numeric id can exist in both (e.g. `commits.id = 40` and `releases.id = 40`). Without help, dispatch hits `commits` first — fine when no collision exists, dangerous when one does (the wrong row gets edited/promoted). To eliminate the risk, every shared subcommand accepts an optional `--kind commit|release` flag that forces the lookup to one table. Agents that persist the `(id, kind)` pair from the JSON envelope of `ai release` / `ai merge` should pass `--kind release` to every subsequent call; agents that work only with `ai generate` rows can pass `--kind commit` (or rely on the auto-probe, which favors commits anyway).
+
+Storage changes (idempotent migrations via `applySchemaMigrations`):
+
+- `releases.source TEXT NOT NULL DEFAULT 'tui'` — discriminator for the upcoming TUI badge (unit 21).
+- `releases.status TEXT NOT NULL DEFAULT 'completed'` — existing TUI rows backfill to completed; headless drafts start at `'draft'` and flip via `ai promote`.
+- `releases.commit_hash TEXT NOT NULL DEFAULT ''` — `ai link-commit` now works on MERGE rows the same way it does on regular commits (a merge produces a real git commit whose hash is worth recalling).
+
+New `storage` methods: `GetReleaseByID`, `GetReleasesByStatus`, `SaveReleaseDraft`, `FinalizeRelease`, `LinkReleaseHash`. Existing `CreateRelease` / `GetLatestRelease` / `GetReleases` queries updated to include the three new columns.
+
+`ai edit` for release rows accepts only `--title` and `--body`. Passing `--scope`, `--tag`, or `--changelog` returns exit code 2 with `unsupported_field_for_release` — those fields don't map cleanly onto release rows (scope is implicit from branch/version, type rarely changes, releases don't carry a CHANGELOG mention).
+
+**Orphaned legacy rows**: drafts created by the previous units that wrote to the `commits` table (e.g. ids 999, 1000, 1002, 1003, 1015 in the dev environment) stay where they are. They remain accessible via `ai show --id <old>` because the dispatch hits `commits` first, but they no longer surface in the TUI's Releases view. No retroactive migration — the cleanest cut is to leave history alone and let `ai release` / `ai merge` produce correctly-placed rows going forward.
+
+### Usage
+
+The agent's flow is unchanged:
+
+```sh
+commitcraft ai release --version v0.61.0                     # writes to releases table
+commitcraft ai verify --id <id> --kind release               # disambiguates collisions
+commitcraft ai edit --id <id> --kind release --title "..."   # title/body only on releases
+commitcraft ai promote --id <id> --kind release              # FinalizeRelease
+
+commitcraft ai merge --branch feat/foo                       # also releases table now
+commitcraft ai link-commit --id <id> --kind release --hash "$(git rev-parse HEAD)"
+
+commitcraft ai show --id <id> --kind release                 # JSON has kind="release"
+commitcraft ai list                                          # commits + releases merged
+```
+
+The follow-up (unit 21) adds the `UI / AI` source badge to the TUI's Releases view, mirroring what already exists on the commits History tab.
+
+## v0.60.0 — 2026-05-27
+
+Close the loop between a CommitCraft draft and the git commit it became. Adds a `commit_hash` column to the `commits` table (via `applySchemaMigrations`, default `''`), a new `commitcraft ai link-commit --id <draft> --hash <git>` subcommand to write the hash onto an existing row, and a new `commitcraft ai show --commit <hash>` lookup that resolves a short or full hash to the row whose keypoints/telemetry came from it.
+
+The motivation: today the only way to recover a past commit's keypoints is to remember the draft id. Three weeks later, looking at `git log` and wondering *"what was I thinking when I made this commit?"* required guessing. With linking in place, `git log` is the only id you need — `ai show --commit <hash>` returns the full JSON envelope (keypoints, summary, stage telemetry).
+
+Implementation:
+
+- **Schema migration** adds `commit_hash TEXT NOT NULL DEFAULT ''` to `commits`. Idempotent via the existing duplicate-column guard. Existing rows backfill to empty string; they remain queryable by id and stay absent from `--commit` lookups until linked.
+- **`storage.Commit.CommitHash`** field; `commitJSON` envelope gains `commit_hash` (with `omitempty` so unlinked rows don't surface a noisy empty field).
+- **`db.LinkCommitHash(id, hash)`** writes the column; `db.GetCommitsByHashPrefix(prefix)` reads it. Prefix must be ≥4 chars to avoid pathological scans; the CLI handles the ambiguity-check on top.
+- **`git.ResolveCommitHashAt(workspace, rev)`** — workspace-aware sibling of `ResolveCommitHash`, used by `ai link-commit` to honor a `--workspace` flag while still working from any cwd.
+- **`ai show`** now takes either `--id` or `--commit` (mutually exclusive). Ambiguous hash prefix → exit 1 with `ambiguous_hash` and the candidate ids in the error JSON.
+
+### Usage
+
+Manual link after a commit:
+
+```sh
+git commit -m "..."
+commitcraft ai link-commit --id <draft_id> --hash $(git rev-parse HEAD)
+```
+
+Recall a commit's keypoints later:
+
+```sh
+commitcraft ai show --commit cdd3671 | jq .keypoints
+```
+
+The skill is updated in a paired commit to run `ai link-commit` automatically after every successful `git commit`, so the user never has to think about ids again.
+
+Exit codes:
+
+- `0` — link succeeded (a stderr warning still appears if overwriting a prior link).
+- `1` — bootstrap / not-found / db errors; `ambiguous_hash` on `show --commit` falls here.
+- `2` — usage errors (missing `--id` / `--hash`, both `--id` and `--commit` on `show`, hash rev-parse failure).
+
+## v0.59.0 — 2026-05-27
+
+Add `commitcraft ai release --version <vX.Y.Z> [--from <ref>] [--to <ref>]`: a headless subcommand that generates a `[RELEASE]` draft from the commits in `<from>..<to>` using the existing `aiengine.RunRelease` pipeline (same engine `ai merge` and the TUI release mode use). Persists as a normal `storage.Commit` row with `Type="RELEASE"` and `Scope=<version>` so `ai edit` / `ai show` / `ai verify` / `ai promote` work unchanged.
+
+This unit only **drafts** the release notes. Publishing (`gh release create`, tag push, binary upload) stays a follow-up subcommand (`ai release publish --id <ID>`) so the agent can stop at promote without needing GH credentials.
+
+Defaults:
+
+- `--from` falls back to the most recent tag (via `git tag --sort=-v:refname`). If the repo has no tags, `--from` becomes required (exit 2 with `no_base_ref`).
+- `--to` defaults to `HEAD`.
+
+Storage caveat documented for the user: the TUI's release flow persists to a separate `releases` table (`storage.Release`); the headless `ai release` writes to the regular `commits` table. The two surfaces don't see each other's drafts today — a future unit can bridge them, but the divergence is intentional for v1 because it lets us reuse every existing subcommand on the new drafts without schema work.
+
+Refactor: extracted `projectToReleaseCommits` + `serializeCommitRange` + `lastTagAt` from `merge.go` into a new `internal/cli/ai/range_helpers.go` so `release.go` reuses them without duplication.
+
+### Usage
+
+```
+commitcraft ai release --version v0.59.0
+commitcraft ai verify --id <id>
+commitcraft ai edit --id <id> --body -    # if trimming commits manually
+commitcraft ai promote --id <id>
+
+# Eventually (next unit):
+commitcraft ai release publish --id <id>  # not implemented yet
+```
+
+Exit codes: `0` success, `1` runtime errors (api, db, git, no commits), `2` usage errors (missing `--version`, no tags + no `--from`, invalid refs).
+
+## v0.58.0 — 2026-05-27
+
+Add `commitcraft ai merge --branch <source> [--into <target>]`: a headless subcommand that generates a `[MERGE]` draft from the commits between `<into>..<branch>` using the existing `aiengine.RunRelease` pipeline (same 3-stage body → title → refine flow the TUI uses for release notes). Persists as a normal `storage.Commit` row with `Type="MERGE"` and `Scope=<branch>` so every existing subcommand (`ai edit`, `ai show`, `ai promote`, `ai verify`) works on the draft unchanged.
+
+Two new git helpers in `internal/git/git.go`:
+
+- `VerifyRev(workspace, rev)` — wraps `git rev-parse --verify <rev>^{commit}` to reject missing or non-commit refs.
+- `GetCommitsBetween(workspace, target, source)` — runs `git log --reverse --pretty=format:%h%x00%ad%x00%s%x00%b%x1f <target>..<source>` and parses each record into a `CommitRange`. Used as input to the release pipeline.
+
+`ai regenerate` does **not** yet support merge drafts (it routes through the commit pipeline and would produce garbage). For tweaks use `ai edit`; for a clean re-run invoke `ai merge` again. A future unit will teach `ai regenerate` to dispatch on draft type.
+
+### Usage
+
+```
+commitcraft ai merge --branch feat/agent-cli-improvements
+commitcraft ai verify --id <id>
+commitcraft ai edit --id <id> --title "..."          # if needed
+commitcraft ai promote --id <id>
+
+git checkout main
+git merge --no-ff feat/agent-cli-improvements \
+  -m "$(commitcraft ai show --id <id> | jq -r .final_message)"
+```
+
+Flags:
+
+- `--branch <name>` (required) — source branch to summarize.
+- `--into <name>` (default `main`) — target branch the merge is going into.
+- `--workspace <path>` (default cwd) — repo path.
+
+Exit codes: `0` success, `1` runtime errors (api, db, git, no commits in range), `2` usage errors (missing/invalid flags, ref not found).
+
+## v0.57.0 — 2026-05-27
+
+Add `commitcraft ai verify --id <ID>`: a deterministic, offline checker that scans a draft's composed `final_message` (the same text that would go into `git commit`) for AI-residue phrases, structural defects, and trailer hygiene problems. The verifier lives in `internal/aiengine/verify.go` as a pure function `VerifyFinalMessage(string) VerifyReport` so the TUI can surface findings later without re-implementing rules.
+
+Rule set (all deterministic, no Groq call, no diff dependency):
+
+- `ai_residue_phrase` (error) — known leakage strings like `here is the commit message`, `paragraph 1`, `as an ai`.
+- `template_placeholder` (error) — literal `<title>` / `{body}` / `<keypoints>` etc. surviving into the message.
+- `code_fence_wrapper` (error) — title or body wrapped in triple backticks.
+- `title_format_missing_tag` (error) — first line does not start with `[TAG]`.
+- `title_format_missing_scope` (warning) — has `[TAG]` but not the `[TAG] scope: …` shape.
+- `title_too_long_hard` (error) — title > 100 chars.
+- `title_too_long_soft` (warning) — title > 72 chars (GitHub convention).
+- `empty_title` (error) / `empty_body` (warning) / `title_equals_body` (error).
+- `duplicate_line_in_body` (warning) — any non-empty, non-separator line repeated verbatim.
+
+Hallucinated-paths / wrong-language checks are intentionally **out of scope** for this iteration; they'll come back when the upcoming `ai link-commit` work persists a per-draft file list.
+
+### Usage
+
+```
+commitcraft ai verify --id 42
+commitcraft ai verify --id 42 --strict-warnings
+```
+
+Output is a JSON `VerifyReport` on stdout:
+
+```json
+{
+  "has_errors": false,
+  "has_warnings": true,
+  "findings": [
+    {
+      "rule": "duplicate_line_in_body",
+      "severity": "warning",
+      "message": "Line repeated 2× in body: Updated CHANGELOG.md",
+      "location": "body"
+    }
+  ]
+}
+```
+
+Exit codes:
+
+- **0** — clean, or only warnings without `--strict-warnings`.
+- **1** — bootstrap error or draft not found.
+- **2** — usage error (missing `--id`).
+- **4** — at least one finding with `severity: error`, or any finding when `--strict-warnings` is set. (Exit code 3 is reserved for `ai context --strict` so the two gates remain distinguishable.)
+
+## v0.56.0 — 2026-05-27
+
+Add a pre-flight context-size estimator for the Change Analyzer stage (stage 1 of the AI pipeline). The estimator lives in `internal/aiengine/context_estimate.go` as a pure function — no Groq call, no DB write — and is exposed first via a new headless CLI subcommand `commitcraft ai context`. The reusable `aiengine.EstimateChangeAnalyzer` will back a TUI indicator in a follow-up; this iteration is CLI-only.
+
+The estimator reproduces the exact payload `CallChangeAnalyzer` would send (`change_analyzer.prompt` + `"DEVELOPER_POINTS:\n…\nGIT_CHANGES:\n…"`), measures it in characters, derives an `est_tokens = ceil(chars/4)` heuristic, and compares it against the cached `context_window` of `Prompts.ChangeAnalyzerPromptModel` (read from `groq_models_cache` via `db.LoadModelsCache`). The diff is fetched through the same `git.GetStagedDiffSummary` cap (`Prompts.ChangeAnalyzerMaxDiffSize`) so any truncation that would hit the real pipeline is surfaced in the output too.
+
+### Usage
+
+```
+commitcraft ai context
+```
+
+Prints a single JSON object on stdout:
+
+```json
+{
+  "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+  "context_window": 131072,
+  "system_prompt_chars": 4321,
+  "user_input_chars": 78240,
+  "total_chars": 82561,
+  "est_tokens": 20641,
+  "usage_pct": 15.74,
+  "fits": true,
+  "diff_truncated": false,
+  "diff_max_bytes": 80000
+}
+```
+
+Add `--strict` for agent-driven flows that want a deterministic gate:
+
+```
+commitcraft ai context --strict
+```
+
+Same JSON output, same exit 0 on success, but exits **3** when `fits: false` so the caller can branch on the exit code instead of parsing JSON. The strict flag is a no-op when `fits` is `null` (model not in the local cache) — we don't gate on unknown context windows.
+
+When the configured model is absent from the local `groq_models_cache`, `context_window` is `0` and `usage_pct`/`fits` are `null` — the caller decides whether to refresh the cache or skip the gate. When there are no staged changes, the command emits `{"code": "no_staged_diff", "error": "…"}` on stderr and exits 1.
+
 ## v0.55.0 — 2026-05-22
 
 Migrate every main-matcher shortcut dispatch in `internal/tui/update_*.go` from raw `msg.String()` checks to `key.Matches` against the active `KeyMap`. Touches the `ctrl+f` filter-mode cycler (workspace history + release history + release commit picker), the `esc`/`enter` handlers inside the focused filter bar, the `pgup`/`pgdown`/`ctrl+up`/`ctrl+down` panel-scroll dispatchers, the release-pipeline stage controls (`r`, `1`/`2`/`3`, `H`, `pgup`/`pgdown` — the original Unit 08 workaround), the commit-pipeline `H` (stage history), and the compose-tab per-focus handlers (commit-type cycle, scope clear, keypoints nav, pipeline-models nav). Adds two new `KeyMap` fields (`CycleFilterMode` for `ctrl+f`, `ClearField` for `x`/`backspace`/`delete`) and populates `mainListKeys()` / `releaseMainListKeys()` / `releaseKeys()` / `writingMessageKeys()` / `pipelineKeys()` accordingly so every binding the handlers reference has a real key.Binding behind it. Rewrites `keybindings_popup.go` so the four per-state popup builders read the key strings via `binding.Help().Key` from the active `KeyMap` instead of duplicating literals — a binding rename now propagates to the `?` popup automatically.

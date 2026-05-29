@@ -150,13 +150,13 @@ func runRegenerate(args []string) int {
 		}
 		out, err = aiengine.Run(deps, in)
 		if err != nil {
-			printErrorJSON("api_error", err.Error())
+			printAIRunError(bs, err)
 			return 1
 		}
 	case "body", "title", "changelog":
 		out, err = runStagePartial(deps, c, *stage, changelogActive)
 		if err != nil {
-			printErrorJSON("api_error", err.Error())
+			printAIRunError(bs, err)
 			return 1
 		}
 	default:

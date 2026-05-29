@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"commit_craft_reborn/internal/aiengine"
+	"commit_craft_reborn/internal/storage"
 )
 
 // runEdit applies direct overrides to a draft's title/body/changelog
@@ -37,6 +38,11 @@ func runEdit(args []string) int {
 			"or 'CLEAR' to drop the entry.")
 	tag := fs.String("tag", "", "Override the commit type tag")
 	scope := fs.String("scope", "", "Override the commit scope")
+	kind := fs.String(
+		"kind",
+		"",
+		"Force dispatch table when --id collides across commits/releases: 'commit' | 'release'. Optional.",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -76,15 +82,30 @@ func runEdit(args []string) int {
 	}
 	defer bs.db.Close()
 
-	c, err := bs.db.GetCommitByID(*id)
+	res, err := dispatchByID(bs.db, *id, *kind)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			printErrorJSON("not_found", fmt.Sprintf("commit with id=%d not found", *id))
+			printErrorJSON("not_found", fmt.Sprintf("no commit or release with id=%d", *id))
 			return 1
 		}
 		printErrorJSON("db_error", err.Error())
 		return 1
 	}
+
+	if res.Kind == kindRelease {
+		if changelogSet || tagSet || scopeSet {
+			printErrorJSON(
+				"unsupported_field_for_release",
+				"release drafts only accept --title and --body (got --changelog/--tag/--scope)",
+			)
+			return 2
+		}
+		return editRelease(bs, *res.Release,
+			titleSet, *title,
+			bodySet, *body)
+	}
+
+	c := *res.Commit
 
 	// Capture pre-edit identity so the mention-line heuristic can match
 	// the previous final_message before we overwrite the fields.
@@ -191,6 +212,79 @@ func runEdit(args []string) int {
 	cj, err := commitToJSON(saved, stages, bs.cfg.CommitFormat.TypeFormat)
 	if err != nil {
 		printErrorJSON("incomplete_commit", err.Error())
+		return 1
+	}
+	printCommitJSON(cj)
+	return 0
+}
+
+// editRelease applies --title / --body overrides to a release draft.
+// Other edit flags are rejected upstream because they don't make
+// sense for release rows (scope is derived from branch/version,
+// changelog doesn't apply, type rarely changes).
+func editRelease(
+	bs *bootstrap, r storage.Release,
+	titleSet bool, titleVal string,
+	bodySet bool, bodyVal string,
+) int {
+	var stdinCache *string
+	readStdin := func() (string, error) {
+		if stdinCache != nil {
+			return *stdinCache, nil
+		}
+		raw, rerr := io.ReadAll(os.Stdin)
+		if rerr != nil {
+			return "", rerr
+		}
+		s := string(raw)
+		stdinCache = &s
+		return s, nil
+	}
+	resolve := func(v string) (string, error) {
+		if v == "-" {
+			return readStdin()
+		}
+		return v, nil
+	}
+
+	if titleSet {
+		v, rerr := resolve(titleVal)
+		if rerr != nil {
+			printErrorJSON("invalid_input", fmt.Sprintf("read --title: %s", rerr.Error()))
+			return 2
+		}
+		v = strings.TrimSpace(v)
+		if v == "" {
+			printErrorJSON("invalid_input", "--title cannot be empty")
+			return 2
+		}
+		r.Title = v
+	}
+	if bodySet {
+		v, rerr := resolve(bodyVal)
+		if rerr != nil {
+			printErrorJSON("invalid_input", fmt.Sprintf("read --body: %s", rerr.Error()))
+			return 2
+		}
+		v = strings.TrimRight(v, " \n\t")
+		if strings.TrimSpace(v) == "" {
+			printErrorJSON("invalid_input", "--body cannot be empty")
+			return 2
+		}
+		r.Body = v
+	}
+
+	if err := bs.db.SaveReleaseDraft(&r); err != nil {
+		printErrorJSON("db_error", err.Error())
+		return 1
+	}
+	saved, err := bs.db.GetReleaseByID(r.ID)
+	if err != nil {
+		saved = r
+	}
+	cj, err := releaseToJSON(saved, bs.cfg.CommitFormat.TypeFormat)
+	if err != nil {
+		printErrorJSON("incomplete_release", err.Error())
 		return 1
 	}
 	printCommitJSON(cj)

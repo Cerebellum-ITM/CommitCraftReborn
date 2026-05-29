@@ -247,13 +247,24 @@ func LoadConfigs() (globalCfg, localCfg Config, err error) {
 	envPath := filepath.Join(globalDir, ".env")
 	_ = godotenv.Load(envPath)
 
-	apiKey := os.Getenv("GROQ_API_KEY")
-	if apiKey != "" {
-		globalCfg.TUI.GroqAPIKey = apiKey
-		globalCfg.TUI.IsAPIKeySet = true
-	} else {
-		globalCfg.TUI.IsAPIKeySet = false
+	// Two-slot Groq key resolution. GROQ_ACTIVE_KEY selects which slot is
+	// live; the active slot's key becomes GroqAPIKey. No silent fallback:
+	// if the active slot is empty, GroqAPIKey stays empty and the usual
+	// "API key not provided" error fires — `commitcraft ai key show`
+	// surfaces the state. Absent/unknown GROQ_ACTIVE_KEY ⇒ user slot, so
+	// existing single-key setups behave exactly as before.
+	userKey := os.Getenv(EnvGroqUserKey)
+	aiKey := os.Getenv(EnvGroqAIKey)
+	active := NormalizeKeySlot(os.Getenv(EnvGroqActive))
+	chosen := userKey
+	if active == KeySlotAI {
+		chosen = aiKey
 	}
+	globalCfg.TUI.ActiveKeySlot = active
+	globalCfg.TUI.UserKeySet = userKey != ""
+	globalCfg.TUI.AIKeySet = aiKey != ""
+	globalCfg.TUI.GroqAPIKey = chosen
+	globalCfg.TUI.IsAPIKeySet = chosen != ""
 
 	// GH_TOKEN was previously persisted as a field inside each
 	// .commitcraft.toml. Per-repo configs were ending up committed to

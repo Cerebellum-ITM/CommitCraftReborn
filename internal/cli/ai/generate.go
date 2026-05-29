@@ -29,6 +29,11 @@ func runGenerate(args []string) int {
 		false,
 		"Skip the changelog refiner stage even when enabled in config",
 	)
+	dryRun := fs.Bool(
+		"dry-run",
+		false,
+		"Run the AI pipeline without persisting a draft row. Returns the same JSON with id=0 and status=dry_run.",
+	)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -81,7 +86,7 @@ func runGenerate(args []string) int {
 		Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: bs.pwd,
 	}, in)
 	if err != nil {
-		printErrorJSON("api_error", err.Error())
+		printAIRunError(bs, err)
 		return 1
 	}
 
@@ -98,6 +103,20 @@ func runGenerate(args []string) int {
 		MessageEN:   out.FinalMessage,
 		Source:      "ai",
 	}
+
+	if *dryRun {
+		// Skip all DB writes. Return the pipeline output with id=0 so the
+		// caller can inspect final_message without polluting the drafts list.
+		c.Status = "dry_run"
+		cj, err := commitToJSON(c, out.Stages, bs.cfg.CommitFormat.TypeFormat)
+		if err != nil {
+			printErrorJSON("incomplete_commit", err.Error())
+			return 1
+		}
+		printCommitJSON(cj)
+		return 0
+	}
+
 	if err := bs.db.SaveDraft(&c); err != nil {
 		printErrorJSON("db_error", err.Error())
 		return 1

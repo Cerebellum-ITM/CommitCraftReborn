@@ -22,7 +22,7 @@ func splitKeyPoints(s string) []string {
 // GetCommits retrieves commits from the database based on a status.
 func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	rows, err := db.Query(
-		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, commit_hash, created_at FROM commits WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
 		pwd,
 		status,
 	)
@@ -35,7 +35,7 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 	for rows.Next() {
 		var c Commit
 		var createdAt, messageES string
-		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog, &c.Source, &createdAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace, &c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog, &c.Source, &c.CommitHash, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan commit row")
 		}
 		c.KeyPoints = splitKeyPoints(messageES)
@@ -55,7 +55,7 @@ func (db *DB) GetCommits(pwd string, status string) ([]Commit, error) {
 // doesn't exist so callers can branch on errors.Is(err, sql.ErrNoRows).
 func (db *DB) GetCommitByID(id int) (Commit, error) {
 	row := db.QueryRow(
-		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, created_at FROM commits WHERE id = ?",
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, commit_hash, created_at FROM commits WHERE id = ?",
 		id,
 	)
 	var c Commit
@@ -63,7 +63,7 @@ func (db *DB) GetCommitByID(id int) (Commit, error) {
 	if err := row.Scan(
 		&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace,
 		&c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog,
-		&c.Source, &createdAt,
+		&c.Source, &c.CommitHash, &createdAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c, errors.Wrap(err, "commit not found")
@@ -117,9 +117,17 @@ func (db *DB) CreateCommit(c *Commit) error {
 
 func (db *DB) CreateRelease(c Release) error {
 	createdAt := time.Now().UTC().Format(time.RFC3339)
+	source := c.Source
+	if source == "" {
+		source = "tui"
+	}
+	status := c.Status
+	if status == "" {
+		status = "completed"
+	}
 
 	_, err := db.Exec(
-		"INSERT INTO releases (type, title, body,  branch, commit_list, version, workspace, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO releases (type, title, body, branch, commit_list, version, workspace, source, status, commit_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		c.Type,
 		c.Title,
 		c.Body,
@@ -127,14 +135,17 @@ func (db *DB) CreateRelease(c Release) error {
 		c.CommitList,
 		c.Version,
 		c.Workspace,
+		source,
+		status,
+		c.CommitHash,
 		createdAt,
 	)
-	return errors.Wrap(err, "failed to insert commit")
+	return errors.Wrap(err, "failed to insert release")
 }
 
 func (db *DB) GetLatestRelease(pwd string) (Release, error) {
 	row := db.QueryRow(
-		"SELECT id, type, title, body, branch, commit_list, version, workspace, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC LIMIT 1",
+		"SELECT id, type, title, body, branch, commit_list, version, workspace, source, status, commit_hash, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC LIMIT 1",
 		pwd,
 	)
 
@@ -149,6 +160,9 @@ func (db *DB) GetLatestRelease(pwd string) (Release, error) {
 		&r.CommitList,
 		&r.Version,
 		&r.Workspace,
+		&r.Source,
+		&r.Status,
+		&r.CommitHash,
 		&createdAt,
 	)
 	if err != nil {
@@ -169,7 +183,7 @@ func (db *DB) GetLatestRelease(pwd string) (Release, error) {
 
 func (db *DB) GetReleases(pwd string) ([]Release, error) {
 	rows, err := db.Query(
-		"SELECT id, type, title, body, branch, commit_list, version, workspace, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC",
+		"SELECT id, type, title, body, branch, commit_list, version, workspace, source, status, commit_hash, created_at FROM releases WHERE workspace = ? ORDER BY created_at DESC",
 		pwd,
 	)
 	if err != nil {
@@ -181,7 +195,7 @@ func (db *DB) GetReleases(pwd string) ([]Release, error) {
 	for rows.Next() {
 		var r Release
 		var createdAt string
-		if err := rows.Scan(&r.ID, &r.Type, &r.Title, &r.Body, &r.Branch, &r.CommitList, &r.Version, &r.Workspace, &createdAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Type, &r.Title, &r.Body, &r.Branch, &r.CommitList, &r.Version, &r.Workspace, &r.Source, &r.Status, &r.CommitHash, &createdAt); err != nil {
 			return nil, errors.Wrap(err, "failed to scan Release row")
 		}
 
@@ -193,6 +207,145 @@ func (db *DB) GetReleases(pwd string) ([]Release, error) {
 		releases = append(releases, r)
 	}
 	return releases, nil
+}
+
+// GetReleaseByID returns a single release row by primary key. Wraps
+// sql.ErrNoRows on miss so callers can branch on errors.Is.
+func (db *DB) GetReleaseByID(id int) (Release, error) {
+	row := db.QueryRow(
+		"SELECT id, type, title, body, branch, commit_list, version, workspace, source, status, commit_hash, created_at FROM releases WHERE id = ?",
+		id,
+	)
+	r := Release{}
+	var createdAt string
+	if err := row.Scan(
+		&r.ID, &r.Type, &r.Title, &r.Body, &r.Branch, &r.CommitList,
+		&r.Version, &r.Workspace, &r.Source, &r.Status, &r.CommitHash, &createdAt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return r, errors.Wrap(err, "release not found")
+		}
+		return r, errors.Wrap(err, "failed to scan release row")
+	}
+	t, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return r, errors.Wrap(err, "failed to parse created_at: "+createdAt)
+	}
+	r.CreatedAt = t.Local()
+	return r, nil
+}
+
+// GetReleasesByStatus returns releases for a workspace filtered by
+// status. Mirrors GetCommits so `ai list` can merge both streams.
+func (db *DB) GetReleasesByStatus(pwd, status string) ([]Release, error) {
+	rows, err := db.Query(
+		"SELECT id, type, title, body, branch, commit_list, version, workspace, source, status, commit_hash, created_at FROM releases WHERE workspace = ? AND status = ? ORDER BY created_at DESC",
+		pwd,
+		status,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query releases by status")
+	}
+	defer rows.Close()
+	var releases []Release
+	for rows.Next() {
+		var r Release
+		var createdAt string
+		if err := rows.Scan(&r.ID, &r.Type, &r.Title, &r.Body, &r.Branch, &r.CommitList, &r.Version, &r.Workspace, &r.Source, &r.Status, &r.CommitHash, &createdAt); err != nil {
+			return nil, errors.Wrap(err, "failed to scan release row")
+		}
+		t, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse created_at: "+createdAt)
+		}
+		r.CreatedAt = t.Local()
+		releases = append(releases, r)
+	}
+	return releases, nil
+}
+
+// SaveReleaseDraft inserts a new release row with status='draft' when
+// r.ID == 0, otherwise updates the existing row's editable fields
+// (type/title/body/branch/version/commit_list). Mirrors SaveDraft's
+// upsert semantics so the headless flow can iterate before promoting.
+func (db *DB) SaveReleaseDraft(r *Release) error {
+	if r.ID == 0 {
+		createdAt := time.Now().UTC().Format(time.RFC3339)
+		if r.Source == "" {
+			r.Source = "tui"
+		}
+		if r.Status == "" {
+			r.Status = "draft"
+		}
+		res, err := db.Exec(
+			"INSERT INTO releases (type, title, body, branch, commit_list, version, workspace, source, status, commit_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			r.Type,
+			r.Title,
+			r.Body,
+			r.Branch,
+			r.CommitList,
+			r.Version,
+			r.Workspace,
+			r.Source,
+			r.Status,
+			r.CommitHash,
+			createdAt,
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert release draft")
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return errors.Wrap(err, "failed to read release insert id")
+		}
+		r.ID = int(id)
+		return nil
+	}
+	_, err := db.Exec(
+		"UPDATE releases SET type = ?, title = ?, body = ?, branch = ?, commit_list = ?, version = ? WHERE id = ?",
+		r.Type,
+		r.Title,
+		r.Body,
+		r.Branch,
+		r.CommitList,
+		r.Version,
+		r.ID,
+	)
+	return errors.Wrap(err, "failed to update release draft")
+}
+
+// FinalizeRelease flips a release row to status='completed'. Idempotent.
+func (db *DB) FinalizeRelease(id int) error {
+	res, err := db.Exec(
+		"UPDATE releases SET status = 'completed' WHERE id = ?",
+		id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to finalize release")
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return errors.Wrap(sql.ErrNoRows, "release row not found")
+	}
+	return nil
+}
+
+// LinkReleaseHash mirrors LinkCommitHash for the releases table —
+// used by `ai link-commit` when the target id is a MERGE-type release
+// (the merge produces a real git commit whose hash we want to recall).
+func (db *DB) LinkReleaseHash(id int, hash string) error {
+	res, err := db.Exec(
+		"UPDATE releases SET commit_hash = ? WHERE id = ?",
+		hash, id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to link release hash")
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return errors.Wrap(sql.ErrNoRows, "release row not found")
+	}
+	return nil
 }
 
 // DeleteCommit removes a commit from the database by its ID.
@@ -501,4 +654,72 @@ func (db *DB) FinalizeCommit(c Commit) error {
 		c.ID,
 	)
 	return errors.Wrap(err, "failed to finalize commit")
+}
+
+// LinkCommitHash associates a draft/commit row with the git hash of
+// the commit it became. The hash is stored verbatim — callers should
+// resolve short hashes to full hashes before calling this so future
+// prefix lookups are consistent. Idempotent on the database side; the
+// CLI layer surfaces a stderr warning when overwriting a prior link.
+func (db *DB) LinkCommitHash(id int, hash string) error {
+	res, err := db.Exec(
+		"UPDATE commits SET commit_hash = ? WHERE id = ?",
+		hash, id,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to link commit hash")
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "failed to read rows affected")
+	}
+	if n == 0 {
+		return errors.Wrap(sql.ErrNoRows, "commit row not found")
+	}
+	return nil
+}
+
+// GetCommitsByHashPrefix returns every commit row whose commit_hash
+// starts with the given prefix. The prefix is matched against the full
+// 40-char hash stored on the row, so passing a 7-char short hash works
+// as long as it uniquely identifies the row (the caller is responsible
+// for the ambiguity check — this query just returns matches).
+//
+// Prefix shorter than 4 chars is rejected to avoid pathological scans.
+// Empty commit_hash rows (the default for unlinked drafts) are never
+// matched by any non-empty prefix.
+func (db *DB) GetCommitsByHashPrefix(prefix string) ([]Commit, error) {
+	prefix = strings.TrimSpace(prefix)
+	if len(prefix) < 4 {
+		return nil, errors.New("hash prefix must be at least 4 characters")
+	}
+	rows, err := db.Query(
+		"SELECT id, type, scope, message_es, message_en, workspace, diff_code, status, ia_summary, ia_commit_raw, ia_title, ia_changelog, source, commit_hash, created_at FROM commits WHERE commit_hash != '' AND commit_hash LIKE ? ORDER BY created_at DESC",
+		prefix+"%",
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query commits by hash")
+	}
+	defer rows.Close()
+
+	var commits []Commit
+	for rows.Next() {
+		var c Commit
+		var createdAt, messageES string
+		if err := rows.Scan(
+			&c.ID, &c.Type, &c.Scope, &messageES, &c.MessageEN, &c.Workspace,
+			&c.Diff_code, &c.Status, &c.IaSummary, &c.IaCommitRaw, &c.IaTitle, &c.IaChangelog,
+			&c.Source, &c.CommitHash, &createdAt,
+		); err != nil {
+			return nil, errors.Wrap(err, "failed to scan commit row")
+		}
+		c.KeyPoints = splitKeyPoints(messageES)
+		t, err := time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse created_at: "+createdAt)
+		}
+		c.CreatedAt = t.Local()
+		commits = append(commits, c)
+	}
+	return commits, nil
 }

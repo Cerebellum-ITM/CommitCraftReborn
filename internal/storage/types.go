@@ -17,6 +17,7 @@ type Commit struct {
 	IaTitle     string
 	IaChangelog string
 	Source      string
+	CommitHash  string
 	CreatedAt   time.Time
 }
 
@@ -85,5 +86,8 @@ type Release struct {
 	CommitList string
 	Version    string
 	Workspace  string
+	Source     string
+	Status     string
+	CommitHash string
 	CreatedAt  time.Time
 }
