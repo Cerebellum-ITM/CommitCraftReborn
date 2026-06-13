@@ -2,6 +2,43 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.67.0 — 2026-06-13
+
+Agent **delegate mode** for the headless `ai` CLI. When CommitCraft is driven by an AI agent (the `commitcraft` skill), the message-generation stages can now **bypass the Groq API entirely**: instead of making 3–4 serial API calls, the CLI emits a **prompt bundle** (the same prompts, filled with the diff/keypoints/tag/scope) and the already-running agent produces the message itself, then returns it through the new `commitcraft ai submit` subcommand. This removes the API-latency/queue bottleneck from the agent flow. Backward compatible — with no `[agent]` config and no `--agent` flag, the Groq pipeline is unchanged.
+
+- New `[agent]` config table: `mode` (`""`/`groq` default, or `delegate`) and `strategy` (`single` default, or `staged`).
+- Per-call flags on `generate` / `regenerate` / `merge` / `release`: `--agent`, `--no-agent`, `--agent-strategy single|staged`. `--agent` + `--no-agent` together is a usage error.
+- **Hybrid architecture**: `single` fills one new unified prompt (`agent_commit.prompt` / `agent_release.prompt`) for a one-pass result; `staged` hands over the original per-stage prompts for the agent to follow internally. Both submit exactly once — no extra round-trips.
+- New `commitcraft ai submit`: reads the agent's message as JSON from stdin (or `--input-file`), re-reads the staged diff, composes `final_message`, runs the deterministic verifier, and persists the draft. The response carries a `verify` block so the agent sees quality findings inline. `id>0` updates an existing draft (regenerate); `kind:"release"` persists a `[MERGE]`/`[RELEASE]` row.
+- The unified prompts and bundle `instructions` both restate the standing rule: the commit message is always **English**.
+- Covers `generate`, `regenerate`, `merge`, `release`, and the changelog refiner (when changelog is enabled, the bundle injects `CHANGELOG_CONTEXT` so the agent produces the entry + mention line too).
+
+### Usage
+
+```sh
+# enable globally in ~/.config/CommitCraft/config.toml
+[agent]
+mode     = "delegate"   # "" | "groq" (default) | "delegate"
+strategy = "single"     # "single" (default) | "staged"
+
+# or per call:
+commitcraft ai generate --agent -k "keypoint" -t ADD -s scope
+#   → emits a delegate bundle (prompts + diff + inputs); NO Groq call, NO draft.
+
+# the agent writes the message following the bundle prompt(s), then:
+echo '{"kind":"commit","tag":"ADD","scope":["scope"],"keypoints":["keypoint"],
+       "title":"...","body":"..."}' | commitcraft ai submit
+#   → persists the draft, returns the envelope + a `verify` block.
+
+commitcraft ai promote --id <ID>     # unchanged
+
+# regenerate / release variants:
+commitcraft ai regenerate --id <ID> --agent          # bundle carries action=regenerate + id
+echo '{"kind":"commit","id":<ID>,"title":"...","body":"..."}' | commitcraft ai submit
+commitcraft ai merge --agent --branch feat/foo       # kind:"release" bundle
+commitcraft ai generate --agent --agent-strategy staged ...   # per-stage prompts
+```
+
 ## v0.66.0 — 2026-05-29
 
 Dual Groq API key support. Two key slots — **user** and **ai** — with exactly one active at a time, managed via the new `commitcraft ai key` subcommand. Both the TUI and every `commitcraft ai …` command resolve their key from the active slot. Lets you keep a second key on hand and swap to it manually when the free tier rate-limits the first one (the original blocker for the agent-driven `ai merge`).

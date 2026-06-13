@@ -50,6 +50,7 @@ func runRegenerate(args []string) int {
 			"staged after the initial `generate`. Without this flag the stored "+
 			"diff snapshot is reused so iteration stays cheap.",
 	)
+	af := registerAgentFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -136,6 +137,28 @@ func runRegenerate(args []string) int {
 	}
 	deps := aiengine.Deps{Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: pwd}
 	changelogActive := !*noChangelog && bs.cfg.Changelog.Enabled
+
+	delegate, derr := resolveAgentMode(bs.cfg, af)
+	if derr != nil {
+		printErrorJSON("invalid_input", derr.Error())
+		return 2
+	}
+	if delegate {
+		// Delegate mode: emit a bundle built from the stored draft. The agent
+		// returns the result via `ai submit` with the same id, updating this
+		// draft. No Groq call.
+		in := aiengine.Input{
+			KeyPoints:       c.KeyPoints,
+			Type:            c.Type,
+			Scope:           c.Scope,
+			Diff:            c.Diff_code,
+			ChangelogActive: changelogActive,
+		}
+		printJSON(
+			aiengine.BuildCommitBundle(deps, in, resolveStrategy(bs.cfg, af), "regenerate", c.ID),
+		)
+		return 0
+	}
 
 	var out aiengine.Output
 	switch *stage {

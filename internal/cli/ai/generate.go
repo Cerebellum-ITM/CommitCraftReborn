@@ -34,6 +34,7 @@ func runGenerate(args []string) int {
 		false,
 		"Run the AI pipeline without persisting a draft row. Returns the same JSON with id=0 and status=dry_run.",
 	)
+	af := registerAgentFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -82,9 +83,23 @@ func runGenerate(args []string) int {
 		Diff:            diff,
 		ChangelogActive: !*noChangelog && bs.cfg.Changelog.Enabled,
 	}
-	out, err := aiengine.Run(aiengine.Deps{
-		Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: bs.pwd,
-	}, in)
+
+	deps := aiengine.Deps{Cfg: bs.cfg, DB: bs.db, Log: bs.log, Pwd: bs.pwd}
+
+	delegate, err := resolveAgentMode(bs.cfg, af)
+	if err != nil {
+		printErrorJSON("invalid_input", err.Error())
+		return 2
+	}
+	if delegate {
+		// Delegate mode: emit the prompt bundle for the agent to fulfill.
+		// No Groq call, no draft — the agent returns the result via
+		// `ai submit`.
+		printJSON(aiengine.BuildCommitBundle(deps, in, resolveStrategy(bs.cfg, af), "generate", 0))
+		return 0
+	}
+
+	out, err := aiengine.Run(deps, in)
 	if err != nil {
 		printAIRunError(bs, err)
 		return 1
