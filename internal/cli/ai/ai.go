@@ -26,7 +26,9 @@ const usage = `Usage: commitcraft ai <subcommand> [flags]
 
 Subcommands:
   generate     Generate a commit message from --keypoint/--tag/--scope and persist as draft.
+               Add --agent to emit a delegate prompt bundle instead of calling Groq (see 'submit').
   regenerate   Re-run the pipeline on an existing draft (--id), reusing stored inputs and diff.
+  submit       Persist an agent-produced message (delegate mode) read as JSON from stdin, verify it, and save the draft.
   edit         Patch a draft's title/body/changelog/tag/scope directly without re-running stages.
   show         Print the JSON for a draft/commit by --id.
   list         List drafts/commits in the current workspace.
@@ -57,6 +59,8 @@ func Dispatch(args []string) int {
 		return runGenerate(rest)
 	case "regenerate":
 		return runRegenerate(rest)
+	case "submit":
+		return runSubmit(rest)
 	case "edit":
 		return runEdit(rest)
 	case "show":
@@ -202,6 +206,11 @@ type commitJSON struct {
 	CommitHash     string      `json:"commit_hash,omitempty"`
 	CreatedAt      string      `json:"created_at"`
 	Stages         []stageJSON `json:"stages,omitempty"`
+	// Verify is populated only by `ai submit`, which runs the deterministic
+	// rule set against the freshly persisted draft so the agent gets the
+	// quality report in the same response. Nil (omitted) for every other
+	// subcommand.
+	Verify *aiengine.VerifyReport `json:"verify,omitempty"`
 }
 
 type stageJSON struct {

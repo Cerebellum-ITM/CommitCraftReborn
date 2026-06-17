@@ -50,6 +50,7 @@ func runRelease(args []string) int {
 		"",
 		"Repo path. Defaults to the current directory.",
 	)
+	af := registerAgentFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -115,9 +116,32 @@ func runRelease(args []string) int {
 	}
 
 	in := aiengine.ReleaseInput{Commits: projectToReleaseCommits(commits)}
-	out, err := aiengine.RunRelease(aiengine.Deps{
-		Cfg: boot.cfg, DB: boot.db, Log: boot.log, Pwd: ws,
-	}, in)
+	deps := aiengine.Deps{Cfg: boot.cfg, DB: boot.db, Log: boot.log, Pwd: ws}
+
+	delegate, derr := resolveAgentMode(boot.cfg, af)
+	if derr != nil {
+		printErrorJSON("invalid_input", derr.Error())
+		return 2
+	}
+	if delegate {
+		// Delegate mode: emit a [RELEASE] release bundle. The agent returns the
+		// note via `ai submit` with kind:"release". No Groq call.
+		b := aiengine.BuildReleaseBundle(
+			deps,
+			in,
+			"RELEASE",
+			resolveStrategy(boot.cfg, af),
+			"release",
+			0,
+			"",
+			versionStr,
+			serializeCommitRange(commits),
+		)
+		printJSON(b)
+		return 0
+	}
+
+	out, err := aiengine.RunRelease(deps, in)
 	if err != nil {
 		printAIRunError(boot, err)
 		return 1

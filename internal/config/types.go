@@ -27,6 +27,25 @@ type PromptsConfig struct {
 	ReleaseRefinePromptFile         string `toml:"release_refine_prompt_file"`
 	ReleaseRefinePromptModel        string `toml:"release_refine_prompt_model"`
 	ReleaseRefinePrompt             string `toml:"-"`
+	// AgentCommit / AgentRelease are the unified single-pass prompts used by
+	// delegate mode (see AgentConfig). They merge the per-stage prompts into
+	// one coherent instruction so a capable agent produces the whole message
+	// in a single inference. No model field — the agent IS the model.
+	AgentCommitPromptFile  string `toml:"agent_commit_prompt_file"`
+	AgentCommitPrompt      string `toml:"-"`
+	AgentReleasePromptFile string `toml:"agent_release_prompt_file"`
+	AgentReleasePrompt     string `toml:"-"`
+}
+
+// AgentConfig controls delegate mode: when Mode == "delegate", the headless
+// `ai` subcommands emit a prompt bundle for the calling AI agent to fulfill
+// instead of calling the Groq API. Strategy picks between the unified
+// single-pass prompt ("single") and the original per-stage prompts ("staged").
+// Empty Mode (or "groq") keeps the normal Groq pipeline — fully backward
+// compatible with configs that have no [agent] table.
+type AgentConfig struct {
+	Mode     string `toml:"mode"`     // "" | "groq" | "delegate"
+	Strategy string `toml:"strategy"` // "single" | "staged"
 }
 
 type TUIConfig struct {
@@ -95,6 +114,7 @@ type Config struct {
 	Prompts       PromptsConfig      `toml:"prompts,omitempty"`
 	ReleaseConfig ReleaseConfig      `toml:"release_config,omitempty"`
 	Changelog     ChangelogConfig    `toml:"changelog,omitempty"`
+	Agent         AgentConfig        `toml:"agent,omitempty"`
 }
 
 type CommitFormatConfig struct {
@@ -166,6 +186,12 @@ func NewDefaultConfig() Config {
 			ReleaseTitlePromptModel:         "llama-3.1-8b-instant",
 			ReleaseRefinePromptFile:         "prompts/release_refine.prompt",
 			ReleaseRefinePromptModel:        "llama-3.1-8b-instant",
+			AgentCommitPromptFile:           "prompts/agent_commit.prompt",
+			AgentReleasePromptFile:          "prompts/agent_release.prompt",
+		},
+		Agent: AgentConfig{
+			Mode:     "",
+			Strategy: AgentStrategySingle,
 		},
 		Changelog: ChangelogConfig{
 			Enabled:      false,

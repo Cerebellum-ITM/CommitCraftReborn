@@ -56,6 +56,12 @@ var defaultReleaseRefinePrompt string
 //go:embed prompts/changelog_refiner.prompt.tmpl
 var defaultChangelogRefinerPrompt string
 
+//go:embed prompts/agent_commit.prompt.tmpl
+var defaultAgentCommitPrompt string
+
+//go:embed prompts/agent_release.prompt.tmpl
+var defaultAgentReleasePrompt string
+
 // PopulateCommitTypePalettes builds the per-tag palette overlay from the
 // resolved commit types. Only tags with at least one non-empty color slot
 // are stored; tags with no overrides keep their built-in palette in the
@@ -104,6 +110,10 @@ func createOrLoadPromptFile(configDir string, fullPath string) (string, error) {
 			defaultPromptContent = defaultReleaseRefinePrompt
 		case "changelog_refiner":
 			defaultPromptContent = defaultChangelogRefinerPrompt
+		case "agent_commit":
+			defaultPromptContent = defaultAgentCommitPrompt
+		case "agent_release":
+			defaultPromptContent = defaultAgentReleasePrompt
 		}
 		parentDir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(parentDir, 0o755); err != nil {
@@ -184,6 +194,22 @@ func loadIaPrompts(
 		return err
 	}
 
+	agentCommitPrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.AgentCommitPromptFile,
+	)
+	if err != nil {
+		return err
+	}
+
+	agentReleasePrompt, err := createOrLoadPromptFile(
+		configDir,
+		globalConfig.Prompts.AgentReleasePromptFile,
+	)
+	if err != nil {
+		return err
+	}
+
 	globalConfig.Prompts.ChangeAnalyzerPrompt = changeAnalyzerPrompt
 	globalConfig.Prompts.CommitBodyGeneratorPrompt = commitBodyGeneratorPrompt
 	globalConfig.Prompts.CommitTitleGeneratorPrompt = commitTitleGeneratorPrompt
@@ -191,6 +217,8 @@ func loadIaPrompts(
 	globalConfig.Prompts.ReleaseBodyPrompt = releaseBodyPrompt
 	globalConfig.Prompts.ReleaseTitlePrompt = releaseTitlePrompt
 	globalConfig.Prompts.ReleaseRefinePrompt = releaseRefinePrompt
+	globalConfig.Prompts.AgentCommitPrompt = agentCommitPrompt
+	globalConfig.Prompts.AgentReleasePrompt = agentReleasePrompt
 
 	if globalConfig.Changelog.PromptFile != "" {
 		changelogPrompt, err := createOrLoadPromptFile(
