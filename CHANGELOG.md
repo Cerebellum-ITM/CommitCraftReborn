@@ -2,6 +2,27 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.68.0 — 2026-06-19
+
+Added a `COMMITCRAFT_GROQ_BASE_URL` environment override for the Groq API root.
+
+- `internal/api/groq.go` now resolves the base URL through `groqBaseURL()`,
+  which reads `COMMITCRAFT_GROQ_BASE_URL` and falls back to the real
+  `https://api.groq.com/openai/v1` when unset. Both the chat-completions and
+  models endpoints honor it.
+- Enables pointing the app at an OpenAI-compatible gateway, a self-hosted
+  proxy, or a local mock (used by the demo recordings) without recompiling.
+- Fully backward compatible: with the variable unset, behavior is unchanged.
+
+### Usage
+
+```sh
+export COMMITCRAFT_GROQ_BASE_URL="http://127.0.0.1:8899/openai/v1"
+commitcraft            # all Groq calls now hit that base URL instead
+```
+
+Unset the variable (the default) to talk to the real Groq API.
+
 ## v0.67.1 — 2026-06-19
 
 Documentation: animated demo GIFs for the README, recorded with

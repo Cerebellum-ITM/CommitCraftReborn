@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,6 +17,23 @@ import (
 // when Groq responds with HTTP 429. Callers detect it via errors.Is to give
 // the user a "swap your API key slot" hint instead of a generic API error.
 var ErrRateLimited = errors.New("groq rate limit (429)")
+
+// defaultGroqBaseURL is the Groq OpenAI-compatible API root used when no
+// override is configured.
+const defaultGroqBaseURL = "https://api.groq.com/openai/v1"
+
+// groqBaseURL returns the API root, honoring the COMMITCRAFT_GROQ_BASE_URL
+// environment override. The override lets the app point at an
+// OpenAI-compatible gateway, a self-hosted proxy, or a local mock (used by the
+// demo recordings) without recompiling. Empty/unset falls back to the real
+// Groq endpoint, so existing setups are unaffected. The returned value never
+// has a trailing slash.
+func groqBaseURL() string {
+	if u := strings.TrimSpace(os.Getenv("COMMITCRAFT_GROQ_BASE_URL")); u != "" {
+		return strings.TrimRight(u, "/")
+	}
+	return defaultGroqBaseURL
+}
 
 type Message struct {
 	Role    string `json:"role"`
@@ -111,7 +130,7 @@ func ListGroqModels(apiKey string) ([]GroqModel, error) {
 		return nil, fmt.Errorf("Groq API key was not provided")
 	}
 
-	req, err := http.NewRequest("GET", "https://api.groq.com/openai/v1/models", nil)
+	req, err := http.NewRequest("GET", groqBaseURL()+"/models", nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
@@ -169,7 +188,7 @@ func GetGroqChatCompletion(
 		return "", nil, fmt.Errorf("error encoding JSON: %w", err)
 	}
 
-	url := "https://api.groq.com/openai/v1/chat/completions"
+	url := groqBaseURL() + "/chat/completions"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", nil, fmt.Errorf("error creating request: %w", err)
