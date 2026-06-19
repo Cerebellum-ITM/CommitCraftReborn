@@ -2,6 +2,26 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.67.1 — 2026-06-19
+
+Documentation: animated demo GIFs for the README, recorded with
+[VHS](https://github.com/charmbracelet/vhs). No code changes.
+
+- Added `demo/` with VHS tapes (`demo/tapes/`), the rendered GIFs (`demo/gifs/`),
+  a `setup-sandbox.sh` that sandboxes `HOME` to `/tmp` (invented keys, throwaway
+  git repo, seeded model-context metadata), and a `demo/README.md`.
+- GIFs are real recordings of the actual binary running **offline** — the hero
+  uses delegate mode (`ai generate --agent` → `ai submit`), so no Groq calls are
+  made and nothing private is shown.
+- Embedded a hero GIF at the top of `README.md` plus inline GIFs for
+  `ai context`, `ai list-tags`, and `ai key show`/`swap`.
+
+### Usage
+
+Regenerate from the repo root: `vhs demo/tapes/<name>.tape` (or loop over
+`demo/tapes/*.tape`, skipping `_setup.tape`). Requires `vhs`, `ttyd`, `ffmpeg`,
+`jq`, `sqlite3`, and a Nerd Font. See [`demo/README.md`](demo/README.md).
+
 ## v0.67.0 — 2026-06-13
 
 Agent **delegate mode** for the headless `ai` CLI. When CommitCraft is driven by an AI agent (the `commitcraft` skill), the message-generation stages can now **bypass the Groq API entirely**: instead of making 3–4 serial API calls, the CLI emits a **prompt bundle** (the same prompts, filled with the diff/keypoints/tag/scope) and the already-running agent produces the message itself, then returns it through the new `commitcraft ai submit` subcommand. This removes the API-latency/queue bottleneck from the agent flow. Backward compatible — with no `[agent]` config and no `--agent` flag, the Groq pipeline is unchanged.
