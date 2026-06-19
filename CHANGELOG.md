@@ -2,6 +2,21 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.68.2 — 2026-06-19
+
+Documentation: fixed the demo GIF so its colors match the real TUI.
+
+- The recording now forces 24-bit color (`COLORTERM=truecolor`), so the TUI's
+  hex/truecolor theme renders exactly instead of being downsampled to the
+  recorder's 256/16 palette and remapped by the VHS theme.
+- The sandbox now writes a `config.toml` selecting the `harmonized` theme (with
+  nerd fonts), matching a typical real setup, instead of falling back to the
+  default `charmtone` theme — that mismatch was the main reason the GIF looked
+  different from a real terminal.
+- Dropped the VHS margin band and matched the recorder background to the theme
+  background (`#0e1016`) so the surface is uniform, like a real terminal.
+- Regenerated `demo/gifs/hero.gif`.
+
 ## v0.68.1 — 2026-06-19
 
 Documentation: replaced the JSON-output CLI demo GIFs with a single hero GIF of

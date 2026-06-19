@@ -43,6 +43,15 @@ GROQ_API_KEY_AI="gsk_demo_ai_00000000000000000000000000000"
 GROQ_ACTIVE_KEY="user"
 ENV
 
+# Use the same TUI theme as a typical real setup ("harmonized") so the recorded
+# colors match what users actually see, instead of falling back to the default
+# "charmtone" theme. Keep this in sync with the VHS background in _setup.tape.
+cat > "$HOME/.config/CommitCraft/config.toml" <<'TOML'
+[tui]
+  theme = "harmonized"
+  use_nerd_fonts = true
+TOML
+
 # Throwaway git repo with one invented, staged change to feed the pipeline.
 mkdir -p "$CC_SB/repo/internal/api"
 cd "$CC_SB/repo" || return
