@@ -24,6 +24,18 @@ export HOME="$CC_SB/home"
 # Freshly built binary first on PATH so the on-screen `commitcraft` is the real one.
 export PATH="$CC_REPO_ROOT/bin:$PATH"
 
+# Offline Groq stand-in: point the app at a local mock so the TUI's ^W generate
+# flow runs with invented data, no network, no API key, no quota. Relies on the
+# COMMITCRAFT_GROQ_BASE_URL override. Kill any stale instance, then start fresh.
+pkill -f "demo/mock-groq.py" >/dev/null 2>&1 || true
+python3 "$CC_REPO_ROOT/demo/mock-groq.py" >/dev/null 2>&1 &
+export COMMITCRAFT_GROQ_BASE_URL="http://127.0.0.1:8899/openai/v1"
+# Give the mock a moment to bind its port.
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  curl -sf "http://127.0.0.1:8899/openai/v1/models" >/dev/null 2>&1 && break
+  sleep 0.2
+done
+
 # Invented, non-functional keys: `ai key show` reports both slots set; nothing leaks.
 cat > "$HOME/.config/CommitCraft/.env" <<'ENV'
 GROQ_API_KEY="gsk_demo_user_0000000000000000000000000000"

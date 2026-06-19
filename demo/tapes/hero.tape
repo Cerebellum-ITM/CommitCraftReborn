@@ -1,18 +1,32 @@
 Output demo/gifs/hero.gif
-Set Height 820
+Set Height 760
 Source demo/tapes/_setup.tape
 
-Type "# Delegate mode: CommitCraft hands the agent a prompt bundle — no Groq calls." Enter
-Sleep 1s
-Type "commitcraft ai generate -k 'retry transient Groq 429s with backoff' -t ADD -s api --agent | jq '{mode,strategy,inputs}'" Sleep 400ms Enter
-Sleep 2.6s
+# Launch the TUI (History tab, then start a new commit).
+Type "commitcraft" Enter
+Sleep 1.8s
+Type "n"
+Sleep 1.2s
 
-Type "# The agent writes the message, submits it, and CommitCraft verifies it:" Enter
+# Pick the commit type (Ctrl+T → filter → enter).
+Ctrl+T
 Sleep 1s
-Type "commitcraft ai submit --input-file msg.json | jq '.verify'" Sleep 400ms Enter
-Sleep 2.4s
+Type "ADD"
+Sleep 700ms
+Enter
+Sleep 1s
 
-Type "# The finished, ready-to-commit message:" Enter
-Sleep 1s
-Type "commitcraft ai show --id 1 | jq -r .final_message" Sleep 400ms Enter
-Sleep 3.5s
+# Pick the scope (Ctrl+P → into internal/ → pick the api package).
+Ctrl+P
+Sleep 1.1s
+Tab
+Sleep 900ms
+Enter
+Sleep 1.1s
+
+# Describe the change, then let CommitCraft generate the message (^W).
+Type "retry transient Groq 429s with exponential backoff"
+Sleep 900ms
+Ctrl+W
+Sleep 5s
+

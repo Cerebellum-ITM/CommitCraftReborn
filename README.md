@@ -3,10 +3,10 @@
 CommitCraft is a powerful Terminal User Interface (TUI) tool designed to streamline your Git workflow. It leverages Artificial Intelligence (AI), specifically Groq AI, to generate meaningful, concise, and well-formatted commit messages based on your staged changes. With an interactive experience powered by the Charmbracelet ecosystem, CommitCraft helps you create high-quality commits quickly and effortlessly.
 
 <p align="center">
-  <img src="demo/gifs/hero.gif" alt="CommitCraft: an AI agent turns a staged change into a verified commit, no Groq calls" width="820">
+  <img src="demo/gifs/hero.gif" alt="CommitCraft TUI: pick a type and scope, describe the change, and generate a commit message with ^W" width="860">
 </p>
 
-> Demos are recorded with [VHS](https://github.com/charmbracelet/vhs) against a throwaway sandbox (the real binary, no Groq calls); the data shown is illustrative. See [`demo/`](demo/) to regenerate them.
+> Recorded with [VHS](https://github.com/charmbracelet/vhs). It's the real TUI running against a throwaway sandbox pointed at a local AI stand-in, so no Groq calls are made and the data shown is illustrative. See [`demo/`](demo/) to regenerate it.
 
 ## ✨ Key Features
 
@@ -141,8 +141,6 @@ commitcraft ai key set --slot ai     # store a key in the ai slot (hidden prompt
 commitcraft ai key swap              # toggle the active slot
 ```
 
-<p align="center"><img src="demo/gifs/keys.gif" alt="commitcraft ai key show / swap — two Groq key slots, no secrets printed" width="820"></p>
-
 ### Customizing Commit Types
 
 You can define your own commit types in your configuration file (`config.toml` or `.commitcraft.toml`).
@@ -254,16 +252,6 @@ commitcraft ai promote --id <id>                 # mark the draft completed
 # then: git commit -m "$(...final_message...)"
 commitcraft ai link-commit --id <id> --hash "$(git rev-parse HEAD)"   # recover by hash later
 ```
-
-<details open>
-<summary><b>ai context</b> — offline pre-flight: does the staged diff fit the model?</summary>
-<p align="center"><img src="demo/gifs/context.gif" alt="commitcraft ai context --strict" width="820"></p>
-</details>
-
-<details>
-<summary><b>ai list-tags</b> — the commit-type tags <code>generate</code> accepts</summary>
-<p align="center"><img src="demo/gifs/tags.gif" alt="commitcraft ai list-tags" width="820"></p>
-</details>
 
 Other subcommands: `show` (by id or `--commit <hash>`), `list`,
 `list-addable-tags` / `add-tag` (register per-repo tags), `key` (manage the two

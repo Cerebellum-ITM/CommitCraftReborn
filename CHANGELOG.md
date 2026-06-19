@@ -2,6 +2,27 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.68.1 — 2026-06-19
+
+Documentation: replaced the JSON-output CLI demo GIFs with a single hero GIF of
+the **real TUI** generating a commit message. No production code changes.
+
+- The hero records the actual Compose flow: new commit → pick type (`^T`) →
+  pick scope (`^P`) → describe the change → generate with `^W` → the AI
+  suggestion panel fills in.
+- Recorded fully offline: `demo/setup-sandbox.sh` now also starts
+  `demo/mock-groq.py`, a local Groq stand-in, and points the app at it via
+  `COMMITCRAFT_GROQ_BASE_URL` (added in v0.68.0). No network, no API key, no
+  quota; invented data, faithful UI.
+- Removed the old `context`/`tags`/`keys` JSON GIFs and their tapes; updated
+  the root `README.md` and `demo/README.md` accordingly.
+
+### Usage
+
+Regenerate from the repo root: `vhs demo/tapes/hero.tape`. Requires `vhs`,
+`ttyd`, `ffmpeg`, `python3`, `sqlite3`, `curl`, `jq`, and a Nerd Font. See
+[`demo/README.md`](demo/README.md).
+
 ## v0.68.0 — 2026-06-19
 
 Added a `COMMITCRAFT_GROQ_BASE_URL` environment override for the Groq API root.

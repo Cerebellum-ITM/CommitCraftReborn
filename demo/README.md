@@ -1,23 +1,25 @@
-# demo — README GIFs (VHS)
+# demo — README GIF (VHS)
 
-The animated GIFs in the project README are recorded with
+The animated GIF in the project README is recorded with
 [charmbracelet/vhs](https://github.com/charmbracelet/vhs) from the `.tape`
-scripts in this folder, so anyone can regenerate them.
+scripts in this folder, so anyone can regenerate it.
 
-These are **real recordings of the actual binary** — not simulations. To stay
-reproducible and leak nothing, every tape sources [`setup-sandbox.sh`](setup-sandbox.sh),
-which:
+It's a **real recording of the actual TUI** — not a mock-up. To stay
+reproducible and leak nothing, the tape sources
+[`setup-sandbox.sh`](setup-sandbox.sh), which:
 
 - overrides `HOME` to a throwaway `/tmp/cc-demo` so the config dir, the SQLite
   drafts DB and the `.env` all live under `/tmp` (never your real
   `~/.config/CommitCraft`);
-- writes **invented, non-functional** Groq keys (so `ai key show` reports both
-  slots set without exposing anything);
+- writes **invented, non-functional** Groq keys;
 - creates a throwaway git repo with one staged change to feed the pipeline;
-- seeds the public model-context metadata so `ai context` computes a real fit.
+- seeds the public model-context metadata so the pipeline view has data;
+- starts [`mock-groq.py`](mock-groq.py), a tiny local stand-in for the Groq
+  API, and points the app at it via the `COMMITCRAFT_GROQ_BASE_URL` override.
 
-Because of this, the GIFs make **no Groq calls** — the hero uses delegate mode
-(`ai generate --agent` → `ai submit`), so the whole flow runs offline.
+Because of the mock, the `^W` **generate** flow runs end to end with invented
+content and **no network, no API key, no quota** — while the UI, colors,
+glyphs, and multi-stage pipeline are exactly the real thing.
 
 ## Requirements
 
@@ -25,31 +27,27 @@ Because of this, the GIFs make **no Groq calls** — the hero uses delegate mode
 brew install vhs ttyd ffmpeg     # vhs needs ttyd + ffmpeg
 ```
 
-A [Nerd Font](https://www.nerdfonts.com/) must be installed (the tapes use
-`JetBrainsMono Nerd Font Mono`) and `jq` + `sqlite3` on `PATH`.
+A [Nerd Font](https://www.nerdfonts.com/) must be installed (the tape uses
+`JetBrainsMono Nerd Font Mono`), plus `python3`, `sqlite3`, `curl` and `jq` on
+`PATH`.
 
 ## Regenerate
 
 Run from the **repo root** (tape paths are repo-relative):
 
 ```sh
-vhs demo/tapes/hero.tape              # one
-for t in demo/tapes/*.tape; do        # all (skip the shared _setup.tape)
-  case "$(basename "$t")" in _*) continue;; esac
-  vhs "$t"
-done
+vhs demo/tapes/hero.tape
 ```
 
 Output lands in `demo/gifs/`. Shared settings + the sandbox prep live in
 [`tapes/_setup.tape`](tapes/_setup.tape); each per-command tape `Source`s it.
-To add a command: create `demo/tapes/<cmd>.tape`, render, and embed the new GIF
-in the root `README.md`.
 
-## Tapes
+## Files
 
-| Tape           | GIF            | Shows                                                       |
-| -------------- | -------------- | ----------------------------------------------------------- |
-| `hero.tape`    | `hero.gif`     | Delegate-mode flow: prompt bundle → `ai submit` → commit    |
-| `context.tape` | `context.gif`  | `ai context --strict` — offline context-window pre-flight   |
-| `tags.tape`    | `tags.gif`     | `ai list-tags` — the commit-type tags `generate` accepts    |
-| `keys.tape`    | `keys.gif`     | `ai key show` / `ai key swap` — the two Groq key slots      |
+| File                  | Purpose                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `tapes/_setup.tape`   | Shared VHS settings + hidden sandbox prep (`Source`d by tapes)|
+| `tapes/hero.tape`     | The hero recording: new commit → type → scope → describe → ^W |
+| `setup-sandbox.sh`    | Builds the offline sandbox (HOME, repo, keys, mock)           |
+| `mock-groq.py`        | Local offline stand-in for the Groq API                       |
+| `gifs/hero.gif`       | The rendered hero GIF embedded in the root README             |
