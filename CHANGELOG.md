@@ -2,6 +2,36 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.69.0 — 2026-06-30
+
+Promoted the general-purpose commit tags into the built-in default set so they
+work in any repo without a local `.commitcraft.toml`, and added a new `I18N`
+tag for internationalization/localization work.
+
+- New built-in default tags (previously opt-in examples): `TEST`, `PERF`,
+  `SEC`, `CHORE`, `CI`, `BUILD`, `REVERT`, `STYLE`, `UI`.
+- New `I18N` tag — internationalization and localization (translations, locale
+  files, message catalogs). Cyan four-color palette, `nf-fa-language` ()
+  nerd-font icon with a `%` ASCII fallback.
+- The full tag vocabulary is now built-in: `ai list-addable-tags` and the tag
+  picker render their empty state (nothing left to add to a local config), and
+  a freshly scaffolded `.commitcraft.toml` seeds no example tags. The addable
+  list is still wired up, so re-introducing a project-specific opt-in tag later
+  is a one-line change.
+
+### Usage
+
+The promoted tags and `I18N` are now accepted by `ai generate -t <TAG>` and
+appear in the TUI tag picker out of the box — no config needed. Example:
+
+```
+commitcraft ai generate -k "..." -t I18N -s <scope>
+```
+
+A global/local config using `behavior = "replace"` still overrides the
+defaults as before; switch to `behavior = "append"` (or drop the override) to
+see the new built-ins alongside your custom tags.
+
 ## v0.68.2 — 2026-06-19
 
 Documentation: fixed the demo GIF so its colors match the real TUI.

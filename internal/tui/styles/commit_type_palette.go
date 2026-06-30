@@ -113,6 +113,12 @@ var commitTypePalette = map[string]CommitTypeColors{
 		lipgloss.Color("#29101a"),
 		lipgloss.Color("#cf99a3"),
 	},
+	"I18N": {
+		lipgloss.Color("#1d4e57"),
+		lipgloss.Color("#c0e9f0"),
+		lipgloss.Color("#0e272c"),
+		lipgloss.Color("#9ccdd6"),
+	},
 }
 
 // commitTypeAliases routes tags that don't have their own palette entry
@@ -255,6 +261,7 @@ var commitTypeNerdIcons = map[string]string{
 	"REVERT":   "", // nf-fa-undo
 	"SEC":      "", // nf-fa-shield
 	"MERGE":    "", // nf-cod-git_merge
+	"I18N":     "", // nf-fa-language
 }
 
 // commitTypeAsciiIcons is the no-nerd-fonts fallback. ASCII bullets give
@@ -276,6 +283,7 @@ var commitTypeAsciiIcons = map[string]string{
 	"REVERT":   "<",
 	"SEC":      "|",
 	"MERGE":    "Y",
+	"I18N":     "%",
 }
 
 // IconForCommitTag returns the per-tag glyph rendered next to the

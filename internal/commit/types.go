@@ -23,7 +23,8 @@ type CommitType struct {
 func GetDefaultCommitTypes() []CommitType {
 	// Built-in CommitCraft tags. Aliased onto the canonical palette in
 	// `commitTypePalette` (IMP→REFACTOR, REM→DEL, REF→REFACTOR, MOV→CHORE,
-	// REL→BUILD), so the seeded hex values here mirror the alias target.
+	// REL→BUILD, UI→STYLE), so the seeded hex values here mirror the alias
+	// target.
 	return []CommitType{
 		{
 			Tag:         "IMP",
@@ -79,47 +80,11 @@ func GetDefaultCommitTypes() []CommitType {
 			BgBlock:     "#2c4360", FgBlock: "#d6e4f4",
 			BgMsg: "#182230", FgMsg: "#b8c5d4",
 		},
-	}
-}
-
-// GetAddableCommitTypes lists tags that have a four-color palette in
-// the styles package but are not part of the built-in default tag set,
-// so they can be surfaced in the "Add tag types" popup as ready-to-add
-// extras for the local `.commitcraft.toml`. Each entry carries the
-// description and the four hex values the popup writes to the TOML so
-// the user gets a working palette without hand-editing colors.
-//
-// The list mirrors `GetDefaultLocalCommitExamplesTypes` plus `UI`
-// (which historically only existed as an alias to STYLE in the styles
-// palette and was therefore impossible to reach from the picker).
-func GetAddableCommitTypes() []CommitType {
-	extras := GetDefaultLocalCommitExamplesTypes()
-	extras = append(extras, CommitType{
-		Tag:         "UI",
-		Description: "Visual changes to the interface",
-		// UI inherits STYLE's palette via the alias table; the hex
-		// values are duplicated here so the entry rendered in the
-		// picker — and the row written to the TOML — carries colors
-		// even on a fresh install with no STYLE entry yet.
-		BgBlock: "#3e3268", FgBlock: "#e9e0ff",
-		BgMsg: "#1d1830", FgMsg: "#c8bce0",
-	})
-	return extras
-}
-
-func GetDefaultLocalCommitExamplesTypes() []CommitType {
-	return []CommitType{
 		{
 			Tag:         "TEST",
 			Description: "Adding, updating, or fixing tests",
 			BgBlock:     "#34401e", FgBlock: "#d4e3a8",
 			BgMsg: "#1b2010", FgMsg: "#b1c189",
-		},
-		{
-			Tag:         "CHORE",
-			Description: "Routine tasks, maintenance, or minor adjustments that don't affect code logic (e.g., build process, dependency updates, configuration changes)",
-			BgBlock:     "#2a2d36", FgBlock: "#b8bcc4",
-			BgMsg: "#14161c", FgMsg: "#8a8e98",
 		},
 		{
 			Tag:         "PERF",
@@ -128,10 +93,22 @@ func GetDefaultLocalCommitExamplesTypes() []CommitType {
 			BgMsg: "#271425", FgMsg: "#cfa1cb",
 		},
 		{
-			Tag:         "STYLE",
-			Description: "Code style changes (e.g., formatting, semicolons, whitespace), without changing logic",
-			BgBlock:     "#3e3268", FgBlock: "#e9e0ff",
-			BgMsg: "#1d1830", FgMsg: "#c8bce0",
+			Tag:         "SEC",
+			Description: "Security improvements or vulnerability fixes",
+			BgBlock:     "#4a232b", FgBlock: "#f0bdc4",
+			BgMsg: "#29101a", FgMsg: "#cf99a3",
+		},
+		{
+			Tag:         "I18N",
+			Description: "Internationalization and localization (translations, locale files, message catalogs)",
+			BgBlock:     "#1d4e57", FgBlock: "#c0e9f0",
+			BgMsg: "#0e272c", FgMsg: "#9ccdd6",
+		},
+		{
+			Tag:         "CHORE",
+			Description: "Routine tasks, maintenance, or minor adjustments that don't affect code logic (e.g., build process, dependency updates, configuration changes)",
+			BgBlock:     "#2a2d36", FgBlock: "#b8bcc4",
+			BgMsg: "#14161c", FgMsg: "#8a8e98",
 		},
 		{
 			Tag:         "CI",
@@ -152,10 +129,39 @@ func GetDefaultLocalCommitExamplesTypes() []CommitType {
 			BgMsg: "#2a190d", FgMsg: "#cda07b",
 		},
 		{
-			Tag:         "SEC",
-			Description: "Security improvements or vulnerability fixes",
-			BgBlock:     "#4a232b", FgBlock: "#f0bdc4",
-			BgMsg: "#29101a", FgMsg: "#cf99a3",
+			Tag:         "STYLE",
+			Description: "Code style changes (e.g., formatting, semicolons, whitespace), without changing logic",
+			BgBlock:     "#3e3268", FgBlock: "#e9e0ff",
+			BgMsg: "#1d1830", FgMsg: "#c8bce0",
+		},
+		{
+			Tag:         "UI",
+			Description: "Visual changes to the interface",
+			BgBlock:     "#3e3268", FgBlock: "#e9e0ff",
+			BgMsg: "#1d1830", FgMsg: "#c8bce0",
 		},
 	}
+}
+
+// GetAddableCommitTypes lists tags that have a four-color palette in
+// the styles package but are not part of the built-in default tag set,
+// so they can be surfaced in the "Add tag types" popup as ready-to-add
+// extras for the local `.commitcraft.toml`.
+//
+// Every general-purpose tag now ships as a built-in default via
+// `GetDefaultCommitTypes`, so there is nothing left to add — the popup
+// and `ai list-addable-tags` render their empty state. The list is kept
+// (sourced from `GetDefaultLocalCommitExamplesTypes`) so re-introducing
+// an opt-in extra later is a one-line change.
+func GetAddableCommitTypes() []CommitType {
+	return GetDefaultLocalCommitExamplesTypes()
+}
+
+// GetDefaultLocalCommitExamplesTypes returns the tags seeded as editable
+// palette examples into a freshly scaffolded `.commitcraft.toml`. Every
+// general-purpose tag (including `UI`) is now a built-in default, so a
+// fresh local config needs no seeded examples — declare a custom tag
+// here only to ship a project-specific extra.
+func GetDefaultLocalCommitExamplesTypes() []CommitType {
+	return []CommitType{}
 }
