@@ -449,14 +449,25 @@ func printCommitJSON(c commitJSON) {
 // "no_staged_diff" code when the repo has nothing staged so callers
 // can present the right error.
 func validateAndStageDiff(maxBytes int) (string, error) {
-	diff, err := git.GetStagedDiffSummary(maxBytes)
+	diff, _, err := validateAndStageDiffDetailed(maxBytes)
+	return diff, err
+}
+
+// validateAndStageDiffDetailed is like validateAndStageDiff but also reports
+// whether the staged diff was truncated to fit maxBytes. A large-but-present
+// staged diff returns (diff, true, nil) — never the no_staged_diff error, which
+// is reserved for a genuinely empty stage.
+func validateAndStageDiffDetailed(maxBytes int) (string, bool, error) {
+	diff, truncated, err := git.GetStagedDiffSummaryDetailed(maxBytes)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if strings.TrimSpace(diff) == "" {
-		return "", errors.New("no staged changes — run `git add` before invoking ai generate")
+		return "", false, errors.New(
+			"no staged changes — run `git add` before invoking ai generate",
+		)
 	}
-	return diff, nil
+	return diff, truncated, nil
 }
 
 // flagSet builds a flag.FlagSet that prints to stderr and returns

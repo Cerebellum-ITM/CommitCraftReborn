@@ -59,7 +59,7 @@ func runContext(args []string) int {
 	defer boot.db.Close()
 
 	maxBytes := boot.cfg.Prompts.ChangeAnalyzerMaxDiffSize
-	diff, err := validateAndStageDiff(maxBytes)
+	diff, diffTruncated, err := validateAndStageDiffDetailed(maxBytes)
 	if err != nil {
 		printErrorJSON("no_staged_diff", err.Error())
 		return 1
@@ -80,7 +80,7 @@ func runContext(args []string) int {
 		UserInputChars:    est.UserInputChars,
 		TotalChars:        est.TotalChars,
 		EstTokens:         est.EstTokens,
-		DiffTruncated:     maxBytes > 0 && len(diff) >= maxBytes,
+		DiffTruncated:     diffTruncated,
 		DiffMaxBytes:      maxBytes,
 	}
 

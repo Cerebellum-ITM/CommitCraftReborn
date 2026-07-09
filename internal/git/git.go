@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"unicode/utf8"
 )
 
 // GetCurrentGitBranch returns the current branch's short name (the value of
@@ -78,7 +79,17 @@ func GetGitDiffStat() (string, error) {
 // changed file, capped at maxDiffChars total characters. Used as input for
 // the AI change analyzer. Operates on the current working directory.
 func GetStagedDiffSummary(maxDiffChars int) (string, error) {
-	return GetStagedDiffSummaryAt("", maxDiffChars)
+	diff, _, err := stagedDiffSummary("", maxDiffChars)
+	return diff, err
+}
+
+// GetStagedDiffSummaryDetailed is like GetStagedDiffSummary but also reports
+// whether the diff was truncated to fit maxDiffChars. Callers that need to
+// tell "nothing staged" apart from "staged diff too large to send whole"
+// (e.g. `ai context`) use this so a legitimately-staged large diff is never
+// misreported as no_staged_diff.
+func GetStagedDiffSummaryDetailed(maxDiffChars int) (string, bool, error) {
+	return stagedDiffSummary("", maxDiffChars)
 }
 
 // GetStagedDiffSummaryAt is the path-aware variant: when workspace is
@@ -89,6 +100,21 @@ func GetStagedDiffSummary(maxDiffChars int) (string, error) {
 // works from any directory while the commit's stored Workspace is
 // the source of truth for which repo to inspect.
 func GetStagedDiffSummaryAt(workspace string, maxDiffChars int) (string, error) {
+	diff, _, err := stagedDiffSummary(workspace, maxDiffChars)
+	return diff, err
+}
+
+// stagedDiffSummary is the shared implementation behind the public staged-diff
+// helpers. It returns the per-file summary, a truncated flag reporting whether
+// the cap forced any block to be shortened or dropped, and an error.
+//
+// A maxDiffChars <= 0 means "no cap". When a cap is set, a single block that
+// exceeds the remaining budget is *truncated* (at a UTF-8 rune boundary) rather
+// than dropped wholesale: dropping it would return an empty summary for a
+// legitimately-staged large file, which the CLI layer then misreports as
+// no_staged_diff. Truncating keeps the summary non-empty and lets callers surface
+// the overflow (diff_truncated / fits:false) instead.
+func stagedDiffSummary(workspace string, maxDiffChars int) (string, bool, error) {
 	gitArgs := func(rest ...string) []string {
 		if workspace == "" {
 			return rest
@@ -100,19 +126,20 @@ func GetStagedDiffSummaryAt(workspace string, maxDiffChars int) (string, error) 
 	stagedFilesBytes, err := cmdFiles.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("git command failed: %s", string(exitErr.Stderr))
+			return "", false, fmt.Errorf("git command failed: %s", string(exitErr.Stderr))
 		}
-		return "", fmt.Errorf("failed to get staged files: %w", err)
+		return "", false, fmt.Errorf("failed to get staged files: %w", err)
 	}
 
 	if len(stagedFilesBytes) == 0 {
-		return "", nil
+		return "", false, nil
 	}
 
 	stagedFiles := strings.Split(strings.TrimSpace(string(stagedFilesBytes)), "\n")
 
 	var resultBuilder strings.Builder
 	currentChars := 0
+	truncated := false
 
 	for _, file := range stagedFiles {
 		if file == "" {
@@ -122,21 +149,53 @@ func GetStagedDiffSummaryAt(workspace string, maxDiffChars int) (string, error) 
 		cmdDiff := exec.Command("git", gitArgs("diff", "--cached", "--unified=0", "--", file)...)
 		diffBytes, err := cmdDiff.Output()
 		if err != nil {
-			return "", fmt.Errorf("failed to get diff for file %s: %w", file, err)
+			return "", false, fmt.Errorf("failed to get diff for file %s: %w", file, err)
 		}
 
 		block := fmt.Sprintf("=== %s ===\n%s\n", file, string(diffBytes))
-		blockChars := len(block)
 
-		if currentChars+blockChars > maxDiffChars {
+		if maxDiffChars <= 0 {
+			resultBuilder.WriteString(block)
+			currentChars += len(block)
+			continue
+		}
+
+		remaining := maxDiffChars - currentChars
+		if remaining <= 0 {
+			// Budget already spent; any further file counts as dropped.
+			truncated = true
+			break
+		}
+
+		if len(block) > remaining {
+			resultBuilder.WriteString(truncateToRuneBoundary(block, remaining))
+			currentChars = maxDiffChars
+			truncated = true
 			break
 		}
 
 		resultBuilder.WriteString(block)
-		currentChars += blockChars
+		currentChars += len(block)
 	}
 
-	return resultBuilder.String(), nil
+	return resultBuilder.String(), truncated, nil
+}
+
+// truncateToRuneBoundary returns the longest prefix of s that is at most max
+// bytes long and does not split a multi-byte UTF-8 rune. Used to cap an
+// oversized diff block without emitting invalid UTF-8 at the cut point.
+func truncateToRuneBoundary(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	if len(s) <= max {
+		return s
+	}
+	b := s[:max]
+	for len(b) > 0 && !utf8.ValidString(b) {
+		b = b[:len(b)-1]
+	}
+	return b
 }
 
 // GetGitDiffNameStatus returns the staged file → status code map (A, M, D,

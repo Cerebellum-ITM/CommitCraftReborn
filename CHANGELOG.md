@@ -2,6 +2,31 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.69.1 — 2026-07-08
+
+Fixed a bug where a large staged diff was misreported as `no_staged_diff`. When
+a single staged file's diff exceeded `change_analyzer_max_diff_size` (default
+80 KB), the diff-summary builder dropped the whole block and returned an empty
+string, which the AI CLI (`ai context`, `ai generate`, `ai submit`,
+`ai regenerate`) then reported as "no staged changes".
+
+- `internal/git` now *truncates* an oversized diff block (at a UTF-8 rune
+  boundary) to fill the remaining budget instead of discarding it, so the
+  summary is never empty for a legitimately-staged large diff.
+- `GetStagedDiffSummaryDetailed` reports whether truncation happened. `ai
+  context` uses it to emit the correct `diff_truncated: true` (and, when the
+  model is cached, `fits: false` → exit 3 under `--strict`) rather than
+  `no_staged_diff`. Delegated/`--agent` generation now proceeds on the
+  truncated diff, leaning on the keypoints, instead of aborting.
+
+### Usage
+
+No new flags. Staging a >80 KB diff and running `commitcraft ai context
+--strict` now returns the size breakdown with `diff_truncated: true` (exit 3
+when it overflows a cached model's context window). `ai generate --agent`
+proceeds on the capped diff. Raise or disable the cap via
+`change_analyzer_max_diff_size` in `config.toml` (set `0` for no cap).
+
 ## v0.69.0 — 2026-06-30
 
 Promoted the general-purpose commit tags into the built-in default set so they
