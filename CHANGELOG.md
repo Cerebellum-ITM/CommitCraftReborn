@@ -2,6 +2,34 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.69.2 — 2026-07-21
+
+Fixed a regression where `ai generate` in **delegate mode** left no history
+row in the database. Delegate mode returned the prompt bundle and exited
+before the `SaveDraft` call, so persistence depended entirely on the agent
+completing the `ai submit` → `ai promote` handoff. Whenever the agent composed
+the message from the bundle and ran `git commit` directly, no `commits` row
+was ever written — unlike the pre-delegate behavior, where `generate` always
+persisted a draft immediately.
+
+- `ai generate` (delegate) now pre-persists a **pending draft** before emitting
+  the bundle, restoring the "generate always leaves a row" guarantee. The
+  bundle carries this draft's `id`; `ai submit` reuses it to update the row in
+  place instead of inserting a duplicate. `--dry-run` keeps the old no-persist
+  behavior (`id` stays `0`).
+- The delegate bundle `instructions` now tell the agent to copy the top-level
+  `id` verbatim into the `ai submit` payload so the pre-created draft is
+  updated rather than orphaned.
+
+### Usage
+
+No new flags. With `[agent] mode = "delegate"` (or `--agent`), running
+`commitcraft ai generate -k "…" -t <TAG> -s <scope>` now immediately creates a
+draft row and returns a bundle whose `id` field points at it. Submit with that
+`id` (`{kind:"commit", id:<id>, title:…, body:…}`) to fill and keep the same
+row, then `ai promote --id <id>`. Even if the submit/promote handoff is
+skipped, the pending draft remains as a history record.
+
 ## v0.69.1 — 2026-07-08
 
 Fixed a bug where a large staged diff was misreported as `no_staged_diff`. When

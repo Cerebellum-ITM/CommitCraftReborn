@@ -67,9 +67,12 @@ const (
 		"AND body MUST be written in English regardless of the working language. " +
 		"When you are done, submit the result by piping a JSON object to " +
 		"`commitcraft ai submit` on stdin (see submit_example). Copy `tag`, " +
-		"`scope`, and `keypoints` from `inputs` verbatim. Set `id` only for a " +
-		"regenerate (it updates that draft). After submit, check the returned " +
-		"`verify` block; fix issues with `ai edit` before `ai promote`."
+		"`scope`, and `keypoints` from `inputs` verbatim. If this bundle " +
+		"carries a top-level `id`, copy it into the submit payload verbatim — " +
+		"it points at the pending draft this command already created, so " +
+		"submitting with it updates that row in place instead of leaving an " +
+		"orphaned duplicate. After submit, check the returned `verify` block; " +
+		"fix issues with `ai edit` before `ai promote`."
 
 	releaseInstructions = "CommitCraft delegate mode. Do NOT call any external " +
 		"API — YOU produce the release note. Use the prompt(s) below as your " +

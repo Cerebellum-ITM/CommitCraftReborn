@@ -93,9 +93,30 @@ func runGenerate(args []string) int {
 	}
 	if delegate {
 		// Delegate mode: emit the prompt bundle for the agent to fulfill.
-		// No Groq call, no draft — the agent returns the result via
-		// `ai submit`.
-		printJSON(aiengine.BuildCommitBundle(deps, in, resolveStrategy(bs.cfg, af), "generate", 0))
+		// No Groq call. We still pre-persist a pending draft so a history
+		// row always exists even if the agent shortcuts the submit→promote
+		// handoff. The emitted bundle carries this draft's id, so `ai submit`
+		// updates the row in place instead of inserting a duplicate. Under
+		// --dry-run we keep the old no-persist behavior (id stays 0).
+		draftID := 0
+		if !*dryRun {
+			pending := storage.Commit{
+				Type:      *tag,
+				Scope:     scope,
+				KeyPoints: keypoints,
+				Workspace: bs.pwd,
+				Diff_code: diff,
+				Source:    "ai",
+			}
+			if err := bs.db.SaveDraft(&pending); err != nil {
+				printErrorJSON("db_error", err.Error())
+				return 1
+			}
+			draftID = pending.ID
+		}
+		printJSON(
+			aiengine.BuildCommitBundle(deps, in, resolveStrategy(bs.cfg, af), "generate", draftID),
+		)
 		return 0
 	}
 
