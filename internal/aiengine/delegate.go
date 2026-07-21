@@ -79,8 +79,11 @@ const (
 		"system instructions and the commit list as context. The title AND body " +
 		"MUST be written in English. When done, pipe a JSON object to " +
 		"`commitcraft ai submit` on stdin (see submit_example) with " +
-		"`kind:\"release\"`. Copy `type`, `branch`/`version` from `inputs`. Set " +
-		"`id` only to update an existing release draft."
+		"`kind:\"release\"`. Copy `type`, `branch`/`version`, and `commit_list` " +
+		"from `inputs`. If this bundle carries a top-level `id`, copy it into " +
+		"the submit payload verbatim — it points at the pending release this " +
+		"command already created, so submitting with it updates that row " +
+		"instead of leaving an orphaned duplicate."
 
 	commitSubmitExample = `echo '{"kind":"commit","action":"generate",` +
 		`"tag":"ADD","scope":["cli"],"keypoints":["..."],` +

@@ -2,6 +2,30 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.69.3 — 2026-07-21
+
+Extended the delegate-mode persistence fix (v0.69.2) to the release
+pipeline. `ai merge --agent` and `ai release --agent` had the same gap: they
+emitted the release bundle and exited before writing to the `releases` table,
+so a `[MERGE]`/`[RELEASE]` note left no history row unless the agent completed
+the `ai submit` → `ai promote` handoff.
+
+- `ai merge` and `ai release` (delegate) now pre-persist a **pending release
+  draft** (with type, branch/version, and commit_list) before emitting the
+  bundle. The bundle carries that draft's `id`; `ai submit --kind release`
+  reuses it to update the row in place instead of inserting a duplicate.
+- The release bundle `instructions` now tell the agent to copy the top-level
+  `id` (and `commit_list`) into the submit payload.
+
+### Usage
+
+No new flags. With `[agent] mode = "delegate"` (or `--agent`), `commitcraft ai
+merge --branch <b>` / `ai release --version vX.Y.Z` immediately create a
+pending release row and return a bundle whose `id` points at it. Submit with
+that `id` (`{kind:"release", id:<id>, type:"MERGE|RELEASE", …}`), then
+`ai promote --id <id> --kind release`. Even if the handoff is skipped, the
+pending release remains as a record.
+
 ## v0.69.2 — 2026-07-21
 
 Fixed a regression where `ai generate` in **delegate mode** left no history

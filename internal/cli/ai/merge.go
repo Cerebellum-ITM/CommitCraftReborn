@@ -110,16 +110,31 @@ func runMerge(args []string) int {
 		// Delegate mode: emit a [MERGE] release bundle. The agent returns the
 		// note via `ai submit` with kind:"release". The commit list is carried
 		// in the prompt; the agent copies it back as commit_list. No Groq call.
+		// We still pre-persist a pending release row so a history record always
+		// exists even if the agent shortcuts the submit→promote handoff; the
+		// bundle carries its id and `ai submit` updates it in place.
+		commitList := serializeCommitRange(commits)
+		pending := storage.Release{
+			Type:       "MERGE",
+			Branch:     branchName,
+			CommitList: commitList,
+			Workspace:  ws,
+			Source:     "ai",
+		}
+		if err := boot.db.SaveReleaseDraft(&pending); err != nil {
+			printErrorJSON("db_error", err.Error())
+			return 1
+		}
 		b := aiengine.BuildReleaseBundle(
 			deps,
 			in,
 			"MERGE",
 			resolveStrategy(boot.cfg, af),
 			"merge",
-			0,
+			pending.ID,
 			branchName,
 			"",
-			serializeCommitRange(commits),
+			commitList,
 		)
 		printJSON(b)
 		return 0

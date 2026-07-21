@@ -125,17 +125,32 @@ func runRelease(args []string) int {
 	}
 	if delegate {
 		// Delegate mode: emit a [RELEASE] release bundle. The agent returns the
-		// note via `ai submit` with kind:"release". No Groq call.
+		// note via `ai submit` with kind:"release". No Groq call. We still
+		// pre-persist a pending release row so a history record always exists
+		// even if the agent shortcuts the submit→promote handoff; the bundle
+		// carries its id and `ai submit` updates it in place.
+		commitList := serializeCommitRange(commits)
+		pending := storage.Release{
+			Type:       "RELEASE",
+			Version:    versionStr,
+			CommitList: commitList,
+			Workspace:  ws,
+			Source:     "ai",
+		}
+		if err := boot.db.SaveReleaseDraft(&pending); err != nil {
+			printErrorJSON("db_error", err.Error())
+			return 1
+		}
 		b := aiengine.BuildReleaseBundle(
 			deps,
 			in,
 			"RELEASE",
 			resolveStrategy(boot.cfg, af),
 			"release",
-			0,
+			pending.ID,
 			"",
 			versionStr,
-			serializeCommitRange(commits),
+			commitList,
 		)
 		printJSON(b)
 		return 0
