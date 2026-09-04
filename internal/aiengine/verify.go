@@ -86,6 +86,32 @@ var genericTitleVerbs = map[string]bool{
 	"modify": true, "cleanup": true, "delete": true, "rename": true,
 }
 
+// tagVerbFamilies maps a tag to the verbs its prompt forbids as the first
+// word of the title text: the tag already carries that meaning, so the
+// verb only repeats it. Matched case-insensitively against the bare verb
+// and its -s/-ed/-ing forms.
+var tagVerbFamilies = map[string][]string{
+	"ADD":  {"add", "introduce", "create", "implement"},
+	"FIX":  {"fix", "correct", "resolve", "repair"},
+	"REM":  {"remove", "delete", "drop"},
+	"DOC":  {"document"},
+	"IMP":  {"improve", "enhance"},
+	"REF":  {"refactor"},
+	"PERF": {"optimize", "optimise", "speed"},
+	"TEST": {"test"},
+	"MOV":  {"move", "relocate"},
+	"SEC":  {"secure"},
+	"I18N": {"translate"},
+}
+
+// titleTagCapture pulls the bare tag out of `[TAG] scope: text`.
+var titleTagCapture = regexp.MustCompile(`^\[([A-Z0-9]+)\]`)
+
+const (
+	titleTextSoftLimit = 50
+	bodyLineSoftLimit  = 72
+)
+
 // VerifyFinalMessage runs the deterministic rule set against a
 // composed final_message (the same text that would go into
 // `git commit`). Rules never call Groq and never read the diff — they
@@ -98,13 +124,16 @@ func VerifyFinalMessage(finalMessage string) VerifyReport {
 	findings = appendIf(findings, checkEmptyTitle(title))
 	findings = appendIf(findings, checkTitleFormat(title)...)
 	findings = appendIf(findings, checkTitleLength(title)...)
+	findings = appendIf(findings, checkTitleTextLength(title))
 	findings = appendIf(findings, checkGenericTitle(title))
+	findings = appendIf(findings, checkTitleRestatesTag(title))
 	findings = appendIf(findings, checkEmptyBody(title, body))
 	findings = appendIf(findings, checkTitleEqualsBody(title, body))
 	findings = appendIf(findings, checkCodeFence(title, body)...)
 	findings = appendIf(findings, checkAIResidue(title, body)...)
 	findings = appendIf(findings, checkTemplatePlaceholders(title, body)...)
 	findings = appendIf(findings, checkDuplicateLines(body)...)
+	findings = appendIf(findings, checkBodyLineLength(body))
 
 	report := VerifyReport{Findings: findings}
 	for _, f := range findings {
@@ -194,6 +223,52 @@ func checkTitleLength(title string) []*VerifyFinding {
 			Message:  "Title is longer than 72 characters (GitHub convention).",
 			Location: "title",
 		}}
+	}
+	return nil
+}
+
+// checkTitleTextLength warns when the free text after `[TAG] scope: `
+// exceeds the 50-character target the prompts ask for. The 72/100 checks
+// on the whole first line stay in checkTitleLength.
+func checkTitleTextLength(title string) *VerifyFinding {
+	m := titleTextPattern.FindStringSubmatch(title)
+	if m == nil || len(m[1]) <= titleTextSoftLimit {
+		return nil
+	}
+	return &VerifyFinding{
+		Rule:     "title_text_too_long",
+		Severity: severityWarning,
+		Message: "Title text after `[TAG] scope:` is " + itoa(
+			len(m[1]),
+		) + " characters; target is 50.",
+		Location: "title",
+	}
+}
+
+// checkTitleRestatesTag warns when the title text opens with a verb the
+// tag already implies (`[ADD] x: add ...`, `[FIX] x: fix ...`).
+func checkTitleRestatesTag(title string) *VerifyFinding {
+	tag := titleTagCapture.FindStringSubmatch(title)
+	text := titleTextPattern.FindStringSubmatch(title)
+	if tag == nil || text == nil {
+		return nil
+	}
+	words := strings.Fields(text[1])
+	if len(words) == 0 {
+		return nil
+	}
+	first := strings.ToLower(strings.Trim(words[0], ",.:;"))
+	for _, verb := range tagVerbFamilies[tag[1]] {
+		for _, form := range []string{verb, verb + "s", verb + "es", verb + "ed", verb + "d", verb + "ing"} {
+			if first == form {
+				return &VerifyFinding{
+					Rule:     "title_restates_tag_verb",
+					Severity: severityWarning,
+					Message:  "Title starts with \"" + words[0] + "\", which [" + tag[1] + "] already implies. Spend the characters on the subject.",
+					Location: "title",
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -344,6 +419,27 @@ func checkDuplicateLines(body string) []*VerifyFinding {
 		})
 	}
 	return out
+}
+
+// checkBodyLineLength warns when body lines exceed the 72-column wrap.
+// Lines without whitespace (a bare URL or path) cannot be wrapped and are
+// ignored.
+func checkBodyLineLength(body string) *VerifyFinding {
+	var long []int
+	for i, line := range strings.Split(body, "\n") {
+		if len(line) > bodyLineSoftLimit && strings.ContainsAny(line, " \t") {
+			long = append(long, i+1)
+		}
+	}
+	if len(long) == 0 {
+		return nil
+	}
+	return &VerifyFinding{
+		Rule:     "body_line_too_long",
+		Severity: severityWarning,
+		Message:  itoa(len(long)) + " body line(s) exceed 72 columns; hard-wrap them.",
+		Location: lineLoc(long[0] - 1),
+	}
 }
 
 func lineLoc(zeroBased int) string {
