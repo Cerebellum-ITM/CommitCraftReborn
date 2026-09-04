@@ -85,14 +85,16 @@ const (
 		"command already created, so submitting with it updates that row " +
 		"instead of leaving an orphaned duplicate."
 
-	commitSubmitExample = `echo '{"kind":"commit","action":"generate",` +
-		`"tag":"ADD","scope":["cli"],"keypoints":["..."],` +
-		`"title":"add agent delegate mode","body":"...","summary":"...",` +
-		`"changelog_entry":"...","changelog_mention":"- Updated CHANGELOG.md ..."}' ` +
+	commitSubmitExample = `jq -n --argjson id <BUNDLE_ID> --arg title "..." --arg body "..." ` +
+		`'{kind:"commit", id:$id, tag:"ADD", scope:["cli"], keypoints:["..."], ` +
+		`title:$title, body:$body, summary:"...", ` +
+		`changelog_entry:"...", changelog_mention:"- Updated CHANGELOG.md ..."}' ` +
 		`| commitcraft ai submit`
 
-	releaseSubmitExample = `echo '{"kind":"release","type":"MERGE",` +
-		`"branch":"feat/foo","title":"...","body":"..."}' | commitcraft ai submit`
+	releaseSubmitExample = `jq -n --argjson id <BUNDLE_ID> --arg title "..." --arg body "..." ` +
+		`'{kind:"release", id:$id, type:"MERGE", branch:"feat/foo", ` +
+		`title:$title, body:$body, commit_list:"<inputs.commit_list>"}' ` +
+		`| commitcraft ai submit`
 )
 
 // BuildCommitBundle assembles the delegate bundle for the commit pipeline.
