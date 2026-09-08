@@ -226,14 +226,24 @@ type stageJSON struct {
 
 var stageNames = [...]string{"summary", "body", "title", "changelog"}
 
+// commitToJSON projects a commit row into the JSON envelope. A pending
+// delegate draft (persisted by `ai generate --agent` before the agent
+// calls `ai submit`) carries an empty MessageEN, so the final message is
+// left empty instead of erroring: `ai show` must be able to describe the
+// row the bundle just handed out. The gates that need a real message —
+// `ai verify` and `ai promote` — check it themselves before calling here.
 func commitToJSON(
 	c storage.Commit,
 	stages []aiengine.StageStats,
 	typeFormat string,
 ) (commitJSON, error) {
-	final, err := commit.FormatFinalMessage(typeFormat, c.Type, c.Scope, c.MessageEN)
-	if err != nil {
-		return commitJSON{}, err
+	var final string
+	if strings.TrimSpace(c.MessageEN) != "" {
+		var err error
+		final, err = commit.FormatFinalMessage(typeFormat, c.Type, c.Scope, c.MessageEN)
+		if err != nil {
+			return commitJSON{}, err
+		}
 	}
 	cj := commitJSON{
 		ID:             c.ID,

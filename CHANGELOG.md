@@ -2,6 +2,58 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.70.1 — 2026-09-08
+
+`ai show --id <id>` failed on the very draft `ai generate --agent` had just
+persisted. The envelope is built by `commitToJSON`, which called
+`FormatFinalMessage`, and that helper rejects an empty message — so a pending
+delegate draft (message written later by `ai submit`) came back as
+`incomplete_commit` with a non-zero exit code, even though the bundle handed
+the agent that id to inspect.
+
+- `commitToJSON` leaves `final_message` empty when the draft has no message
+  yet instead of returning an error. The rest of the envelope (id, keypoints,
+  tag, scope, status) is emitted as usual, so `ai show` and `ai list` describe
+  pending drafts fine.
+- A missing tag or scope is still an error: only the empty message is
+  tolerated.
+- `ai verify` and `ai promote` are unchanged — both check the message
+  themselves before building the envelope, so they keep rejecting drafts
+  without one.
+
+## v0.70.0 — 2026-09-04
+
+Tightened the delegate-mode commit prompt and taught the verifier to measure
+what the prompt asks for. A sweep over the last 102 agent-written commits
+showed the style drifting between authors: bullet dumps next to prose bodies,
+titles that restate the tag verb (`[ADD] x: add ...`), body lines past 72
+columns, and session narrative ("suite of 41 tests green", "verified against
+staging") leaking into bodies. The unified `agent_commit.prompt` was a lossy
+compression of the three staged prompts and had dropped the rules that keep
+commits uniform.
+
+- `agent_commit.prompt` is rewritten as a real merge of the change-analyzer,
+  body and title prompts: body tone rules (no actor, no meta-comments, no
+  session narrative), one bullet format, 72-column hard wrap, title content
+  rules (50-character target, no tag-verb restatement, abstract up), three
+  worked examples and a list of counter-examples drawn from real drafts.
+- `ai verify` gains three warning rules: `title_text_too_long` (text after
+  `[TAG] scope:` over 50 characters), `title_restates_tag_verb` (title opens
+  with a verb the tag already implies) and `body_line_too_long` (a wrappable
+  body line over 72 columns).
+- The delegate bundle's `submit_example` now carries the pending draft `id`
+  and builds the payload with `jq`, matching the `instructions` that already
+  told the agent to copy the id.
+
+### Usage
+
+Existing `~/.config/CommitCraft/prompts/agent_commit.prompt` copies are not
+overwritten; copy the new template from
+`internal/config/prompts/agent_commit.prompt.tmpl` (or delete the local file
+so the embedded default is regenerated). The new verifier rules are warnings:
+they show up in `ai verify` and in the `verify` block of `ai submit` without
+flipping `has_errors`.
+
 ## v0.69.3 — 2026-07-21
 
 Extended the delegate-mode persistence fix (v0.69.2) to the release

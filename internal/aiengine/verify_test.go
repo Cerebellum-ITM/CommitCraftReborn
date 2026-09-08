@@ -6,7 +6,7 @@ import (
 )
 
 func TestVerifyFinalMessage_Clean(t *testing.T) {
-	msg := "[ADD] ai: introduce verify subcommand\n\nDocumenta y aplica el chequeo determinístico de residuos AI sobre el final_message del draft."
+	msg := "[ADD] ai: check drafts for AI residue offline\n\nRuns a deterministic rule set over the composed final_message so an\nagent can catch leaked phrases before promoting the draft."
 	r := VerifyFinalMessage(msg)
 	if r.HasErrors || r.HasWarnings {
 		t.Fatalf("expected clean report, got %+v", r)
@@ -132,6 +132,58 @@ func TestVerifyFinalMessage_GenericTitle_NotFlagged(t *testing.T) {
 		if findRule(r, "generic_title") {
 			t.Errorf("unexpected generic_title warning for %q", title)
 		}
+	}
+}
+
+func TestVerifyFinalMessage_TitleTextTooLong(t *testing.T) {
+	r := VerifyFinalMessage("[ADD] ai: " + strings.Repeat("a", 51) + "\n\nbody")
+	if !findRule(r, "title_text_too_long") {
+		t.Fatalf("missing title_text_too_long finding, got %+v", r.Findings)
+	}
+	r = VerifyFinalMessage("[ADD] ai: " + strings.Repeat("a", 50) + "\n\nbody")
+	if findRule(r, "title_text_too_long") {
+		t.Fatalf("50 characters must not be flagged")
+	}
+}
+
+func TestVerifyFinalMessage_TitleRestatesTag(t *testing.T) {
+	for _, title := range []string{
+		"[ADD] docker: add remote ps over SSH with --from",
+		"[FIX] mail: Fixes upload links in email messages",
+		"[REM] api: drop deprecated v1 endpoints",
+		"[DOC] deploy: document the Echo deploy flow",
+	} {
+		r := VerifyFinalMessage(title + "\n\nbody text here")
+		if !findRule(r, "title_restates_tag_verb") {
+			t.Errorf("expected title_restates_tag_verb for %q, got %+v", title, r.Findings)
+		}
+		if r.HasErrors {
+			t.Errorf("title_restates_tag_verb must be a warning for %q", title)
+		}
+	}
+	for _, title := range []string{
+		"[ADD] docker: list containers on a linked host",
+		"[FIX] contracts: route signers by stage, not by address",
+		"[CHORE] importer: add the missing mailbox",
+	} {
+		if findRule(VerifyFinalMessage(title+"\n\nbody"), "title_restates_tag_verb") {
+			t.Errorf("unexpected title_restates_tag_verb for %q", title)
+		}
+	}
+}
+
+func TestVerifyFinalMessage_BodyLineTooLong(t *testing.T) {
+	long := strings.Repeat("word ", 20)
+	r := VerifyFinalMessage("[ADD] ai: ok\n\nShort line.\n" + long)
+	if !findRule(r, "body_line_too_long") {
+		t.Fatalf("missing body_line_too_long finding, got %+v", r.Findings)
+	}
+	if r.HasErrors {
+		t.Fatalf("body_line_too_long must be a warning")
+	}
+	url := "https://example.com/" + strings.Repeat("a", 80)
+	if findRule(VerifyFinalMessage("[ADD] ai: ok\n\n"+url), "body_line_too_long") {
+		t.Fatalf("an unbreakable token must not be flagged")
 	}
 }
 
