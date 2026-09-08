@@ -2,6 +2,25 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.70.1 — 2026-09-08
+
+`ai show --id <id>` failed on the very draft `ai generate --agent` had just
+persisted. The envelope is built by `commitToJSON`, which called
+`FormatFinalMessage`, and that helper rejects an empty message — so a pending
+delegate draft (message written later by `ai submit`) came back as
+`incomplete_commit` with a non-zero exit code, even though the bundle handed
+the agent that id to inspect.
+
+- `commitToJSON` leaves `final_message` empty when the draft has no message
+  yet instead of returning an error. The rest of the envelope (id, keypoints,
+  tag, scope, status) is emitted as usual, so `ai show` and `ai list` describe
+  pending drafts fine.
+- A missing tag or scope is still an error: only the empty message is
+  tolerated.
+- `ai verify` and `ai promote` are unchanged — both check the message
+  themselves before building the envelope, so they keep rejecting drafts
+  without one.
+
 ## v0.70.0 — 2026-09-04
 
 Tightened the delegate-mode commit prompt and taught the verifier to measure
