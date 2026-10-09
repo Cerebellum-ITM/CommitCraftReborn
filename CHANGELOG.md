@@ -2,6 +2,33 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.70.2 — 2026-10-09
+
+Agent-written commits recorded what changed instead of why. An audit of
+1,215 delegate-mode commits found that only 10% of the keypoints led with a
+reason and 57% gave none, so the writer either walked through the
+implementation or offered absence as the reason ("X had no way to ...").
+Bodies ran to a median of 14 lines, and about 190 of them leaked context
+that only made sense inside the working session: decision ids like `R31`,
+plan unit numbers, the test machine, "the user".
+
+- `agent_commit.prompt` now states the purpose of a message: record why the
+  change was made, for a reader who was not in the conversation. The body
+  leads with the reason, gives the change in one or two sentences, then the
+  decisions with their reasons.
+- A new PRIVATE CONTEXT section lists what never reaches a message:
+  planning ids, plan units, session nicknames, test reports, the requester
+  and their machine, and Spanish words other than quoted UI labels.
+- Keypoints labeled `Por qué:` / `Why:` and `Decisión:` / `Decision:` are
+  recognized as the motivation and the decisions. Without a reason the
+  writer keeps the message short instead of inventing one.
+- Length follows the reason: one or two sentences for a self-explanatory
+  change, 3 to 8 lines for a typical one, never more than 15.
+- Titles must start with a concrete imperative verb and be literal enough
+  to read from `git log --oneline`; "abstract up" is gone.
+- The examples are rewritten as short, generic ones, dropping a client
+  address that was baked into the global prompt.
+
 ## v0.70.1 — 2026-09-08
 
 `ai show --id <id>` failed on the very draft `ai generate --agent` had just
