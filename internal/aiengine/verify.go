@@ -107,9 +107,41 @@ var tagVerbFamilies = map[string][]string{
 // titleTagCapture pulls the bare tag out of `[TAG] scope: text`.
 var titleTagCapture = regexp.MustCompile(`^\[([A-Z0-9]+)\]`)
 
+// leakedContextRules flag text that only makes sense inside the working
+// session that produced the change. Agents copy the session's vocabulary
+// from their notes into the message, and a reader of `git log` cannot
+// resolve it. Warnings, not errors: a commit that only touches planning
+// docs may legitimately name its unit.
+var leakedContextRules = []struct {
+	rule    string
+	pattern *regexp.Regexp
+	message string
+}{
+	{
+		rule:    "planning_reference",
+		pattern: regexp.MustCompile(`\bR\d{1,3}\b|(?i:\bunits? \d+\b)`),
+		message: "cites a planning id or plan unit that a reader of git log cannot resolve; say what it means instead",
+	},
+	{
+		rule: "session_narrative",
+		pattern: regexp.MustCompile(
+			`(?i)\bthe user (asked|wanted|requested|reported|confirmed|measured|ran|tested)\b` +
+				`|\bthe user's (machine|mac|laptop|setup)\b|\bon this machine\b|\btest mac\b|\bthe assistant\b` +
+				`|\bverified (against|on)\b|\b\d+ ?(/|of) ?\d+ (tests?|specs?)\b` +
+				`|\b(tests?|specs?|suite) (is |are |was |were )?(all )?green\b`,
+		),
+		message: "describes the working session instead of the change",
+	},
+}
+
+// longBodyExemptTags are the release-note kinds, whose bodies summarize a
+// whole branch or version and may run long.
+var longBodyExemptTags = map[string]bool{"MERGE": true, "RELEASE": true}
+
 const (
 	titleTextSoftLimit = 50
 	bodyLineSoftLimit  = 72
+	bodyLineCountLimit = 15
 )
 
 // VerifyFinalMessage runs the deterministic rule set against a
@@ -134,6 +166,8 @@ func VerifyFinalMessage(finalMessage string) VerifyReport {
 	findings = appendIf(findings, checkTemplatePlaceholders(title, body)...)
 	findings = appendIf(findings, checkDuplicateLines(body)...)
 	findings = appendIf(findings, checkBodyLineLength(body))
+	findings = appendIf(findings, checkBodyTooLong(title, body))
+	findings = appendIf(findings, checkLeakedContext(title, body)...)
 
 	report := VerifyReport{Findings: findings}
 	for _, f := range findings {
@@ -440,6 +474,52 @@ func checkBodyLineLength(body string) *VerifyFinding {
 		Message:  itoa(len(long)) + " body line(s) exceed 72 columns; hard-wrap them.",
 		Location: lineLoc(long[0] - 1),
 	}
+}
+
+// checkBodyTooLong warns when a commit body runs past the 15 lines the
+// prompt allows. Blank separator lines are not counted.
+func checkBodyTooLong(title, body string) *VerifyFinding {
+	if tag := titleTagCapture.FindStringSubmatch(title); tag != nil && longBodyExemptTags[tag[1]] {
+		return nil
+	}
+	n := 0
+	for _, line := range strings.Split(body, "\n") {
+		if strings.TrimSpace(line) != "" {
+			n++
+		}
+	}
+	if n <= bodyLineCountLimit {
+		return nil
+	}
+	return &VerifyFinding{
+		Rule:     "body_too_long",
+		Severity: severityWarning,
+		Message: "Body has " + itoa(n) + " lines; the limit is " + itoa(bodyLineCountLimit) +
+			". Keep the reason and the decisions, drop the walk through the implementation.",
+		Location: "body",
+	}
+}
+
+// checkLeakedContext reports each leakedContextRules rule at most once,
+// at its first match.
+func checkLeakedContext(title, body string) []*VerifyFinding {
+	var out []*VerifyFinding
+	for _, r := range leakedContextRules {
+		for _, part := range []struct{ location, text string }{{"title", title}, {"body", body}} {
+			match := r.pattern.FindString(part.text)
+			if match == "" {
+				continue
+			}
+			out = append(out, &VerifyFinding{
+				Rule:     r.rule,
+				Severity: severityWarning,
+				Message:  "Message " + r.message + " (\"" + match + "\").",
+				Location: part.location,
+			})
+			break
+		}
+	}
+	return out
 }
 
 func lineLoc(zeroBased int) string {

@@ -202,6 +202,73 @@ func TestVerifyFinalMessage_BodyLineTooLong(t *testing.T) {
 	}
 }
 
+func TestVerifyFinalMessage_BodyTooLong(t *testing.T) {
+	body := strings.Repeat("A line of prose.\n", 15)
+	if findRule(VerifyFinalMessage("[ADD] ai: ok\n\n"+body), "body_too_long") {
+		t.Fatalf("15 lines must not be flagged")
+	}
+	paragraphs := strings.Repeat(
+		"A line of prose.\n",
+		8,
+	) + "\n" + strings.Repeat(
+		"A line of prose.\n",
+		8,
+	)
+	r := VerifyFinalMessage("[ADD] ai: ok\n\n" + paragraphs)
+	if !findRule(r, "body_too_long") {
+		t.Fatalf("missing body_too_long for 16 lines, got %+v", r.Findings)
+	}
+	if r.HasErrors {
+		t.Fatalf("body_too_long must be a warning")
+	}
+	if findRule(VerifyFinalMessage("[MERGE] feature/x: ship x\n\n"+paragraphs), "body_too_long") {
+		t.Fatalf("merge notes must not be flagged")
+	}
+}
+
+func TestVerifyFinalMessage_PlanningReference(t *testing.T) {
+	for _, body := range []string{
+		"The list now groups by origin, per decision R45.",
+		"Implements the export from unit 8 of the plan.",
+		"The spec runs with the batch of units 01 to 03.",
+	} {
+		r := VerifyFinalMessage("[ADD] app: group by origin\n\n" + body)
+		if !findRule(r, "planning_reference") {
+			t.Errorf("expected planning_reference for %q, got %+v", body, r.Findings)
+		}
+		if r.HasErrors {
+			t.Errorf("planning_reference must be a warning for %q", body)
+		}
+	}
+	for _, body := range []string{
+		"Responses now carry an RFC and a 404 when the record is gone.",
+		"Unit tests cover the parser.",
+	} {
+		if findRule(VerifyFinalMessage("[ADD] app: x\n\n"+body), "planning_reference") {
+			t.Errorf("unexpected planning_reference for %q", body)
+		}
+	}
+}
+
+func TestVerifyFinalMessage_SessionNarrative(t *testing.T) {
+	for _, body := range []string{
+		"Verified against habitta_dev.",
+		"The run took 22 s on the test Mac.",
+		"The native suite passed 17/17 specs.",
+		"Changed because the user asked for it.",
+	} {
+		if !findRule(VerifyFinalMessage("[FIX] app: x\n\n"+body), "session_narrative") {
+			t.Errorf("expected session_narrative for %q", body)
+		}
+	}
+	if findRule(
+		VerifyFinalMessage("[ADD] app: x\n\nThe user picks a folder and the export lands there."),
+		"session_narrative",
+	) {
+		t.Errorf("a product user must not be flagged")
+	}
+}
+
 func findRule(r VerifyReport, rule string) bool {
 	for _, f := range r.Findings {
 		if f.Rule == rule {

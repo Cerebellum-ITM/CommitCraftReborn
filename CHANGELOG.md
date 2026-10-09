@@ -2,6 +2,23 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.71.0 — 2026-10-09
+
+The v0.70.2 prompt asks agents to keep messages short and free of the
+working session's vocabulary, but nothing measured either, so a draft
+that ignored the rules still verified clean. Run over the last 1,227
+agent-written commits, the new rules flag 300 bodies past 15 lines, 193
+messages citing planning ids or plan units, and 28 retelling the session.
+
+- `body_too_long` (warning): more than 15 non-blank body lines. Merge and
+  release notes are exempt, since they summarize a whole branch.
+- `planning_reference` (warning): a decision id such as `R45` or a plan
+  unit such as "unit 8", which a reader of `git log` cannot resolve.
+  Commits that only touch planning docs may keep them.
+- `session_narrative` (warning): "verified against", "on the test Mac",
+  test counts like "17/17 specs", a green suite, "the user asked". A
+  product user ("the user picks a folder") is not flagged.
+
 ## v0.70.3 — 2026-10-09
 
 Every `[I18N]` draft failed verification with `title_format_missing_tag`,
