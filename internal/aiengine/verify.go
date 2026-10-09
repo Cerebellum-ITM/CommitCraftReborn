@@ -61,19 +61,19 @@ var templatePlaceholderPattern = regexp.MustCompile(
 var codeFenceWrapperPattern = regexp.MustCompile("^```[a-zA-Z0-9_-]*\\s*$")
 
 // titleTagPattern enforces the project's `[TAG]` prefix on the first
-// line. Tags are uppercase tokens in square brackets. The optional
-// trailing `scope:` is checked separately so we can warn instead of
-// erroring when only the scope is missing.
-var titleTagPattern = regexp.MustCompile(`^\[[A-Z]+\]`)
+// line. Tags are uppercase letters and digits in square brackets (`I18N`
+// carries digits). The optional trailing `scope:` is checked separately
+// so we can warn instead of erroring when only the scope is missing.
+var titleTagPattern = regexp.MustCompile(`^\[[A-Z0-9]+\]`)
 
 // titleScopePattern checks for the full `[TAG] scope:` shape that
 // FormatFinalMessage produces. Anything after the colon is the title
 // body and is not constrained here.
-var titleScopePattern = regexp.MustCompile(`^\[[A-Z]+\]\s+\S+:\s+\S`)
+var titleScopePattern = regexp.MustCompile(`^\[[A-Z0-9]+\]\s+\S+:\s+\S`)
 
 // titleTextPattern extracts the free-text portion of a well-formed title
 // (everything after `[TAG] scope: `). Used by the generic-title check.
-var titleTextPattern = regexp.MustCompile(`^\[[A-Z]+\]\s+\S+:\s+(.+)$`)
+var titleTextPattern = regexp.MustCompile(`^\[[A-Z0-9]+\]\s+\S+:\s+(.+)$`)
 
 // genericTitleVerbs are action verbs that produce near-content-free titles
 // when the rest of the title is only 1-2 words. Conservative list — prefer

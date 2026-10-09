@@ -2,6 +2,19 @@
 
 All notable changes to CommitCraft are documented here. Newest version on top.
 
+## v0.70.3 — 2026-10-09
+
+Every `[I18N]` draft failed verification with `title_format_missing_tag`,
+an error, even though its title started with the tag. The title patterns
+in the verifier accepted only letters inside the brackets, and `I18N`
+carries digits. Agents saw an error on a correct message and kept
+retrying or switched to another tag.
+
+- The tag, scope and title-text patterns accept uppercase letters and
+  digits, the same set `titleTagCapture` already used.
+- `[I18N]` titles now also reach the title-length, generic-title and
+  tag-verb checks, which the failed match had been skipping.
+
 ## v0.70.2 — 2026-10-09
 
 Agent-written commits recorded what changed instead of why. An audit of

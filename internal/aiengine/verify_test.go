@@ -51,6 +51,21 @@ func TestVerifyFinalMessage_TitleMissingTag(t *testing.T) {
 	}
 }
 
+func TestVerifyFinalMessage_TagWithDigits(t *testing.T) {
+	r := VerifyFinalMessage(
+		"[I18N] sale: ship the Spanish catalog\n\nThe module had no es_MX catalog, so every label showed in English.",
+	)
+	if r.HasErrors || r.HasWarnings {
+		t.Fatalf("an I18N title must verify clean, got %+v", r.Findings)
+	}
+	if !findRule(
+		VerifyFinalMessage("[I18N] sale: translate the catalog\n\nbody"),
+		"title_restates_tag_verb",
+	) {
+		t.Fatalf("I18N titles must reach the tag-verb check")
+	}
+}
+
 func TestVerifyFinalMessage_TitleMissingScope(t *testing.T) {
 	msg := "[ADD] something without scope shape\n\nbody"
 	r := VerifyFinalMessage(msg)
